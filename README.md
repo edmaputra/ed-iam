@@ -1,4 +1,4 @@
-# IAM Spring Boot Starter
+# ed-iam (IAM Spring Boot Starter)
 
 [![Java](https://img.shields.io/badge/Java-25-blue.svg)](https://openjdk.org/projects/jdk/25/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1.RELEASE-brightgreen.svg)](https://spring.io/projects/spring-boot)
@@ -32,7 +32,7 @@ Add the dependency to your `pom.xml`:
 ```xml
 <dependency>
     <groupId>io.github.edmaputra</groupId>
-    <artifactId>iam-spring-boot-starter</artifactId>
+    <artifactId>ed-iam</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 </dependency>
 ```

@@ -1,6 +1,6 @@
 # Features and Roadmap: `ed-iam` (IAM Spring Boot Starter)
 
-`ed-iam` (`iam-spring-boot-starter`) is a modular, pluggable Identity & Access Management (IAM) starter built for **Java 25** and **Spring Boot 4.x**. It provides zero-boilerplate multi-tenancy, Role-Based Access Control (RBAC), hierarchical organizational scoping, and JWT-based authentication context.
+`ed-iam` is a modular, pluggable Identity & Access Management (IAM) starter built for **Java 25** and **Spring Boot 4.x**. It provides zero-boilerplate multi-tenancy, Role-Based Access Control (RBAC), hierarchical organizational scoping, and JWT-based authentication context.
 
 ---
 

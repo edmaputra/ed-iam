@@ -11,9 +11,9 @@
 	</parent>
 
 	<groupId>io.github.edmaputra</groupId>
-	<artifactId>iam-spring-boot-starter</artifactId>
+	<artifactId>ed-iam</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
-	<name>IAM Spring Boot Starter</name>
+	<name>ed-iam</name>
 	<description>Pluggable Multi-tenant Identity and Access Management Spring Boot Starter</description>
 
 	<properties>
