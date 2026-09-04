@@ -21,6 +21,8 @@ A pluggable, production-ready **Identity & Access Management (IAM)** Spring Boot
   - Pluggable `TenantContextBridge` SPI for seamless host-application multi-tenant context propagation.
 - **Isolated Schema Migrations**: Module-scoped Liquibase migrations managing `iam_*` tables.
 
+For our complete capability breakdown and future plans, see the [Features and Roadmap](docs/features-and-roadmap.md).
+
 ---
 
 ## Installation
