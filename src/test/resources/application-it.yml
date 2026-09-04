@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: ed-iam-test
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+  liquibase:
+    enabled: true
+
+iam:
+  jwt:
+    secret: "test-secret-key-that-is-at-least-256-bits-long-for-hmac-sha-256!"
+    access-token-expiration-seconds: 3600
+    refresh-token-expiration-seconds: 604800
+
+logging:
+  level:
+    root: INFO
+    io.github.edmaputra.iam: DEBUG
+    org.testcontainers: INFO

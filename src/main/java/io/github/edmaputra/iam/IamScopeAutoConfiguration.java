@@ -2,10 +2,8 @@ package io.github.edmaputra.iam;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 import io.github.edmaputra.iam.adapter.persistence.adapter.ScopeNodeRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.repository.ScopeNodeJpaRepository;
@@ -20,8 +18,6 @@ import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
  * @author edmaputra
  */
 @AutoConfiguration
-@EntityScan(basePackages = "io.github.edmaputra.iam.adapter.persistence.entity")
-@EnableJpaRepositories(basePackages = "io.github.edmaputra.iam.adapter.persistence.repository")
 public class IamScopeAutoConfiguration {
 
 	/**
