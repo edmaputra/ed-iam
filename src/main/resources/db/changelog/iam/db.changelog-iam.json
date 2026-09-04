@@ -1,0 +1,9 @@
+{
+  "databaseChangeLog": [
+    {
+      "include": {
+        "file": "db/changelog/iam/2026082601-create-iam-tables.json"
+      }
+    }
+  ]
+}
