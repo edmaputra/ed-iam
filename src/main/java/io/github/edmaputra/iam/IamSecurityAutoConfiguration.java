@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
@@ -34,9 +35,11 @@ import io.github.edmaputra.iam.adapter.security.SecurityContextAccessor;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtAuthenticationFilter;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtProperties;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtTokenProvider;
+import io.github.edmaputra.iam.adapter.security.provider.ApiKeyAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.LocalPasswordAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.OidcAuthProvider;
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
+import io.github.edmaputra.iam.application.port.out.ApiKeyValidatorPort;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProvider;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProviderRouter;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
@@ -137,6 +140,19 @@ public class IamSecurityAutoConfiguration {
 	@ConditionalOnMissingBean
 	public OidcAuthProvider oidcAuthProvider(FederatedIdentityService federatedIdentityService) {
 		return new OidcAuthProvider(federatedIdentityService);
+	}
+
+	/**
+	 * Configures the machine-to-machine (M2M) API key authentication provider when an {@link ApiKeyValidatorPort} bean is present.
+	 *
+	 * @param apiKeyValidator the API key validation port
+	 * @return the API key authentication provider
+	 */
+	@Bean
+	@ConditionalOnBean(ApiKeyValidatorPort.class)
+	@ConditionalOnMissingBean
+	public ApiKeyAuthProvider apiKeyAuthProvider(ApiKeyValidatorPort apiKeyValidator) {
+		return new ApiKeyAuthProvider(apiKeyValidator);
 	}
 
 	@Bean
