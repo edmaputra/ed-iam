@@ -206,4 +206,74 @@ class RbacEffectiveAccessAndScopeHierarchyIT extends AbstractIntegrationTest {
 
 		assertThat(codes).contains(sysCode, "LOCAL_MGR");
 	}
+
+	@Test
+	@DisplayName("Should resolve effective access for Platform SuperAdmin within a specific tenant context")
+	void shouldResolveEffectiveAccessForSuperAdminInTenantContext() {
+		TenantId tenantId = TenantId.generate();
+		OperationContext context = OperationContext.system();
+
+		ScopeNode clinic = manageScopeUseCase.createScopeNode(
+				CreateScopeNodeCommand.root(tenantId, "CLINIC", "Clinic"), context);
+
+		User superAdmin = User.create("super-" + UUID.randomUUID() + "@system.org", passwordEncoder.encode("Pass!"), "Super Admin", true);
+		userRepository.save(superAdmin);
+
+		EffectiveAccess access = effectiveAccessResolver.resolve(superAdmin, tenantId);
+
+		assertThat(access.platformSuperAdmin()).isTrue();
+		assertThat(access.tenantWide()).isTrue();
+		assertThat(access.roles()).contains("PLATFORM_SUPERADMIN");
+		assertThat(access.permissions()).contains("*");
+		assertThat(access.accessibleScopeNodeIds()).contains(clinic.getId().value());
+	}
+
+	@Test
+	@DisplayName("Should resolve effective access for regular user when tenantId is null (cross-tenant resolution)")
+	void shouldResolveEffectiveAccessWhenTenantIdIsNull() {
+		TenantId tenant1 = TenantId.generate();
+		TenantId tenant2 = TenantId.generate();
+
+		User user = User.create("multi-" + UUID.randomUUID() + "@system.org", passwordEncoder.encode("Pass!"), "Multi User", false);
+		userRepository.save(user);
+
+		Role role1 = Role.createCustom(tenant1, "ROLE1", "Role 1", "Desc", Set.of("PERM1"));
+		Role role2 = Role.createCustom(tenant2, "ROLE2", "Role 2", "Desc", Set.of("PERM2"));
+		roleRepository.save(role1);
+		roleRepository.save(role2);
+
+		userRoleAssignmentRepository.save(UserRoleAssignment.createTenantWide(user.getId(), role1.getId(), tenant1));
+		userRoleAssignmentRepository.save(UserRoleAssignment.createTenantWide(user.getId(), role2.getId(), tenant2));
+
+		EffectiveAccess access = effectiveAccessResolver.resolve(user, null);
+
+		assertThat(access.tenantId()).isNull();
+		assertThat(access.permissions()).containsExactlyInAnyOrder("PERM1", "PERM2");
+		assertThat(access.roles()).containsExactlyInAnyOrder("ROLE1", "ROLE2");
+	}
+
+	@Test
+	@DisplayName("Should resolve tenant-wide access from group role assignment without specific scope node")
+	void shouldResolveTenantWideFromGroupRoleAssignment() {
+		TenantId tenantId = TenantId.generate();
+
+		User user = User.create("groupuser-" + UUID.randomUUID() + "@system.org", passwordEncoder.encode("Pass!"), "Group User", false);
+		userRepository.save(user);
+
+		Group group = Group.create(tenantId, "ALL_STAFF", "All Staff", "Desc", null);
+		groupRepository.save(group);
+		userGroupMembershipRepository.save(UserGroupMembership.of(group.getId(), user.getId()));
+
+		Role staffRole = Role.createCustom(tenantId, "STAFF", "Staff", "Desc", Set.of("STAFF_READ"));
+		roleRepository.save(staffRole);
+
+		// Group assignment with scopeNodeId = null -> tenant-wide
+		groupRoleAssignmentRepository.save(GroupRoleAssignment.createTenantWide(group.getId(), staffRole.getId(), tenantId));
+
+		EffectiveAccess access = effectiveAccessResolver.resolve(user, tenantId);
+
+		assertThat(access.tenantWide()).isTrue();
+		assertThat(access.permissions()).contains("STAFF_READ");
+	}
 }
+

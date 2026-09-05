@@ -109,8 +109,29 @@ class JwtTokenProviderTest {
 	void shouldRejectMalformedToken() {
 		assertThat(jwtTokenProvider.validateToken("not-a-valid-jwt")).isFalse();
 		assertThat(jwtTokenProvider.validateToken(null)).isFalse();
+		assertThat(jwtTokenProvider.validateToken("   ")).isFalse();
 
 		assertThatThrownBy(() -> jwtTokenProvider.parseAccessToken("invalid-token"))
 				.isInstanceOf(AuthenticationException.class);
+	}
+
+	@Test
+	@DisplayName("Should create and parse access and refresh token with null tenant context")
+	void shouldCreateAndParseTokensWithNullTenant() {
+		UserId userId = UserId.generate();
+
+		// Refresh token with null tenant
+		String refreshToken = jwtTokenProvider.createRefreshToken(userId, null);
+		RefreshTokenClaims refreshClaims = jwtTokenProvider.parseRefreshToken(refreshToken);
+		assertThat(refreshClaims.userId()).isEqualTo(userId);
+		assertThat(refreshClaims.tenantId()).isNull();
+
+		// Access token for superadmin with null tenant
+		EffectiveAccess superAdminAccess = new EffectiveAccess(
+				userId, "super@system.org", null, true, true, Set.of(), Set.of("PLATFORM_SUPERADMIN"), Set.of("*"), Set.of(), Set.of("/"));
+		String accessToken = jwtTokenProvider.createAccessToken(superAdminAccess);
+		CurrentActor actor = jwtTokenProvider.parseAccessToken(accessToken);
+		assertThat(actor.tenantId()).isNull();
+		assertThat(actor.isPlatformSuperAdmin()).isTrue();
 	}
 }

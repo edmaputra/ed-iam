@@ -70,4 +70,34 @@ class RoleTest {
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessageContaining("immutable");
 	}
+
+	@Test
+	@DisplayName("Should reject null or blank role code and name")
+	void shouldRejectInvalidRoleCodeAndName() {
+		TenantId tenantId = TenantId.generate();
+
+		assertThatThrownBy(() -> Role.createCustom(tenantId, null, "Name", "Desc", Set.of()))
+				.isInstanceOf(NullPointerException.class);
+
+		assertThatThrownBy(() -> Role.createCustom(tenantId, "   ", "Name", "Desc", Set.of()))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("Role code must not be blank.");
+
+		assertThatThrownBy(() -> Role.createCustom(tenantId, "CODE", null, "Desc", Set.of()))
+				.isInstanceOf(NullPointerException.class);
+
+		assertThatThrownBy(() -> Role.createCustom(tenantId, "CODE", "   ", "Desc", Set.of()))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("Role name must not be blank.");
+	}
+
+	@Test
+	@DisplayName("Should safely handle null in hasPermission check")
+	void shouldHandleNullInHasPermission() {
+		TenantId tenantId = TenantId.generate();
+		Role role = Role.createCustom(tenantId, "ROLE", "Role", null, Set.of("READ"));
+
+		assertThat(role.hasPermission(null)).isFalse();
+		assertThat(role.optionalDescription()).isEmpty();
+	}
 }

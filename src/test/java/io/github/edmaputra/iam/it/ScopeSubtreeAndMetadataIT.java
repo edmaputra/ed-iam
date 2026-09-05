@@ -115,4 +115,26 @@ class ScopeSubtreeAndMetadataIT extends AbstractIntegrationTest {
 		assertThat(flatList).hasSize(2);
 		assertThat(flatList.stream().map(ScopeNode::getCode)).containsExactlyInAnyOrder("NODE_1", "NODE_2");
 	}
+
+	@Test
+	@DisplayName("Should handle empty, null, and non-existent boundaries for scope resolution")
+	void shouldHandleScopeResolutionBoundaryCases() {
+		TenantId tenantId = TenantId.generate();
+
+		// Null and empty assigned lists
+		assertThat(scopeSubtreeResolver.resolveAccessibleScopeNodeIds(tenantId, null)).isEmpty();
+		assertThat(scopeSubtreeResolver.resolveAccessibleScopeNodeIds(tenantId, List.of())).isEmpty();
+
+		// List containing null element
+		List<ScopeNodeId> withNull = new java.util.ArrayList<>();
+		withNull.add(null);
+		assertThat(scopeSubtreeResolver.resolveAccessibleScopeNodeIds(tenantId, withNull)).isEmpty();
+
+		// Target scope node is null
+		assertThat(scopeSubtreeResolver.isScopeAccessible(tenantId, List.of(), null)).isFalse();
+
+		// Non-existent node ID
+		ScopeNodeId nonExistent = ScopeNodeId.generate();
+		assertThat(scopeSubtreeResolver.resolveAccessibleScopeNodeIds(nonExistent, true)).isEmpty();
+	}
 }

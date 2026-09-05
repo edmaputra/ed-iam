@@ -65,6 +65,7 @@ class ApiKeyAuthenticationIT extends AbstractIntegrationTest {
 		assertThat(apiKeyAuthProvider.supports(AuthCredentialType.API_KEY)).isTrue();
 		assertThat(apiKeyAuthProvider.supports(AuthCredentialType.PASSWORD)).isFalse();
 		assertThat(apiKeyAuthProvider.supports(AuthCredentialType.OIDC_TOKEN)).isFalse();
+		assertThat(apiKeyAuthProvider.supports(null)).isFalse();
 	}
 
 	@Test

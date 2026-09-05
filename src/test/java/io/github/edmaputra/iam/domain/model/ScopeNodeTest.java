@@ -78,5 +78,47 @@ class ScopeNodeTest {
 				java.time.Instant.now()))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("must start and end with '/'");
+
+		assertThatThrownBy(() -> new ScopeNode(
+				ScopeNodeId.generate(),
+				tenantId,
+				null,
+				"CODE",
+				"Name",
+				"/no-trailing-slash",
+				java.time.Instant.now(),
+				java.time.Instant.now()))
+				.isInstanceOf(IllegalArgumentException.class);
+
+		assertThatThrownBy(() -> new ScopeNode(
+				ScopeNodeId.generate(),
+				tenantId,
+				null,
+				"CODE",
+				"Name",
+				"   ",
+				java.time.Instant.now(),
+				java.time.Instant.now()))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	@DisplayName("Should reject null or blank scope node code and name")
+	void shouldRejectInvalidScopeNodeCodeAndName() {
+		TenantId tenantId = TenantId.generate();
+
+		assertThatThrownBy(() -> ScopeNode.createRoot(tenantId, null, "Name"))
+				.isInstanceOf(NullPointerException.class);
+
+		assertThatThrownBy(() -> ScopeNode.createRoot(tenantId, "   ", "Name"))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("ScopeNode code must not be blank.");
+
+		assertThatThrownBy(() -> ScopeNode.createRoot(tenantId, "CODE", null))
+				.isInstanceOf(NullPointerException.class);
+
+		assertThatThrownBy(() -> ScopeNode.createRoot(tenantId, "CODE", "   "))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("ScopeNode name must not be blank.");
 	}
 }

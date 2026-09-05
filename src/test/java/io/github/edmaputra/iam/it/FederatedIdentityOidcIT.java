@@ -100,4 +100,50 @@ class FederatedIdentityOidcIT extends AbstractIntegrationTest {
 		List<UserGroupMembership> memberships = userGroupMembershipRepository.findAllByUserId(identity.userId());
 		assertThat(memberships).extracting(UserGroupMembership::groupId).contains(surgeonGroup.getId());
 	}
+
+	@Test
+	@DisplayName("Should provision user with fallback to email when fullName is missing or blank")
+	void shouldProvisionUserWithFallbackToEmailWhenFullNameIsMissingOrBlank() {
+		String subject = "oidc-nameless-" + UUID.randomUUID();
+		String email = "nameless-" + UUID.randomUUID() + "@hospital.org";
+
+		OidcAuthCredentials credentials = new OidcAuthCredentials(
+				null,
+				email,
+				subject,
+				"   ", // blank full name -> fallback to email
+				null,
+				null, // null external groups
+				null);
+
+		AuthenticatedIdentity identity = authRouter.authenticate(credentials);
+		assertThat(identity.fullName()).isEqualTo(email);
+
+		User user = userRepository.findById(identity.userId()).orElseThrow();
+		assertThat(user.getFullName()).isEqualTo(email);
+	}
+
+	@Test
+	@DisplayName("Should handle OIDC login with empty external groups list")
+	void shouldHandleOidcLoginWithEmptyExternalGroups() {
+		TenantId tenantId = TenantId.generate();
+		String subject = "oidc-nogroup-" + UUID.randomUUID();
+		String email = "nogroup-" + UUID.randomUUID() + "@hospital.org";
+
+		OidcAuthCredentials credentials = new OidcAuthCredentials(
+				"token",
+				email,
+				subject,
+				"No Group User",
+				"https://idp.hospital.org",
+				List.of(), // empty external groups
+				tenantId);
+
+		AuthenticatedIdentity identity = authRouter.authenticate(credentials);
+		assertThat(identity).isNotNull();
+
+		List<UserGroupMembership> memberships = userGroupMembershipRepository.findAllByUserId(identity.userId());
+		assertThat(memberships).isEmpty();
+	}
 }
+

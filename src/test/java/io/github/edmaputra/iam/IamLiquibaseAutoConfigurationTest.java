@@ -23,4 +23,31 @@ class IamLiquibaseAutoConfigurationTest {
 		assertThat(liquibase.getDataSource()).isEqualTo(mockDataSource);
 		assertThat(liquibase.getChangeLog()).isEqualTo("classpath:db/changelog/iam/db.changelog-iam.json");
 	}
+
+	@Test
+	@DisplayName("Should wire dependsOn dependency ordering when both beans exist")
+	void shouldConfigureDependencyOrderingWhenBothBeansExist() {
+		org.springframework.beans.factory.support.DefaultListableBeanFactory beanFactory =
+				new org.springframework.beans.factory.support.DefaultListableBeanFactory();
+
+		org.springframework.beans.factory.support.RootBeanDefinition iamLiquibaseBd =
+				new org.springframework.beans.factory.support.RootBeanDefinition(SpringLiquibase.class);
+		org.springframework.beans.factory.support.RootBeanDefinition masterLiquibaseBd =
+				new org.springframework.beans.factory.support.RootBeanDefinition(SpringLiquibase.class);
+
+		beanFactory.registerBeanDefinition("iamLiquibase", iamLiquibaseBd);
+		beanFactory.registerBeanDefinition("liquibase", masterLiquibaseBd);
+
+		IamLiquibaseAutoConfiguration.IamLiquibaseDependencyConfiguration postProcessor =
+				new IamLiquibaseAutoConfiguration.IamLiquibaseDependencyConfiguration();
+
+		postProcessor.postProcessBeanFactory(beanFactory);
+
+		assertThat(iamLiquibaseBd.getDependsOn()).containsExactly("liquibase");
+
+		// Test branch when existing dependsOn is non-empty
+		iamLiquibaseBd.setDependsOn("customPreMigrationBean");
+		postProcessor.postProcessBeanFactory(beanFactory);
+		assertThat(iamLiquibaseBd.getDependsOn()).containsExactly("customPreMigrationBean", "liquibase");
+	}
 }

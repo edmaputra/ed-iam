@@ -43,4 +43,24 @@ class GroupTest {
 		assertThat(membership.userId()).isEqualTo(userId);
 		assertThat(membership.joinedAt()).isNotNull();
 	}
+
+	@Test
+	@DisplayName("Should reject null or blank group code and name")
+	void shouldRejectInvalidGroupCodeAndName() {
+		TenantId tenantId = TenantId.generate();
+
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> Group.create(tenantId, null, "Name", null, null))
+				.isInstanceOf(NullPointerException.class);
+
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> Group.create(tenantId, "   ", "Name", null, null))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("Group code must not be blank.");
+
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> Group.create(tenantId, "CODE", null, null, null))
+				.isInstanceOf(NullPointerException.class);
+
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> Group.create(tenantId, "CODE", "   ", null, null))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("Group name must not be blank.");
+	}
 }
