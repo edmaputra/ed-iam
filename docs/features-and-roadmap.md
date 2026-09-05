@@ -37,6 +37,19 @@
 ### 1.5 Database Migrations
 - **Isolated Liquibase Integration**: Self-contained changelog runner (`db.changelog-iam.json`) that safely executes IAM table setup without conflicting with host application migrations.
 
+### 1.6 Modular Architecture
+- **`ed-iam-core`**: Pure domain models (`User`, `Role`, `Group`, `ScopeNode`), domain events, ports, and invariants with zero Spring or database dependencies.
+- **`ed-iam-resource-server`**: Lightweight downstream library containing JWT parsing, `JwtAuthenticationFilter`, and `ScopedValue` context binding without JPA/Liquibase overhead.
+- **`ed-iam-management`**: Complete administrative management library containing persistence adapters, domain services, security provider configurations, Liquibase auto-configuration, and REST endpoints.
+- **`ed-iam-starter`**: Convenience aggregator starter bundling core, resource-server, and management modules.
+
+### 1.7 Dedicated Administrative Management Endpoints
+- **User Management (`/api/v1/users`)**: Provisioning, status updates (`ACTIVE`, `SUSPENDED`, `DEACTIVATED`), direct role assignments, and group memberships.
+- **Role Management (`/api/v1/roles`)**: CRUD for custom tenant roles and permission definitions with system role deletion safeguards.
+- **Group Management (`/api/v1/groups`)**: CRUD for user groups, external IdP group mapping synchronization, and group-level role assignments.
+- **Scope Management (`/api/v1/scopes`)**: Hierarchical tree management, child node creation, and subtree reparenting/moves.
+- **Endpoint Toggle (`iam.management.endpoints.enabled`)**: Configurable property (defaults to `true`) allowing host applications to disable REST controllers while preserving domain use-case beans.
+
 ---
 
 ## 2. Product Roadmap

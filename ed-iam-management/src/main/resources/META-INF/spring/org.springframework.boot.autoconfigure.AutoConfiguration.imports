@@ -1,0 +1,4 @@
+io.github.edmaputra.iam.IamLiquibaseAutoConfiguration
+io.github.edmaputra.iam.IamScopeAutoConfiguration
+io.github.edmaputra.iam.IamSecurityAutoConfiguration
+io.github.edmaputra.iam.IamManagementAutoConfiguration
