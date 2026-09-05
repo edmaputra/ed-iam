@@ -25,6 +25,7 @@ import io.github.edmaputra.iam.it.app.TestIamApplication;
  * and the complete {@link TestIamApplication} host environment.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @SpringBootTest(classes = TestIamApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc

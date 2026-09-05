@@ -13,6 +13,7 @@ import lombok.Getter;
  * Uses materialized paths (e.g. {@code /<tenantId>/<rootId>/<childId>/}) for high-performance subtree inheritance.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @Getter
 public class ScopeNode implements TenantOwned {

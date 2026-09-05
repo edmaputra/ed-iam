@@ -21,6 +21,7 @@ import io.github.edmaputra.iam.domain.model.UserId;
  * @param accessibleScopeNodeIds resolved accessible scope node UUIDs
  * @param accessibleScopePaths   resolved accessible scope materialized path prefixes
  * @author edmaputra
+ * @since 1.0.0
  */
 public record EffectiveAccess(
 		UserId userId,

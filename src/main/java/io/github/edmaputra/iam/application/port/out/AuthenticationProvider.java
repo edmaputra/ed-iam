@@ -9,6 +9,7 @@ import io.github.edmaputra.iam.domain.exception.AuthenticationException;
  * Service Provider Interface (SPI) for pluggable authentication mechanisms.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public interface AuthenticationProvider {
 

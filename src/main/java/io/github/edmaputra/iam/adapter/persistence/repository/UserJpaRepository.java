@@ -12,6 +12,7 @@ import io.github.edmaputra.iam.adapter.persistence.entity.UserJpaEntity;
  * Spring Data JPA repository for {@link UserJpaEntity}.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @Repository
 public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID> {

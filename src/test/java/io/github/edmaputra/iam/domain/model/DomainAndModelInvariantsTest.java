@@ -25,6 +25,12 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit test verifying record compact constructor null-guards and collection defaults.
+ *
+ * @author edmaputra
+ * @since 1.0.0
+ */
 class DomainAndModelInvariantsTest {
 
 	@Test

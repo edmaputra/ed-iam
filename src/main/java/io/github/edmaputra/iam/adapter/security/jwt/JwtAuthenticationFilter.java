@@ -25,6 +25,7 @@ import io.github.edmaputra.iam.domain.exception.AuthenticationException;
  * and {@link TenantContextBridge}.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 

@@ -26,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * context propagation through the request filter chain.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 class MultiTenancyAndContextBridgeIT extends AbstractIntegrationTest {
 

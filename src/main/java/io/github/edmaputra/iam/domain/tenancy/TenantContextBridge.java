@@ -7,6 +7,7 @@ import java.util.UUID;
  * (e.g. ScopedValue, ThreadLocal) during authenticated request execution.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @FunctionalInterface
 public interface TenantContextBridge {

@@ -6,6 +6,7 @@ import io.github.edmaputra.iam.domain.model.ScopeNodeId;
  * Thrown when a scope node cannot be found in the tenant hierarchy.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public class ScopeNodeNotFoundException extends RuntimeException {
 

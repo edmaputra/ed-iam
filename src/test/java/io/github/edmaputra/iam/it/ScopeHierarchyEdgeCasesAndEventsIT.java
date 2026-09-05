@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * cycle detection, deep cascading path recalculations, parent deletion guards, and Spring IamEvent publishing.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @Import(ScopeHierarchyEdgeCasesAndEventsIT.EventCaptureConfig.class)
 class ScopeHierarchyEdgeCasesAndEventsIT extends AbstractIntegrationTest {

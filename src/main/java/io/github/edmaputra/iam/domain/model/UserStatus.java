@@ -4,6 +4,7 @@ package io.github.edmaputra.iam.domain.model;
  * Enumeration of account lifecycle statuses in the IAM subsystem.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public enum UserStatus {
 	/** Active account permitted to authenticate and access authorized resources. */

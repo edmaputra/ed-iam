@@ -15,6 +15,7 @@ import lombok.Setter;
  * Composite embedded ID for {@link UserGroupMembershipJpaEntity}.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @Embeddable
 @Getter

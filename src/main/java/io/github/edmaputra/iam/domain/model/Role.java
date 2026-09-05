@@ -15,6 +15,7 @@ import lombok.Getter;
  * Roles can either be global/system roles (immutable across tenants) or custom tenant-specific roles.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @Getter
 public class Role {

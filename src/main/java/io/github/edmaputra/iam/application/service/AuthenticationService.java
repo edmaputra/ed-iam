@@ -27,6 +27,7 @@ import io.github.edmaputra.iam.domain.repository.UserRepository;
  * Orchestrates credential authentication, effective access computation, and signed JWT token issuance.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public class AuthenticationService implements AuthenticateUserUseCase {
 

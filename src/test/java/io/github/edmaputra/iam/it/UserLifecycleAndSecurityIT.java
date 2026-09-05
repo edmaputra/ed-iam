@@ -26,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * external account login protection, email case-insensitivity, and platform superadmin permissions.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 class UserLifecycleAndSecurityIT extends AbstractIntegrationTest {
 

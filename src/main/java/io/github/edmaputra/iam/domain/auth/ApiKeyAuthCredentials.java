@@ -8,6 +8,7 @@ import java.util.Objects;
  * @param apiKey the raw API key token string
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public record ApiKeyAuthCredentials(String apiKey) implements AuthCredentials {
 

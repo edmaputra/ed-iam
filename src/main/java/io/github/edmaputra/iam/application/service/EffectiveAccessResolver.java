@@ -31,6 +31,7 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
  * Merges direct user assignments with group-inherited assignments and resolves downward scope hierarchies.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public class EffectiveAccessResolver {
 

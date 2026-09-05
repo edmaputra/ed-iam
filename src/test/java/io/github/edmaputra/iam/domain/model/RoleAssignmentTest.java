@@ -7,6 +7,12 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Unit test verifying user and group role assignment invariants and scope constraints.
+ *
+ * @author edmaputra
+ * @since 1.0.0
+ */
 class RoleAssignmentTest {
 
 	@Test

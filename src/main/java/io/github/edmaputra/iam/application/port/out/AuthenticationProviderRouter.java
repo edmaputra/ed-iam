@@ -11,6 +11,7 @@ import io.github.edmaputra.iam.domain.exception.AuthenticationException;
  * Composite router that dispatches incoming {@link AuthCredentials} to the appropriate registered {@link AuthenticationProvider}.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public class AuthenticationProviderRouter {
 

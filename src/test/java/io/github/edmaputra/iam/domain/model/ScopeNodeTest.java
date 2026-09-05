@@ -8,6 +8,12 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit test verifying ScopeNode entity lifecycle, path formatting, and invariants.
+ *
+ * @author edmaputra
+ * @since 1.0.0
+ */
 class ScopeNodeTest {
 
 	@Test

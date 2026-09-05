@@ -8,6 +8,7 @@ import java.util.Objects;
  * @param refreshToken the signed JWT refresh token string
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public record RefreshTokenCommand(String refreshToken) {
 

@@ -6,6 +6,7 @@ import io.github.edmaputra.iam.domain.model.UserId;
  * Thrown when a user account cannot be found by ID or email.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public class UserNotFoundException extends RuntimeException {
 

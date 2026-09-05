@@ -11,6 +11,7 @@ import java.util.Objects;
  * @param expiresIn    the access token validity duration in seconds
  * @param user         the authenticated user profile response
  * @author edmaputra
+ * @since 1.0.0
  */
 public record TokenResponse(
 		String accessToken,

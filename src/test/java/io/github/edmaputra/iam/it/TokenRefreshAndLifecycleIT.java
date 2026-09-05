@@ -26,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * invalid token handling, and mid-session account revocation.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 class TokenRefreshAndLifecycleIT extends AbstractIntegrationTest {
 

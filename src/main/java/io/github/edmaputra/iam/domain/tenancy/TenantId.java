@@ -9,6 +9,7 @@ import io.github.edmaputra.iam.domain.util.UuidV7;
  * Value object representing a tenant/organization identifier.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public record TenantId(UUID value) {
 

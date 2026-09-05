@@ -36,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * and cross-tenant duplicate code isolation.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 class CascadeAndCrossTenantIsolationIT extends AbstractIntegrationTest {
 

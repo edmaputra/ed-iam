@@ -15,12 +15,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Spring Boot Auto-Configuration for Identity & Access Management (IAM) Liquibase migrations.
+ * Spring Boot Auto-Configuration for Identity and Access Management (IAM) Liquibase migrations.
  * <p>
  * This configuration manages module-specific database migrations ({@code db.changelog-iam.json})
  * which create tables for users, roles, permissions, and scope hierarchies.
  * <p>
- * <b>Initialization & Dependency Coordination:</b>
+ * <b>Initialization and Dependency Coordination:</b>
  * <ul>
  *   <li><b>Inter-Module Migration Ordering:</b> Uses a {@link BeanFactoryPostProcessor} to dynamically
  *       declare that the {@code iamLiquibase} bean depends on the master {@code liquibase} bean. This ensures
@@ -32,6 +32,7 @@ import org.springframework.context.annotation.Configuration;
  * </ul>
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @AutoConfiguration
 @ConditionalOnClass(SpringLiquibase.class)

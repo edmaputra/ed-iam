@@ -13,6 +13,7 @@ import io.github.edmaputra.iam.domain.model.ScopeNodeId;
  * @param code     the updated code
  * @param name     the updated name
  * @author edmaputra
+ * @since 1.0.0
  */
 public record UpdateScopeNodeCommand(
 		TenantId tenantId,

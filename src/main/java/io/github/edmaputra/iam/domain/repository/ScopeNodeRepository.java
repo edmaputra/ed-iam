@@ -11,6 +11,7 @@ import io.github.edmaputra.iam.domain.model.ScopeNodeId;
  * Outbound repository port for ScopeNode domain entity.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public interface ScopeNodeRepository {
 

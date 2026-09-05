@@ -16,6 +16,7 @@ import io.github.edmaputra.iam.adapter.persistence.entity.ScopeNodeEntity;
  * Spring Data JPA repository for IAM scope hierarchy nodes ({@link ScopeNodeEntity}).
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public interface ScopeNodeJpaRepository extends JpaRepository<ScopeNodeEntity, UUID> {
 

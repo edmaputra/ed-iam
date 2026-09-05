@@ -15,6 +15,7 @@ import lombok.Setter;
  * JPA entity representing a user-group membership in the {@code iam_user_group_membership} table.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @Entity
 @Table(name = "iam_user_group_membership")

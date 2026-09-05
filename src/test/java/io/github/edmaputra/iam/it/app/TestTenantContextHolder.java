@@ -9,6 +9,7 @@ import java.util.UUID;
  * Provides boundary-safe, thread-local-free scoping of the tenant UUID.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public final class TestTenantContextHolder {
 

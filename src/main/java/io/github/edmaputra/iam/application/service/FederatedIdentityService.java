@@ -21,6 +21,7 @@ import io.github.edmaputra.iam.domain.repository.UserRepository;
  * Domain service managing federated identity linkages, Just-In-Time (JIT) user provisioning, and external group claim synchronization.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public class FederatedIdentityService {
 

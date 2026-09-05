@@ -10,6 +10,12 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit test verifying Role entity invariants, immutability, and permission checks.
+ *
+ * @author edmaputra
+ * @since 1.0.0
+ */
 class RoleTest {
 
 	@Test

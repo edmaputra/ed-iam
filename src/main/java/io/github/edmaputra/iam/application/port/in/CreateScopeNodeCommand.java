@@ -14,6 +14,7 @@ import io.github.edmaputra.iam.domain.model.ScopeNodeId;
  * @param code     the unique node code
  * @param name     the human-readable name
  * @author edmaputra
+ * @since 1.0.0
  */
 public record CreateScopeNodeCommand(
 		TenantId tenantId,

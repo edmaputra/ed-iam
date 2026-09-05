@@ -12,6 +12,7 @@ import lombok.Getter;
  * scoped globally, tenant-wide, or bounded to a specific {@link ScopeNode} hierarchy.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @Getter
 public class UserRoleAssignment {

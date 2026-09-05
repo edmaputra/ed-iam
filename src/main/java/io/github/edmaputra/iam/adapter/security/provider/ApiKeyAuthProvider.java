@@ -15,6 +15,7 @@ import io.github.edmaputra.iam.domain.exception.AuthenticationException;
  * Validates API keys via {@link ApiKeyValidatorPort}.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public class ApiKeyAuthProvider implements AuthenticationProvider {
 

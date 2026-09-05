@@ -6,6 +6,12 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit test verifying User entity lifecycle, statuses, and validation invariants.
+ *
+ * @author edmaputra
+ * @since 1.0.0
+ */
 class UserTest {
 
 	@Test

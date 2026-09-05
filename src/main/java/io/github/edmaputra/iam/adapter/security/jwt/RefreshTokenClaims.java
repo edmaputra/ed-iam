@@ -15,6 +15,7 @@ import io.github.edmaputra.iam.domain.model.UserId;
  * @param issuedAt  timestamp when the refresh token was issued
  * @param expiresAt timestamp when the refresh token expires
  * @author edmaputra
+ * @since 1.0.0
  */
 public record RefreshTokenClaims(
 		UserId userId,

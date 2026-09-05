@@ -172,15 +172,34 @@ public void validateScope(ScopeNode node) {
 
 ## 8. Comprehensive Javadoc Documentation Standards
 
-- **Mandatory Class, Interface, Record, and Enum Javadoc**:
+- **Mandatory Type-Level Javadoc (Class, Interface, Record, Enum)**:
   - Every Java class, interface, `record`, and `enum` MUST have a descriptive Javadoc block summarizing its purpose, domain context, and architectural role.
-  - **`@author` Tag Requirement**: Every type-level Javadoc must include the `@author` tag:
+  - **Required Type-Level Tags**:
     ```java
-    @author edmaputra
+    /**
+     * Short one-sentence summary of the class purpose.
+     * <p>
+     * Detailed explanation of responsibilities, design decisions,
+     * or architectural placement (e.g. Hexagonal SPI port).
+     *
+     * @author edmaputra
+     * @since 1.0.0
+     */
     ```
+  - **`@author edmaputra`**: Required on all top-level types to identify maintainer attribution.
+  - **`@since <version>`**: Required on all top-level types (e.g. `@since 1.0.0`) to document when the API or component was introduced.
+  - **Do NOT Use `@version`**: Avoid file-level `@version` tags. Git commits, tags, and `pom.xml` manage release versioning; `@since` documents API introduction without version drift.
+
 - **Public & Protected Methods Documentation**:
-  - All public and protected methods across interfaces, ports, domain services, and adapters must be documented with clear descriptions, `@param` for inputs, `@return` for results, and `@throws` for expected exceptions.
+  - All public and protected methods across interfaces, ports, domain services, and adapters must be documented with:
+    - `@param <name>`: Purpose and constraints of each parameter.
+    - `@return`: Description of return value (omitted on `void` and constructors).
+    - `@throws <ExceptionClass>`: Conditions under which checked or runtime domain exceptions are thrown.
+    - `@see <reference>`: Links to related types or specifications where relevant.
+    - `@deprecated`: Explanation of deprecation and replacement reference (paired with `@Deprecated`).
+
 - **Record & Domain Invariants**:
-  - Document domain invariant constraints, validation rules, and structural behaviors.
+  - Document compact constructor invariant constraints, validation rules, and structural behaviors.
+
 - **Concise & Meaningful**:
   - Avoid empty or tautological comments. Provide real context on intent, behavior, and lifecycle.

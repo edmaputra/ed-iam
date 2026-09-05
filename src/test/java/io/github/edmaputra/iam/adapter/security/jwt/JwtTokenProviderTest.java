@@ -16,6 +16,12 @@ import io.github.edmaputra.iam.domain.model.UserId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit test verifying JWT token generation, parsing, validation, and claim extraction.
+ *
+ * @author edmaputra
+ * @since 1.0.0
+ */
 class JwtTokenProviderTest {
 
 	private JwtTokenProvider jwtTokenProvider;

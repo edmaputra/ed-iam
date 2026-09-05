@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Integration test covering ScopeSubtreeResolver operations and scope node metadata management.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 class ScopeSubtreeAndMetadataIT extends AbstractIntegrationTest {
 

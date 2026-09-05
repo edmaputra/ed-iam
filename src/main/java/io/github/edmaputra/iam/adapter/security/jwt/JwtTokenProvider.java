@@ -29,6 +29,7 @@ import io.github.edmaputra.iam.domain.model.UserId;
  * Embeds tenant context, effective roles, permissions, and hierarchical scopes into access token claims.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public class JwtTokenProvider {
 

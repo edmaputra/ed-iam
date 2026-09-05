@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Integration test covering machine-to-machine (M2M) API Key authentication SPI provider.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @Import(ApiKeyAuthenticationIT.ApiKeyTestConfig.class)
 class ApiKeyAuthenticationIT extends AbstractIntegrationTest {

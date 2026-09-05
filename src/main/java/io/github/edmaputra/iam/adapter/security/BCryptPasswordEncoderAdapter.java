@@ -8,6 +8,7 @@ import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
  * Adapter implementing {@link PasswordEncoderPort} using Spring Security's {@link BCryptPasswordEncoder}.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public class BCryptPasswordEncoderAdapter implements PasswordEncoderPort {
 

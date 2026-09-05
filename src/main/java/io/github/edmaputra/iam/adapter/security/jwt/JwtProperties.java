@@ -9,6 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param accessTokenExpirationSeconds  access token validity duration in seconds (default 3600s = 1 hour)
  * @param refreshTokenExpirationSeconds refresh token validity duration in seconds (default 604800s = 7 days)
  * @author edmaputra
+ * @since 1.0.0
  */
 @ConfigurationProperties(prefix = "iam.jwt")
 public record JwtProperties(

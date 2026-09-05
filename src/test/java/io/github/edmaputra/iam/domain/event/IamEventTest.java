@@ -10,6 +10,12 @@ import io.github.edmaputra.iam.domain.context.OperationContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit test verifying IAM domain event creation and actor context immutability.
+ *
+ * @author edmaputra
+ * @since 1.0.0
+ */
 class IamEventTest {
 
 	@Test

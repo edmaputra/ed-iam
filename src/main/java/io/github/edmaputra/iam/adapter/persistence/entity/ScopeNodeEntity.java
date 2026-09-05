@@ -16,6 +16,7 @@ import lombok.Setter;
  * JPA entity representing a scope hierarchy node in the {@code iam_scope_node} table.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @Entity
 @Table(name = "iam_scope_node")

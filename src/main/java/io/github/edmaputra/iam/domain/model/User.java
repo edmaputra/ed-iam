@@ -11,6 +11,7 @@ import lombok.Getter;
  * Encapsulates lifecycle states, password hashes, and profile metadata.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @Getter
 public class User {

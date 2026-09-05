@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * and IdP group synchronization.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 class FederatedIdentityOidcIT extends AbstractIntegrationTest {
 

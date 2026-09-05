@@ -11,6 +11,7 @@ import io.github.edmaputra.iam.domain.model.GroupId;
  * Domain repository port for managing {@link Group} entities.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public interface GroupRepository {
 

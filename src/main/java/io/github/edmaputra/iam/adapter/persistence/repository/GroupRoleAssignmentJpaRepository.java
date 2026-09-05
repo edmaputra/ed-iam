@@ -12,6 +12,7 @@ import io.github.edmaputra.iam.adapter.persistence.entity.GroupRoleAssignmentJpa
  * Spring Data JPA repository for {@link GroupRoleAssignmentJpaEntity}.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 @Repository
 public interface GroupRoleAssignmentJpaRepository extends JpaRepository<GroupRoleAssignmentJpaEntity, UUID> {

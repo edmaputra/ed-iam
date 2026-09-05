@@ -17,6 +17,12 @@ import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit test verifying pure scope tree and subtree resolution algorithms.
+ *
+ * @author edmaputra
+ * @since 1.0.0
+ */
 class ScopeSubtreeResolverTest {
 
 	private ScopeNodeRepository scopeNodeRepository;

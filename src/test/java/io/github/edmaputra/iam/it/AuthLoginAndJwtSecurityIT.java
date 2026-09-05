@@ -27,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * security context propagation, and refresh token exchange.
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 class AuthLoginAndJwtSecurityIT extends AbstractIntegrationTest {
 

@@ -20,6 +20,7 @@ import io.github.edmaputra.iam.domain.security.CurrentActor;
  * @param accessibleScopeNodeIds set of accessible scope node UUIDs
  * @param accessibleScopePaths   set of accessible materialized path prefixes
  * @author edmaputra
+ * @since 1.0.0
  */
 public record SecurityContextCurrentActor(
 		UUID userId,

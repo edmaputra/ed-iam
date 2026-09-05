@@ -11,6 +11,7 @@ import io.github.edmaputra.iam.domain.util.UuidV7;
  * @param value the underlying UUID value
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public record UserRoleAssignmentId(UUID value) {
 

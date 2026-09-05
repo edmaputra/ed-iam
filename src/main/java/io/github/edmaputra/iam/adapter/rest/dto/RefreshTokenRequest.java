@@ -10,6 +10,7 @@ import io.github.edmaputra.iam.application.port.in.RefreshTokenCommand;
  * @param refreshToken the signed JWT refresh token string
  *
  * @author edmaputra
+ * @since 1.0.0
  */
 public record RefreshTokenRequest(String refreshToken) {
 

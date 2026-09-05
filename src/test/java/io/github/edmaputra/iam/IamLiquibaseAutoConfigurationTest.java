@@ -9,6 +9,12 @@ import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Unit test for IAM Liquibase auto-configuration and dependency coordination.
+ *
+ * @author edmaputra
+ * @since 1.0.0
+ */
 class IamLiquibaseAutoConfigurationTest {
 
 	@Test
