@@ -2,6 +2,8 @@ package io.github.edmaputra.iam.application.service;
 
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor;
@@ -13,14 +15,17 @@ import io.github.edmaputra.iam.application.model.UserProfileResponse;
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
 import io.github.edmaputra.iam.application.port.in.LoginCommand;
 import io.github.edmaputra.iam.application.port.in.RefreshTokenCommand;
+import io.github.edmaputra.iam.application.port.in.SwitchTenantCommand;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProviderRouter;
 import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
 import io.github.edmaputra.iam.domain.auth.PasswordAuthCredentials;
+import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 /**
  * Application service implementing {@link AuthenticateUserUseCase}.
@@ -120,6 +125,14 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 				? scActor.accessibleScopePaths()
 				: Set.of();
 
+		Set<UUID> availableTenantIds = Set.of();
+		if (user != null) {
+			EffectiveAccess access = effectiveAccessResolver.resolve(
+					user,
+					actor.tenantId() == null ? null : new TenantId(actor.tenantId()));
+			availableTenantIds = access.availableTenants().stream().map(TenantId::value).collect(Collectors.toSet());
+		}
+
 		return new UserProfileResponse(
 				actor.userId(),
 				actor.email(),
@@ -127,6 +140,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 				actor.tenantId(),
 				actor.isPlatformSuperAdmin(),
 				actor.isTenantWide(),
+				availableTenantIds,
 				actor.groups(),
 				actor.roles(),
 				actor.permissions(),
@@ -134,7 +148,44 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 				scopePaths);
 	}
 
+	@Override
+	public TokenResponse switchTenant(SwitchTenantCommand command) {
+		Objects.requireNonNull(command, "SwitchTenantCommand must not be null.");
+
+		User user = userRepository.findById(new UserId(command.currentActor().userId()))
+				.orElseThrow(() -> new UserNotFoundException(new UserId(command.currentActor().userId())));
+
+		if (user.isSuspended()) {
+			throw new AuthenticationException("User account is suspended.");
+		}
+		if (user.isDeactivated()) {
+			throw new AuthenticationException("User account is deactivated.");
+		}
+
+		EffectiveAccess fullAccess = effectiveAccessResolver.resolve(user, null);
+		if (!user.isPlatformSuperAdmin() && !fullAccess.availableTenants().contains(command.targetTenantId())) {
+			throw new AccessDeniedException("User does not have access to tenant: " + command.targetTenantId().value());
+		}
+
+		EffectiveAccess effectiveAccess = effectiveAccessResolver.resolve(user, command.targetTenantId());
+
+		String newAccessToken = jwtTokenProvider.createAccessToken(effectiveAccess);
+		String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId(), command.targetTenantId());
+
+		UserProfileResponse profile = toUserProfileResponse(user, effectiveAccess);
+
+		return TokenResponse.of(
+				newAccessToken,
+				newRefreshToken,
+				jwtTokenProvider.getAccessTokenExpirationSeconds(),
+				profile);
+	}
+
 	private UserProfileResponse toUserProfileResponse(User user, EffectiveAccess access) {
+		Set<UUID> availableTenantIds = access.availableTenants().stream()
+				.map(TenantId::value)
+				.collect(Collectors.toSet());
+
 		return new UserProfileResponse(
 				user.getId().value(),
 				user.getEmail(),
@@ -142,6 +193,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 				access.tenantId() == null ? null : access.tenantId().value(),
 				access.platformSuperAdmin(),
 				access.tenantWide(),
+				availableTenantIds,
 				access.groups(),
 				access.roles(),
 				access.permissions(),

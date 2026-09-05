@@ -35,4 +35,12 @@ public interface AuthenticateUserUseCase {
 	 * @return the user profile response
 	 */
 	UserProfileResponse getMe(CurrentActor actor);
+
+	/**
+	 * Switches the active tenant context for the current authenticated user and issues new tokens.
+	 *
+	 * @param command the switch tenant command
+	 * @return the token response containing new access and refresh tokens scoped to the target tenant
+	 */
+	TokenResponse switchTenant(SwitchTenantCommand command);
 }

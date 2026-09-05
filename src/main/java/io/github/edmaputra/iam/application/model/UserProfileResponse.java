@@ -13,6 +13,7 @@ import java.util.UUID;
  * @param tenantId               the current tenant UUID context (or null)
  * @param platformSuperAdmin     flag indicating if user has platform superadmin privileges
  * @param tenantWide             flag indicating if user has unrestricted tenant-wide scope
+ * @param availableTenantIds     set of distinct accessible tenant UUIDs for the user
  * @param groups                 set of active group codes
  * @param roles                  set of active role codes
  * @param permissions            set of distinct permission codes
@@ -28,6 +29,7 @@ public record UserProfileResponse(
 		UUID tenantId,
 		boolean platformSuperAdmin,
 		boolean tenantWide,
+		Set<UUID> availableTenantIds,
 		Set<String> groups,
 		Set<String> roles,
 		Set<String> permissions,
@@ -38,10 +40,29 @@ public record UserProfileResponse(
 		Objects.requireNonNull(id, "User ID must not be null.");
 		Objects.requireNonNull(email, "Email must not be null.");
 		Objects.requireNonNull(fullName, "FullName must not be null.");
+		availableTenantIds = availableTenantIds == null ? Set.of() : Set.copyOf(availableTenantIds);
 		groups = groups == null ? Set.of() : Set.copyOf(groups);
 		roles = roles == null ? Set.of() : Set.copyOf(roles);
 		permissions = permissions == null ? Set.of() : Set.copyOf(permissions);
 		accessibleScopeNodeIds = accessibleScopeNodeIds == null ? Set.of() : Set.copyOf(accessibleScopeNodeIds);
 		accessibleScopePaths = accessibleScopePaths == null ? Set.of() : Set.copyOf(accessibleScopePaths);
+	}
+
+	/**
+	 * Secondary constructor maintaining compatibility with callers omitting availableTenantIds.
+	 */
+	public UserProfileResponse(
+			UUID id,
+			String email,
+			String fullName,
+			UUID tenantId,
+			boolean platformSuperAdmin,
+			boolean tenantWide,
+			Set<String> groups,
+			Set<String> roles,
+			Set<String> permissions,
+			Set<UUID> accessibleScopeNodeIds,
+			Set<String> accessibleScopePaths) {
+		this(id, email, fullName, tenantId, platformSuperAdmin, tenantWide, Set.of(), groups, roles, permissions, accessibleScopeNodeIds, accessibleScopePaths);
 	}
 }

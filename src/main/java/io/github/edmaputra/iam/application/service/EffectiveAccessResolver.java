@@ -81,6 +81,19 @@ public class EffectiveAccessResolver {
 	public EffectiveAccess resolve(User user, TenantId tenantId) {
 		Objects.requireNonNull(user, "User must not be null.");
 
+		// 1. Resolve User Groups across all tenants
+		List<UserGroupMembership> memberships = userGroupMembershipRepository.findAllByUserId(user.getId());
+		List<GroupId> groupIds = memberships.stream().map(UserGroupMembership::groupId).toList();
+		List<Group> allUserGroups = groupIds.isEmpty() ? List.of() : groupRepository.findAllByIds(groupIds);
+
+		// 2. Direct User Role Assignments across all tenants
+		List<UserRoleAssignment> allUserAssignments = userRoleAssignmentRepository.findAllByUserId(user.getId());
+
+		// 3. Compute distinct available tenants for this user
+		Set<TenantId> availableTenants = new HashSet<>();
+		allUserAssignments.stream().map(UserRoleAssignment::getTenantId).filter(Objects::nonNull).forEach(availableTenants::add);
+		allUserGroups.stream().map(Group::getTenantId).filter(Objects::nonNull).forEach(availableTenants::add);
+
 		if (user.isPlatformSuperAdmin() && tenantId == null) {
 			return new EffectiveAccess(
 					user.getId(),
@@ -88,6 +101,7 @@ public class EffectiveAccessResolver {
 					null,
 					true,
 					true,
+					availableTenants,
 					Set.of(),
 					Set.of("PLATFORM_SUPERADMIN"),
 					Set.of("*"),
@@ -95,14 +109,15 @@ public class EffectiveAccessResolver {
 					Set.of("/"));
 		}
 
-		// 1. Resolve User Groups for this tenant
-		List<UserGroupMembership> memberships = userGroupMembershipRepository.findAllByUserId(user.getId());
-		List<GroupId> groupIds = memberships.stream().map(UserGroupMembership::groupId).toList();
-		List<Group> userGroups = groupIds.isEmpty() ? List.of() : groupRepository.findAllByIds(groupIds);
+		// 4. Auto-resolve tenant if tenantId was not supplied and user is not a platform superadmin
+		final TenantId effectiveTenantId = (tenantId == null && !user.isPlatformSuperAdmin() && availableTenants.size() == 1)
+				? availableTenants.iterator().next()
+				: tenantId;
 
-		if (tenantId != null) {
+		List<Group> userGroups = allUserGroups;
+		if (effectiveTenantId != null) {
 			userGroups = userGroups.stream()
-					.filter(g -> g.getTenantId().equals(tenantId))
+					.filter(g -> g.getTenantId().equals(effectiveTenantId))
 					.toList();
 		}
 
@@ -111,23 +126,22 @@ public class EffectiveAccessResolver {
 				.collect(Collectors.toUnmodifiableSet());
 		List<GroupId> tenantGroupIds = userGroups.stream().map(Group::getId).toList();
 
-		// 2. Direct User Role Assignments
-		List<UserRoleAssignment> userAssignments = tenantId == null
-				? userRoleAssignmentRepository.findAllByUserId(user.getId())
-				: userRoleAssignmentRepository.findAllByUserIdAndTenantId(user.getId(), tenantId);
+		List<UserRoleAssignment> userAssignments = effectiveTenantId == null
+				? allUserAssignments
+				: allUserAssignments.stream().filter(ua -> effectiveTenantId.equals(ua.getTenantId())).toList();
 
-		// 3. Group Role Assignments
+		// 5. Group Role Assignments
 		List<GroupRoleAssignment> groupAssignments = tenantGroupIds.isEmpty()
 				? List.of()
 				: groupRoleAssignmentRepository.findAllByGroupIds(tenantGroupIds);
 
-		if (tenantId != null) {
+		if (effectiveTenantId != null) {
 			groupAssignments = groupAssignments.stream()
-					.filter(ga -> ga.getTenantId().equals(tenantId))
+					.filter(ga -> ga.getTenantId().equals(effectiveTenantId))
 					.toList();
 		}
 
-		// 4. Resolve Roles and Permissions
+		// 6. Resolve Roles and Permissions
 		Set<RoleId> allRoleIds = new HashSet<>();
 		userAssignments.forEach(ua -> allRoleIds.add(ua.getRoleId()));
 		groupAssignments.forEach(ga -> allRoleIds.add(ga.getRoleId()));
@@ -142,7 +156,7 @@ public class EffectiveAccessResolver {
 			permissions.add("*");
 		}
 
-		// 5. Evaluate Scopes
+		// 7. Evaluate Scopes
 		boolean isTenantWide = user.isPlatformSuperAdmin()
 				|| userAssignments.stream().anyMatch(UserRoleAssignment::isTenantWide)
 				|| groupAssignments.stream().anyMatch(GroupRoleAssignment::isTenantWide);
@@ -150,9 +164,9 @@ public class EffectiveAccessResolver {
 		Set<UUID> accessibleScopeNodeIds = new HashSet<>();
 		Set<String> accessibleScopePaths = new HashSet<>();
 
-		if (tenantId != null) {
+		if (effectiveTenantId != null) {
 			if (isTenantWide) {
-				List<ScopeNode> allNodes = scopeNodeRepository.findAllByTenantId(tenantId);
+				List<ScopeNode> allNodes = scopeNodeRepository.findAllByTenantId(effectiveTenantId);
 				for (ScopeNode node : allNodes) {
 					accessibleScopeNodeIds.add(node.getId().value());
 					accessibleScopePaths.add(node.getPath());
@@ -162,12 +176,12 @@ public class EffectiveAccessResolver {
 				// Resolve scopes with subtree inheritance or single node
 				for (UserRoleAssignment ua : userAssignments) {
 					if (ua.getScopeNodeId() != null) {
-						addScopesForNode(tenantId, ua.getScopeNodeId(), ua.isInheritChildren(), accessibleScopeNodeIds, accessibleScopePaths);
+						addScopesForNode(effectiveTenantId, ua.getScopeNodeId(), ua.isInheritChildren(), accessibleScopeNodeIds, accessibleScopePaths);
 					}
 				}
 				for (GroupRoleAssignment ga : groupAssignments) {
 					if (ga.getScopeNodeId() != null) {
-						addScopesForNode(tenantId, ga.getScopeNodeId(), ga.isInheritChildren(), accessibleScopeNodeIds, accessibleScopePaths);
+						addScopesForNode(effectiveTenantId, ga.getScopeNodeId(), ga.isInheritChildren(), accessibleScopeNodeIds, accessibleScopePaths);
 					}
 				}
 			}
@@ -176,9 +190,10 @@ public class EffectiveAccessResolver {
 		return new EffectiveAccess(
 				user.getId(),
 				user.getEmail(),
-				tenantId,
+				effectiveTenantId,
 				user.isPlatformSuperAdmin(),
 				isTenantWide,
+				availableTenants,
 				groupCodes,
 				roleCodes,
 				permissions,

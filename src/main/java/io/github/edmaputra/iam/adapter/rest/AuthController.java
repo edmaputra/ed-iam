@@ -13,11 +13,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.rest.dto.LoginRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.RefreshTokenRequest;
+import io.github.edmaputra.iam.adapter.rest.dto.SwitchTenantRequest;
 import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.model.UserProfileResponse;
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
+import io.github.edmaputra.iam.application.port.in.SwitchTenantCommand;
 
 /**
  * REST controller exposing authentication and identity endpoints under {@code /api/v1/auth}.
@@ -96,5 +99,32 @@ public class AuthController {
 		CurrentActor actor = currentActorProvider.requireCurrentActor();
 		UserProfileResponse profile = authenticateUserUseCase.getMe(actor);
 		return ResponseEntity.ok(profile);
+	}
+
+	/**
+	 * Switches the active tenant context for the currently authenticated actor and issues a new token pair.
+	 * Target tenant ID can be supplied via the {@code X-Tenant-ID} header or JSON request body.
+	 *
+	 * @param headerTenantId optional target tenant ID supplied via {@code X-Tenant-ID} header
+	 * @param request        optional switch tenant request body
+	 * @return HTTP 200 with {@link TokenResponse} scoped to the target tenant
+	 */
+	@PostMapping("/switch-tenant")
+	public ResponseEntity<TokenResponse> switchTenant(
+			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
+			@RequestBody(required = false) SwitchTenantRequest request) {
+
+		UUID tenantUuid = parseTenantHeader(headerTenantId);
+		if (tenantUuid == null && request != null) {
+			tenantUuid = request.tenantId();
+		}
+		if (tenantUuid == null) {
+			throw new IllegalArgumentException("Target tenant ID must be provided via X-Tenant-ID header or request body.");
+		}
+
+		CurrentActor actor = currentActorProvider.requireCurrentActor();
+		TokenResponse response = authenticateUserUseCase.switchTenant(
+				new SwitchTenantCommand(actor, new TenantId(tenantUuid)));
+		return ResponseEntity.ok(response);
 	}
 }
