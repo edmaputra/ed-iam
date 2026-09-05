@@ -157,4 +157,53 @@ class RbacEffectiveAccessAndScopeHierarchyIT extends AbstractIntegrationTest {
 		assertThat(actor.canAccessScope(pediatric.getId().value())).isTrue();
 		assertThat(actor.canAccessScope(radiology.getId().value())).isTrue();
 	}
+
+	@Test
+	@DisplayName("Should restrict access to exact assigned node when inheritChildren is false")
+	void shouldEnforceNonInheritedScopeAssignments() {
+		TenantId tenantId = TenantId.generate();
+		OperationContext context = OperationContext.system();
+
+		ScopeNode building = manageScopeUseCase.createScopeNode(
+				CreateScopeNodeCommand.root(tenantId, "BLDG", "Building"), context);
+		ScopeNode floor = manageScopeUseCase.createScopeNode(
+				CreateScopeNodeCommand.child(tenantId, building.getId(), "FLR", "Floor"), context);
+
+		User user = User.create("guard-" + UUID.randomUUID() + "@clinic.org", passwordEncoder.encode("Pass!"), "Security Guard", false);
+		userRepository.save(user);
+
+		Role guardRole = Role.createCustom(tenantId, "GUARD", "Guard", "Desc", Set.of("DOOR_OPEN"));
+		roleRepository.save(guardRole);
+
+		// Assign role on Building with inheritChildren = false
+		userRoleAssignmentRepository.save(UserRoleAssignment.create(
+				user.getId(), guardRole.getId(), tenantId, building.getId(), false));
+
+		EffectiveAccess access = effectiveAccessResolver.resolve(user, tenantId);
+
+		assertThat(access.tenantWide()).isFalse();
+		assertThat(access.accessibleScopeNodeIds()).containsExactly(building.getId().value());
+		assertThat(access.accessibleScopeNodeIds()).doesNotContain(floor.getId().value());
+	}
+
+	@Test
+	@DisplayName("Should resolve global system roles (tenant_id = null) alongside tenant roles")
+	void shouldResolveGlobalSystemRolesForTenant() {
+		TenantId tenantId = TenantId.generate();
+
+		// Create global system role
+		String sysCode = "SYS_AUDITOR_" + UUID.randomUUID().toString().substring(0, 5).toUpperCase();
+		Role systemRole = Role.createSystemRole(sysCode, "System Auditor", "Global auditor", Set.of("AUDIT_LOG_READ"));
+		roleRepository.save(systemRole);
+
+		// Create custom tenant role
+		Role tenantRole = Role.createCustom(tenantId, "LOCAL_MGR", "Local Manager", "Desc", Set.of("LOCAL_MANAGE"));
+		roleRepository.save(tenantRole);
+
+		// Repository query for tenant or global roles
+		List<Role> availableRoles = roleRepository.findAllByTenantIdOrGlobal(tenantId);
+		Set<String> codes = availableRoles.stream().map(Role::getCode).collect(java.util.stream.Collectors.toSet());
+
+		assertThat(codes).contains(sysCode, "LOCAL_MGR");
+	}
 }
