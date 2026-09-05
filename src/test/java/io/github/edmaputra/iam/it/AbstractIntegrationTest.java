@@ -1,12 +1,15 @@
 package io.github.edmaputra.iam.it;
 
+import java.time.Duration;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.reactive.server.WebTestClient;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
@@ -28,7 +31,6 @@ import io.github.edmaputra.iam.it.app.TestIamApplication;
  * @since 1.0.0
  */
 @SpringBootTest(classes = TestIamApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureMockMvc
 @ActiveProfiles("it")
 public abstract class AbstractIntegrationTest {
 
@@ -49,8 +51,18 @@ public abstract class AbstractIntegrationTest {
 		registry.add("spring.datasource.driver-class-name", POSTGRES::getDriverClassName);
 	}
 
-	@Autowired
-	protected MockMvc mockMvc;
+	@LocalServerPort
+	protected int port;
+
+	protected WebTestClient webTestClient;
+
+	@BeforeEach
+	void setUpWebTestClient() {
+		this.webTestClient = WebTestClient.bindToServer()
+				.baseUrl("http://localhost:" + port)
+				.responseTimeout(Duration.ofSeconds(10))
+				.build();
+	}
 
 	@Autowired
 	protected UserRepository userRepository;

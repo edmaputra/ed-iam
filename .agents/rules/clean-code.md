@@ -156,8 +156,13 @@ public void validateScope(ScopeNode node) {
 
 ## 7. Testing Standards
 
-- **Sub-Second Unit Tests**: `domain` and `application` tests must be pure unit tests without starting Spring Boot (`@SpringBootTest`). Use Mockito (`@ExtendWith(MockitoExtension.class)`) or in-memory fakes.
-- **Adapter Tests**: Use lightweight slice tests or mock servlet tests (`@WebMvcTest`, `MockMvc`) for REST controllers and repository adapter tests.
+- **Integration-First Testing Tier (`*IT.java`)**:
+  - Primary verification tier using `@SpringBootTest(webEnvironment = RANDOM_PORT)` with Testcontainers PostgreSQL.
+  - Use `org.springframework.test.web.reactive.server.WebTestClient` bound to the live embedded server (`WebTestClient.bindToServer().baseUrl("http://localhost:" + port)...`) for HTTP API testing, verifying actual network calls, servlet filters, security headers, and JSON responses. Do NOT use `MockMvc`.
+- **Pure Unit Tests Tier (`*Test.java`)**:
+  - Reserved strictly for isolated domain invariants, value object validation, tree algorithms, and compact constructor null guards. Fast, pure Java execution without Spring context.
+- **Elimination of Mock Slice Tests**:
+  - Avoid mock-heavy slice tests (`@WebMvcTest`, mocked repository adapters) that drift from production runtime behavior.
 - **Arrange-Act-Assert**: Write clean, expressive tests with clear expectations and descriptive method names:
   ```java
   @Test
