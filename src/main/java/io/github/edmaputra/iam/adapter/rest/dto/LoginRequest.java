@@ -23,6 +23,16 @@ public record LoginRequest(String email, String password, UUID tenantId) {
 	}
 
 	/**
+	 * Secondary constructor creating a login request without an explicit tenant ID.
+	 *
+	 * @param email    user email address
+	 * @param password raw user password
+	 */
+	public LoginRequest(String email, String password) {
+		this(email, password, null);
+	}
+
+	/**
 	 * Maps this REST request to the inbound {@link LoginCommand}.
 	 *
 	 * @return new {@link LoginCommand}
