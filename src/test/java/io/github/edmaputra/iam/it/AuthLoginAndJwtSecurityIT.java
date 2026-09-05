@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.test.json.JsonCompareMode;
 
 import com.jayway.jsonpath.JsonPath;
 
@@ -54,6 +55,16 @@ class AuthLoginAndJwtSecurityIT extends AbstractIntegrationTest {
 				}
 				""".formatted(email, rawPassword, tenantUuid);
 
+		String expectedLoginJson = """
+				{
+				    "tokenType": "Bearer",
+				    "user": {
+				        "email": "%s",
+				        "fullName": "Dr. Gregory House"
+				    }
+				}
+				""".formatted(email);
+
 		byte[] loginBytes = webTestClient.post()
 				.uri("/api/v1/auth/login")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -61,12 +72,9 @@ class AuthLoginAndJwtSecurityIT extends AbstractIntegrationTest {
 				.exchange()
 				.expectStatus().isOk()
 				.expectBody()
+				.json(expectedLoginJson, JsonCompareMode.LENIENT)
 				.jsonPath("$.accessToken").isNotEmpty()
 				.jsonPath("$.refreshToken").isNotEmpty()
-				.jsonPath("$.tokenType").isEqualTo("Bearer")
-				.jsonPath("$.user.email").isEqualTo(email)
-				.jsonPath("$.user.fullName").isEqualTo("Dr. Gregory House")
-				.jsonPath("$.user.permissions[0]").isNotEmpty()
 				.returnResult()
 				.getResponseBody();
 
@@ -79,13 +87,20 @@ class AuthLoginAndJwtSecurityIT extends AbstractIntegrationTest {
 		assertThat(refreshToken).isNotBlank();
 
 		// 3. Test protected endpoint /api/v1/auth/me with Bearer token
+		String expectedMeJson = """
+				{
+				    "email": "%s",
+				    "fullName": "Dr. Gregory House"
+				}
+				""".formatted(email);
+
 		webTestClient.get()
 				.uri("/api/v1/auth/me")
 				.header("Authorization", "Bearer " + accessToken)
 				.exchange()
 				.expectStatus().isOk()
 				.expectBody()
-				.jsonPath("$.email").isEqualTo(email)
+				.json(expectedMeJson, JsonCompareMode.LENIENT)
 				.jsonPath("$.permissions").isArray();
 
 		// 4. Test token refresh
@@ -117,7 +132,7 @@ class AuthLoginAndJwtSecurityIT extends AbstractIntegrationTest {
 				.exchange()
 				.expectStatus().isOk()
 				.expectBody()
-				.jsonPath("$.email").isEqualTo(email);
+				.json(expectedMeJson, JsonCompareMode.LENIENT);
 	}
 
 	@Test

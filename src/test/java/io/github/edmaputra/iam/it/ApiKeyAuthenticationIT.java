@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.json.JsonCompareMode;
 
 import io.github.edmaputra.iam.adapter.security.provider.ApiKeyAuthProvider;
 import io.github.edmaputra.iam.application.port.out.ApiKeyValidatorPort;
@@ -23,7 +24,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Integration test covering machine-to-machine (M2M) API Key authentication by hitting
- * the REST endpoint {@code /api/test/api-key/authenticate} using {@link org.springframework.test.web.reactive.server.WebTestClient}.
+ * the REST endpoint {@code /api/test/api-key/authenticate} using {@link org.springframework.test.web.reactive.server.WebTestClient}
+ * with JSON request bodies and Lenient JSON response assertions.
  *
  * @author edmaputra
  * @since 1.0.0
@@ -58,6 +60,15 @@ class ApiKeyAuthenticationIT extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("Should successfully authenticate valid API key via X-API-Key header hitting REST endpoint")
 	void shouldAuthenticateValidApiKeyViaHeader() {
+		String expectedResponseJson = """
+				{
+				    "email": "m2m-service@enterprise.org",
+				    "fullName": "M2M Service Client",
+				    "providerType": "API_KEY",
+				    "platformSuperAdmin": false
+				}
+				""";
+
 		webTestClient.post()
 				.uri("/api/test/api-key/authenticate")
 				.header("X-API-Key", VALID_KEY)
@@ -65,35 +76,50 @@ class ApiKeyAuthenticationIT extends AbstractIntegrationTest {
 				.expectStatus().isOk()
 				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
 				.expectBody()
-				.jsonPath("$.email").isEqualTo("m2m-service@enterprise.org")
-				.jsonPath("$.fullName").isEqualTo("M2M Service Client")
-				.jsonPath("$.providerType").isEqualTo("API_KEY")
-				.jsonPath("$.platformSuperAdmin").isEqualTo(false)
+				.json(expectedResponseJson, JsonCompareMode.LENIENT)
 				.jsonPath("$.userId").isNotEmpty();
 	}
 
 	@Test
 	@DisplayName("Should successfully authenticate valid API key via request body hitting REST endpoint")
 	void shouldAuthenticateValidApiKeyViaRequestBody() {
-		String body = "{\"apiKey\":\"" + VALID_KEY + "\"}";
+		String requestBody = """
+				{
+				    "apiKey": "%s"
+				}
+				""".formatted(VALID_KEY);
+
+		String expectedResponseJson = """
+				{
+				    "email": "m2m-service@enterprise.org",
+				    "fullName": "M2M Service Client",
+				    "providerType": "API_KEY",
+				    "platformSuperAdmin": false
+				}
+				""";
 
 		webTestClient.post()
 				.uri("/api/test/api-key/authenticate")
 				.contentType(MediaType.APPLICATION_JSON)
-				.bodyValue(body)
+				.bodyValue(requestBody)
 				.exchange()
 				.expectStatus().isOk()
 				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
 				.expectBody()
-				.jsonPath("$.email").isEqualTo("m2m-service@enterprise.org")
-				.jsonPath("$.fullName").isEqualTo("M2M Service Client")
-				.jsonPath("$.providerType").isEqualTo("API_KEY")
-				.jsonPath("$.platformSuperAdmin").isEqualTo(false);
+				.json(expectedResponseJson, JsonCompareMode.LENIENT)
+				.jsonPath("$.userId").isNotEmpty();
 	}
 
 	@Test
-	@DisplayName("Should reject invalid or expired API key with 401 Unauthorized hitting REST endpoint")
-	void shouldRejectInvalidApiKeyHittingEndpoint() {
+	@DisplayName("Should reject invalid or expired API key via header with 401 Unauthorized")
+	void shouldRejectInvalidApiKeyViaHeader() {
+		String expectedErrorJson = """
+				{
+				    "status": 401,
+				    "detail": "Invalid or expired API key."
+				}
+				""";
+
 		webTestClient.post()
 				.uri("/api/test/api-key/authenticate")
 				.header("X-API-Key", "invalid-api-key")
@@ -101,21 +127,80 @@ class ApiKeyAuthenticationIT extends AbstractIntegrationTest {
 				.expectStatus().isUnauthorized()
 				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
 				.expectBody()
-				.jsonPath("$.status").isEqualTo(401)
-				.jsonPath("$.detail").isEqualTo("Invalid or expired API key.");
+				.json(expectedErrorJson, JsonCompareMode.LENIENT);
 	}
 
 	@Test
-	@DisplayName("Should reject missing or blank API key with 400 Bad Request hitting REST endpoint")
+	@DisplayName("Should reject invalid or expired API key via request body with 401 Unauthorized")
+	void shouldRejectInvalidApiKeyViaRequestBody() {
+		String requestBody = """
+				{
+				    "apiKey": "invalid-api-key"
+				}
+				""";
+
+		String expectedErrorJson = """
+				{
+				    "status": 401,
+				    "detail": "Invalid or expired API key."
+				}
+				""";
+
+		webTestClient.post()
+				.uri("/api/test/api-key/authenticate")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(requestBody)
+				.exchange()
+				.expectStatus().isUnauthorized()
+				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+				.expectBody()
+				.json(expectedErrorJson, JsonCompareMode.LENIENT);
+	}
+
+	@Test
+	@DisplayName("Should reject missing API key with 400 Bad Request hitting REST endpoint")
 	void shouldRejectMissingApiKeyHittingEndpoint() {
+		String expectedErrorJson = """
+				{
+				    "status": 400,
+				    "detail": "API key must be provided in X-API-Key header or request body."
+				}
+				""";
+
 		webTestClient.post()
 				.uri("/api/test/api-key/authenticate")
 				.exchange()
 				.expectStatus().isBadRequest()
 				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
 				.expectBody()
-				.jsonPath("$.status").isEqualTo(400)
-				.jsonPath("$.detail").isEqualTo("API key must be provided in X-API-Key header or request body.");
+				.json(expectedErrorJson, JsonCompareMode.LENIENT);
+	}
+
+	@Test
+	@DisplayName("Should reject blank API key in request body with 400 Bad Request hitting REST endpoint")
+	void shouldRejectBlankApiKeyInRequestBodyHittingEndpoint() {
+		String requestBody = """
+				{
+				    "apiKey": "   "
+				}
+				""";
+
+		String expectedErrorJson = """
+				{
+				    "status": 400,
+				    "detail": "API key must be provided in X-API-Key header or request body."
+				}
+				""";
+
+		webTestClient.post()
+				.uri("/api/test/api-key/authenticate")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(requestBody)
+				.exchange()
+				.expectStatus().isBadRequest()
+				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+				.expectBody()
+				.json(expectedErrorJson, JsonCompareMode.LENIENT);
 	}
 
 	@Test

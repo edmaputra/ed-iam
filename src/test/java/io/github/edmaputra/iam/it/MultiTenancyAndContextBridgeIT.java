@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.test.json.JsonCompareMode;
 
 import com.jayway.jsonpath.JsonPath;
 
@@ -66,14 +67,20 @@ class MultiTenancyAndContextBridgeIT extends AbstractIntegrationTest {
 		String accessToken = JsonPath.read(new String(loginBytes, StandardCharsets.UTF_8), "$.accessToken");
 
 		// Call /api/test/tenant which reads TestTenantContextHolder.getTenantId()
+		String expectedTenantJson = """
+				{
+				    "active": true,
+				    "tenantId": "%s"
+				}
+				""".formatted(tenantUuid);
+
 		webTestClient.get()
 				.uri("/api/test/tenant")
 				.header("Authorization", "Bearer " + accessToken)
 				.exchange()
 				.expectStatus().isOk()
 				.expectBody()
-				.jsonPath("$.active").isEqualTo(true)
-				.jsonPath("$.tenantId").isEqualTo(tenantUuid.toString());
+				.json(expectedTenantJson, JsonCompareMode.LENIENT);
 	}
 
 	@Test
@@ -125,13 +132,19 @@ class MultiTenancyAndContextBridgeIT extends AbstractIntegrationTest {
 		String accessTokenA = JsonPath.read(new String(resultBytesA, StandardCharsets.UTF_8), "$.accessToken");
 
 		// Fetch /api/v1/auth/me for Tenant A
+		String expectedProfileJson = """
+				{
+				    "roles": ["ROLE_A"],
+				    "permissions": ["ACTION_A"]
+				}
+				""";
+
 		webTestClient.get()
 				.uri("/api/v1/auth/me")
 				.header("Authorization", "Bearer " + accessTokenA)
 				.exchange()
 				.expectStatus().isOk()
 				.expectBody()
-				.jsonPath("$.roles[0]").isEqualTo("ROLE_A")
-				.jsonPath("$.permissions[0]").isEqualTo("ACTION_A");
+				.json(expectedProfileJson, JsonCompareMode.LENIENT);
 	}
 }
