@@ -6,15 +6,13 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.test.json.JsonCompareMode;
 
-import io.github.edmaputra.iam.application.port.in.CreateScopeNodeCommand;
-import io.github.edmaputra.iam.application.port.in.ManageScopeUseCase;
-import io.github.edmaputra.iam.domain.context.OperationContext;
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupRoleAssignment;
 import io.github.edmaputra.iam.domain.model.ProviderType;
 import io.github.edmaputra.iam.domain.model.Role;
-import io.github.edmaputra.iam.domain.model.ScopeNode;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserGroupMembership;
 import io.github.edmaputra.iam.domain.model.UserIdentity;
@@ -29,11 +27,10 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Integration test verifying database constraint cascades (PostgreSQL foreign keys)
- * and cross-tenant duplicate code isolation.
+ * and cross-tenant duplicate code isolation using {@link org.springframework.test.web.reactive.server.WebTestClient}.
  *
  * @author edmaputra
  * @since 1.0.0
@@ -61,68 +58,200 @@ class CascadeAndCrossTenantIsolationIT extends AbstractIntegrationTest {
 	@Autowired
 	private GroupRoleAssignmentRepository groupRoleAssignmentRepository;
 
-	@Autowired
-	private ManageScopeUseCase manageScopeUseCase;
-
 	@Test
-	@DisplayName("Should allow identical codes across different tenants but reject duplicates within same tenant")
+	@DisplayName("Should allow identical codes across different tenants but reject duplicates within same tenant via REST")
 	void shouldIsolateCodesAcrossTenants() {
-		TenantId tenantA = TenantId.generate();
-		TenantId tenantB = TenantId.generate();
-		OperationContext context = OperationContext.system();
-
+		UUID tenantA = UUID.randomUUID();
+		UUID tenantB = UUID.randomUUID();
 		String code = "SHARED_CODE";
 
 		// 1. Scope Node: Can exist in both tenants
-		ScopeNode scopeA = manageScopeUseCase.createScopeNode(
-				CreateScopeNodeCommand.root(tenantA, code, "Scope in Tenant A"),
-				context);
-		ScopeNode scopeB = manageScopeUseCase.createScopeNode(
-				CreateScopeNodeCommand.root(tenantB, code, "Scope in Tenant B"),
-				context);
+		String scopeJsonA = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Scope in Tenant A"
+				}
+				""".formatted(tenantA, code);
 
-		assertThat(scopeA.getCode()).isEqualTo(code);
-		assertThat(scopeB.getCode()).isEqualTo(code);
-		assertThat(scopeA.getId()).isNotEqualTo(scopeB.getId());
+		String expectedScopeJsonA = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Scope in Tenant A"
+				}
+				""".formatted(tenantA, code);
 
-		// Duplicate scope code in same tenant throws IllegalArgumentException
-		assertThatThrownBy(() -> manageScopeUseCase.createScopeNode(
-				CreateScopeNodeCommand.root(tenantA, code, "Duplicate Scope"),
-				context))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessageContaining("already exists for this tenant");
+		webTestClient.post()
+				.uri("/api/test/admin/scopes")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(scopeJsonA)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.json(expectedScopeJsonA, JsonCompareMode.LENIENT);
+
+		String scopeJsonB = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Scope in Tenant B"
+				}
+				""".formatted(tenantB, code);
+
+		String expectedScopeJsonB = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Scope in Tenant B"
+				}
+				""".formatted(tenantB, code);
+
+		webTestClient.post()
+				.uri("/api/test/admin/scopes")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(scopeJsonB)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.json(expectedScopeJsonB, JsonCompareMode.LENIENT);
+
+		// Duplicate scope code in same tenant (Tenant A) -> 400 Bad Request
+		String duplicateScopeJson = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Duplicate Scope"
+				}
+				""".formatted(tenantA, code);
+
+		webTestClient.post()
+				.uri("/api/test/admin/scopes")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(duplicateScopeJson)
+				.exchange()
+				.expectStatus().isBadRequest()
+				.expectBody()
+				.jsonPath("$.detail").value(String.class, detail -> assertThat(detail).contains("already exists for this tenant"));
 
 		// 2. Group: Can exist in both tenants
-		Group groupA = Group.create(tenantA, code, "Group A", "Desc", null);
-		Group groupB = Group.create(tenantB, code, "Group B", "Desc", null);
-		groupRepository.save(groupA);
-		groupRepository.save(groupB);
+		String groupJsonA = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Group A",
+				    "description": "Desc A"
+				}
+				""".formatted(tenantA, code);
 
-		assertThat(groupRepository.existsByTenantIdAndCode(tenantA, code)).isTrue();
-		assertThat(groupRepository.existsByTenantIdAndCode(tenantB, code)).isTrue();
+		webTestClient.post()
+				.uri("/api/test/admin/groups")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(groupJsonA)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.jsonPath("$.code").isEqualTo(code);
 
-		// Duplicate group in same tenant violates uk_iam_group_tenant_code
-		Group duplicateGroup = Group.create(tenantA, code, "Duplicate Group", "Desc", null);
-		assertThatThrownBy(() -> groupRepository.save(duplicateGroup))
-				.isInstanceOf(Exception.class);
+		String groupJsonB = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Group B",
+				    "description": "Desc B"
+				}
+				""".formatted(tenantB, code);
+
+		webTestClient.post()
+				.uri("/api/test/admin/groups")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(groupJsonB)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.jsonPath("$.code").isEqualTo(code);
+
+		// Duplicate group in same tenant -> 400 Bad Request
+		String duplicateGroupJson = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Duplicate Group",
+				    "description": "Desc Duplicate"
+				}
+				""".formatted(tenantA, code);
+
+		webTestClient.post()
+				.uri("/api/test/admin/groups")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(duplicateGroupJson)
+				.exchange()
+				.expectStatus().isBadRequest()
+				.expectBody()
+				.jsonPath("$.detail").value(String.class, detail -> assertThat(detail).contains("Duplicate group code"));
 
 		// 3. Role: Can exist in both tenants
-		Role roleA = Role.createCustom(tenantA, code, "Role A", "Desc", Set.of("READ"));
-		Role roleB = Role.createCustom(tenantB, code, "Role B", "Desc", Set.of("WRITE"));
-		roleRepository.save(roleA);
-		roleRepository.save(roleB);
+		String roleJsonA = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Role A",
+				    "description": "Desc A",
+				    "permissions": ["READ"]
+				}
+				""".formatted(tenantA, code);
 
-		assertThat(roleRepository.existsByTenantIdAndCode(tenantA, code)).isTrue();
-		assertThat(roleRepository.existsByTenantIdAndCode(tenantB, code)).isTrue();
+		webTestClient.post()
+				.uri("/api/test/admin/roles")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(roleJsonA)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.jsonPath("$.code").isEqualTo(code);
 
-		// Duplicate role in same tenant violates uk_iam_role_tenant_code
-		Role duplicateRole = Role.createCustom(tenantA, code, "Duplicate Role", "Desc", Set.of("EXEC"));
-		assertThatThrownBy(() -> roleRepository.save(duplicateRole))
-				.isInstanceOf(Exception.class);
+		String roleJsonB = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Role B",
+				    "description": "Desc B",
+				    "permissions": ["WRITE"]
+				}
+				""".formatted(tenantB, code);
+
+		webTestClient.post()
+				.uri("/api/test/admin/roles")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(roleJsonB)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.jsonPath("$.code").isEqualTo(code);
+
+		// Duplicate role in same tenant -> 400 Bad Request
+		String duplicateRoleJson = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Duplicate Role",
+				    "description": "Desc Duplicate",
+				    "permissions": ["EXEC"]
+				}
+				""".formatted(tenantA, code);
+
+		webTestClient.post()
+				.uri("/api/test/admin/roles")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(duplicateRoleJson)
+				.exchange()
+				.expectStatus().isBadRequest()
+				.expectBody()
+				.jsonPath("$.detail").value(String.class, detail -> assertThat(detail).contains("Duplicate role code"));
 	}
 
 	@Test
-	@DisplayName("Should cascade delete user identities, group memberships, and role assignments when user is deleted")
+	@DisplayName("Should cascade delete user identities, group memberships, and role assignments when user is deleted via REST")
 	void shouldCascadeDeleteOnUserRemoval() {
 		TenantId tenantId = TenantId.generate();
 
@@ -143,23 +272,49 @@ class CascadeAndCrossTenantIsolationIT extends AbstractIntegrationTest {
 		userGroupMembershipRepository.save(UserGroupMembership.of(group.getId(), user.getId()));
 		userRoleAssignmentRepository.save(UserRoleAssignment.createTenantWide(user.getId(), role.getId(), tenantId));
 
-		// Verify entities exist
-		assertThat(userIdentityRepository.findByProviderTypeAndExternalSubjectId(identity.getProviderType(), identity.getExternalSubjectId())).isPresent();
-		assertThat(userGroupMembershipRepository.existsByGroupIdAndUserId(group.getId(), user.getId())).isTrue();
-		assertThat(userRoleAssignmentRepository.findAllByUserId(user.getId())).hasSize(1);
+		// Verify initial cascade status via REST
+		String expectedInitialStatus = """
+				{
+				    "userExists": true,
+				    "identitiesCount": 1,
+				    "membershipsCount": 1,
+				    "roleAssignmentsCount": 1
+				}
+				""";
 
-		// 3. Delete user
-		userRepository.delete(user.getId());
+		webTestClient.get()
+				.uri("/api/test/admin/users/" + user.getId().value() + "/cascade-status")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.json(expectedInitialStatus, JsonCompareMode.LENIENT);
 
-		// 4. Verify cascade deletions in child tables
-		assertThat(userRepository.findById(user.getId())).isEmpty();
-		assertThat(userIdentityRepository.findByProviderTypeAndExternalSubjectId(identity.getProviderType(), identity.getExternalSubjectId())).isEmpty();
-		assertThat(userGroupMembershipRepository.existsByGroupIdAndUserId(group.getId(), user.getId())).isFalse();
-		assertThat(userRoleAssignmentRepository.findAllByUserId(user.getId())).isEmpty();
+		// 3. Delete user via REST
+		webTestClient.delete()
+				.uri("/api/test/admin/users/" + user.getId().value())
+				.exchange()
+				.expectStatus().isNoContent();
+
+		// 4. Verify cascade deletions in child records via REST
+		String expectedDeletedStatus = """
+				{
+				    "userExists": false,
+				    "identitiesCount": 0,
+				    "membershipsCount": 0,
+				    "roleAssignmentsCount": 0
+				}
+				""";
+
+		webTestClient.get()
+				.uri("/api/test/admin/users/" + user.getId().value() + "/cascade-status")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.json(expectedDeletedStatus, JsonCompareMode.LENIENT);
 	}
 
 	@Test
-	@DisplayName("Should cascade delete group memberships and group role assignments when group is deleted")
+	@DisplayName("Should cascade delete group memberships and group role assignments when group is deleted via REST")
 	void shouldCascadeDeleteOnGroupRemoval() {
 		TenantId tenantId = TenantId.generate();
 
@@ -175,13 +330,42 @@ class CascadeAndCrossTenantIsolationIT extends AbstractIntegrationTest {
 		userGroupMembershipRepository.save(UserGroupMembership.of(group.getId(), user.getId()));
 		groupRoleAssignmentRepository.save(GroupRoleAssignment.createTenantWide(group.getId(), role.getId(), tenantId));
 
-		assertThat(groupRoleAssignmentRepository.findAllByGroupIds(Set.of(group.getId()))).hasSize(1);
+		// Verify initial cascade status via REST
+		String expectedInitialStatus = """
+				{
+				    "groupExists": true,
+				    "membershipsCount": 1,
+				    "assignmentsCount": 1
+				}
+				""";
 
-		// Delete group
-		groupRepository.delete(group.getId());
+		webTestClient.get()
+				.uri("/api/test/admin/groups/" + group.getId().value() + "/cascade-status")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.json(expectedInitialStatus, JsonCompareMode.LENIENT);
 
-		assertThat(groupRepository.findById(group.getId())).isEmpty();
-		assertThat(userGroupMembershipRepository.existsByGroupIdAndUserId(group.getId(), user.getId())).isFalse();
-		assertThat(groupRoleAssignmentRepository.findAllByGroupIds(Set.of(group.getId()))).isEmpty();
+		// Delete group via REST
+		webTestClient.delete()
+				.uri("/api/test/admin/groups/" + group.getId().value())
+				.exchange()
+				.expectStatus().isNoContent();
+
+		// Verify cascade deletions via REST
+		String expectedDeletedStatus = """
+				{
+				    "groupExists": false,
+				    "membershipsCount": 0,
+				    "assignmentsCount": 0
+				}
+				""";
+
+		webTestClient.get()
+				.uri("/api/test/admin/groups/" + group.getId().value() + "/cascade-status")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.json(expectedDeletedStatus, JsonCompareMode.LENIENT);
 	}
 }
