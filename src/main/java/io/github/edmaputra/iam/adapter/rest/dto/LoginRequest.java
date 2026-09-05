@@ -28,6 +28,17 @@ public record LoginRequest(String email, String password, UUID tenantId) {
 	 * @return new {@link LoginCommand}
 	 */
 	public LoginCommand toCommand() {
-		return new LoginCommand(email, password, tenantId == null ? null : new TenantId(tenantId));
+		return toCommand(null);
+	}
+
+	/**
+	 * Maps this REST request to the inbound {@link LoginCommand}, preferring the HTTP header tenant ID if present.
+	 *
+	 * @param headerTenantId optional tenant ID from request header
+	 * @return new {@link LoginCommand}
+	 */
+	public LoginCommand toCommand(UUID headerTenantId) {
+		UUID effectiveTenantId = headerTenantId != null ? headerTenantId : tenantId;
+		return new LoginCommand(email, password, effectiveTenantId == null ? null : new TenantId(effectiveTenantId));
 	}
 }

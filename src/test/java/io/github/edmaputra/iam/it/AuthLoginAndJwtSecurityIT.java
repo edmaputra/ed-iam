@@ -46,27 +46,28 @@ class AuthLoginAndJwtSecurityIT extends AbstractIntegrationTest {
 		UserRoleAssignment assignment = UserRoleAssignment.createTenantWide(user.getId(), role.getId(), tenantId);
 		userRoleAssignmentRepository.save(assignment);
 
-		// 2. Perform login request
+		// 2. Perform login request with X-Tenant-ID header
 		String loginJson = """
 				{
 				    "email": "%s",
-				    "password": "%s",
-				    "tenantId": "%s"
+				    "password": "%s"
 				}
-				""".formatted(email, rawPassword, tenantUuid);
+				""".formatted(email, rawPassword);
 
 		String expectedLoginJson = """
 				{
 				    "tokenType": "Bearer",
 				    "user": {
 				        "email": "%s",
-				        "fullName": "Dr. Gregory House"
+				        "fullName": "Dr. Gregory House",
+				        "tenantId": "%s"
 				    }
 				}
-				""".formatted(email);
+				""".formatted(email, tenantUuid);
 
 		byte[] loginBytes = webTestClient.post()
 				.uri("/api/v1/auth/login")
+				.header("X-Tenant-ID", tenantUuid.toString())
 				.contentType(MediaType.APPLICATION_JSON)
 				.bodyValue(loginJson)
 				.exchange()
@@ -190,5 +191,79 @@ class AuthLoginAndJwtSecurityIT extends AbstractIntegrationTest {
 				.header("Authorization", "Bearer invalid.jwt.token")
 				.exchange()
 				.expectStatus().isUnauthorized();
+	}
+
+	@Test
+	@DisplayName("Should successfully authenticate when tenantId is provided in request body")
+	void shouldLoginWithTenantIdInRequestBody() {
+		UUID tenantUuid = UUID.randomUUID();
+		TenantId tenantId = new TenantId(tenantUuid);
+		String email = "body-tenant-" + UUID.randomUUID() + "@hospital.org";
+		String rawPassword = "HospitalPassword123!";
+
+		User user = User.create(email, passwordEncoder.encode(rawPassword), "Dr. James Wilson", false);
+		userRepository.save(user);
+
+		Role role = Role.createCustom(tenantId, "ONCOLOGIST", "Oncologist", "Cancer staff", Set.of("PATIENT_READ"));
+		roleRepository.save(role);
+
+		userRoleAssignmentRepository.save(UserRoleAssignment.createTenantWide(user.getId(), role.getId(), tenantId));
+
+		String loginJson = """
+				{
+				    "email": "%s",
+				    "password": "%s",
+				    "tenantId": "%s"
+				}
+				""".formatted(email, rawPassword, tenantUuid);
+
+		String expectedLoginJson = """
+				{
+				    "tokenType": "Bearer",
+				    "user": {
+				        "email": "%s",
+				        "fullName": "Dr. James Wilson",
+				        "tenantId": "%s"
+				    }
+				}
+				""".formatted(email, tenantUuid);
+
+		webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(loginJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.json(expectedLoginJson, JsonCompareMode.LENIENT);
+	}
+
+	@Test
+	@DisplayName("Should reject invalid UUID in X-Tenant-ID header with 400 Bad Request")
+	void shouldRejectInvalidXTenantIdHeader() {
+		String loginJson = """
+				{
+				    "email": "any@hospital.org",
+				    "password": "anyPassword"
+				}
+				""";
+
+		String expectedErrorJson = """
+				{
+				    "status": 400,
+				    "detail": "Invalid UUID string for X-Tenant-ID header: not-a-valid-uuid"
+				}
+				""";
+
+		webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.header("X-Tenant-ID", "not-a-valid-uuid")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(loginJson)
+				.exchange()
+				.expectStatus().isBadRequest()
+				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+				.expectBody()
+				.json(expectedErrorJson, JsonCompareMode.LENIENT);
 	}
 }

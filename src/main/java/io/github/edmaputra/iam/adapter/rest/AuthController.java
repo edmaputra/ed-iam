@@ -1,11 +1,13 @@
 package io.github.edmaputra.iam.adapter.rest;
 
 import java.util.Objects;
+import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -45,14 +47,31 @@ public class AuthController {
 
 	/**
 	 * Authenticates user credentials and returns JWT access and refresh tokens.
+	 * Tenant context can be supplied via the {@code X-Tenant-ID} header or the request body.
 	 *
-	 * @param request the login request payload
+	 * @param headerTenantId optional tenant ID supplied via {@code X-Tenant-ID} header
+	 * @param request        the login request payload
 	 * @return HTTP 200 with {@link TokenResponse}
 	 */
 	@PostMapping("/login")
-	public ResponseEntity<TokenResponse> login(@RequestBody LoginRequest request) {
-		TokenResponse response = authenticateUserUseCase.login(request.toCommand());
+	public ResponseEntity<TokenResponse> login(
+			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
+			@RequestBody LoginRequest request) {
+		UUID tenantUuid = parseTenantHeader(headerTenantId);
+		TokenResponse response = authenticateUserUseCase.login(request.toCommand(tenantUuid));
 		return ResponseEntity.ok(response);
+	}
+
+	private UUID parseTenantHeader(String headerTenantId) {
+		if (headerTenantId == null || headerTenantId.isBlank()) {
+			return null;
+		}
+		try {
+			return UUID.fromString(headerTenantId.trim());
+		}
+		catch (IllegalArgumentException ex) {
+			throw new IllegalArgumentException("Invalid UUID string for X-Tenant-ID header: " + headerTenantId);
+		}
 	}
 
 	/**

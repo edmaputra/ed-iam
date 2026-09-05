@@ -44,17 +44,17 @@ class MultiTenancyAndContextBridgeIT extends AbstractIntegrationTest {
 		UserRoleAssignment assignment = UserRoleAssignment.createTenantWide(user.getId(), role.getId(), tenantId);
 		userRoleAssignmentRepository.save(assignment);
 
-		// Login to obtain JWT token with tenant claims
+		// Login to obtain JWT token with tenant claims via X-Tenant-ID header
 		String loginJson = """
 				{
 				    "email": "%s",
-				    "password": "%s",
-				    "tenantId": "%s"
+				    "password": "%s"
 				}
-				""".formatted(email, rawPassword, tenantUuid);
+				""".formatted(email, rawPassword);
 
 		byte[] loginBytes = webTestClient.post()
 				.uri("/api/v1/auth/login")
+				.header("X-Tenant-ID", tenantUuid.toString())
 				.contentType(MediaType.APPLICATION_JSON)
 				.bodyValue(loginJson)
 				.exchange()
