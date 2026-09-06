@@ -8,6 +8,9 @@
 
 ### 1.1 Multi-Tenant Core Architecture
 - **Isolated Tenancy Model**: Pure domain representation via `TenantId` (RFC 9562 UUIDv7) and `TenantOwned` interfaces without coupling to host application databases.
+- **Zero-Config Login & Tenant Auto-Resolution**: Users log in with standard `email` and `password` without entering a tenant UUID; single-tenant users are automatically resolved and bound to their tenant context by `EffectiveAccessResolver`.
+- **Multi-Tenant Switching (`/api/v1/auth/switch-tenant`)**: Multi-tenant users receive their complete list of `availableTenantIds` in their profile, enabling post-login tenant context switching via `POST /api/v1/auth/switch-tenant`.
+- **Flexible Header & Body Support**: Optional `X-Tenant-ID` HTTP header support across login and tenant-switching endpoints with automatic UUID validation and request body fallback.
 - **Pluggable Host Bridge (`TenantContextBridge`)**: A functional SPI hook enabling consuming applications to propagate their own request-scoped tenancy contexts (`ScopedValue`, `ThreadLocal`) automatically during filter execution.
 - **Database Schema Namespacing**: All database tables are isolated with the `iam_*` prefix (`iam_user`, `iam_role`, `iam_group`, `iam_scope_node`, etc.) with zero foreign-key hardcoded dependencies on host tables.
 
@@ -15,6 +18,7 @@
 - **Authentication Provider Router**: Pluggable `AuthenticationProvider` SPI allowing arbitrary authentication strategies to be resolved dynamically based on request credentials.
 - **Local Password Provider**: Database-backed authentication with BCrypt password hashing.
 - **OIDC / Federated Identity Provider**: External OpenID Connect identity linking with automatic local user provisioning and federated identity mapping (`iam_user_identity`).
+- **Machine-to-Machine (M2M) API Key Provider**: Dedicated SPI provider (`ApiKeyAuthProvider`) auto-configured conditionally when an `ApiKeyValidatorPort` bean is present.
 - **Extensible SPI**: Clean port definitions for easily adding new authentication providers (LDAP, SAML, Magic Link, API Keys).
 
 ### 1.3 Role-Based Access Control & Hierarchical Scoping
@@ -32,6 +36,19 @@
 
 ### 1.5 Database Migrations
 - **Isolated Liquibase Integration**: Self-contained changelog runner (`db.changelog-iam.json`) that safely executes IAM table setup without conflicting with host application migrations.
+
+### 1.6 Modular Architecture
+- **`ed-iam-core`**: Pure domain models (`User`, `Role`, `Group`, `ScopeNode`), domain events, ports, and invariants with zero Spring or database dependencies.
+- **`ed-iam-resource-server`**: Lightweight downstream library containing JWT parsing, `JwtAuthenticationFilter`, and `ScopedValue` context binding without JPA/Liquibase overhead.
+- **`ed-iam-management`**: Complete administrative management library containing persistence adapters, domain services, security provider configurations, Liquibase auto-configuration, and REST endpoints.
+- **`ed-iam-starter`**: Convenience aggregator starter bundling core, resource-server, and management modules.
+
+### 1.7 Dedicated Administrative Management Endpoints
+- **User Management (`/api/v1/users`)**: Provisioning, status updates (`ACTIVE`, `SUSPENDED`, `DEACTIVATED`), direct role assignments, and group memberships.
+- **Role Management (`/api/v1/roles`)**: CRUD for custom tenant roles and permission definitions with system role deletion safeguards.
+- **Group Management (`/api/v1/groups`)**: CRUD for user groups, external IdP group mapping synchronization, and group-level role assignments.
+- **Scope Management (`/api/v1/scopes`)**: Hierarchical tree management, child node creation, and subtree reparenting/moves.
+- **Endpoint Toggle (`iam.management.endpoints.enabled`)**: Configurable property (defaults to `true`) allowing host applications to disable REST controllers while preserving domain use-case beans.
 
 ---
 
