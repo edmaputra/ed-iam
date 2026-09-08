@@ -1,21 +1,27 @@
 name: Release to Maven Central
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release version (leave blank to auto-strip -SNAPSHOT, e.g. 0.0.1)'
+        required: false
+        default: ''
+      next_version:
+        description: 'Next version (leave blank to auto-increment minor, e.g. 0.1.0-SNAPSHOT)'
+        required: false
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Publish to Maven Central (Sonatype Central Portal)
+  release:
+    name: Release & Publish to Maven Central
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
 
     env:
       CENTRAL_PORTAL_TOKEN_USERNAME: ${{ secrets.CENTRAL_PORTAL_TOKEN_USERNAME }}
@@ -25,6 +31,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Java 25 (Temurin)
         uses: actions/setup-java@v4
@@ -45,7 +53,52 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
+      - name: Determine Versions
+        id: versions
+        run: |
+          CURRENT_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "Current project version: $CURRENT_VERSION"
+          
+          # 1. Determine release version (strip -SNAPSHOT or use manual input)
+          if [ -n "${{ github.event.inputs.release_version }}" ]; then
+            RELEASE_VERSION="${{ github.event.inputs.release_version }}"
+          else
+            RELEASE_VERSION="${CURRENT_VERSION%-SNAPSHOT}"
+          fi
+          
+          # 2. Determine next snapshot version (increment minor or use manual input)
+          if [ -n "${{ github.event.inputs.next_version }}" ]; then
+            NEXT_VERSION="${{ github.event.inputs.next_version }}"
+          else
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$RELEASE_VERSION"
+            NEXT_VERSION="${MAJOR}.$((MINOR + 1)).0-SNAPSHOT"
+          fi
+          
+          echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+          echo "NEXT_VERSION=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "Release version: $RELEASE_VERSION"
+          echo "Next version:    $NEXT_VERSION"
+
+      - name: Set Release Version
+        run: |
+          ./mvnw versions:set -DnewVersion=${{ steps.versions.outputs.RELEASE_VERSION }} -DprocessAllModules -DgenerateBackupPoms=false
+
       - name: Deploy and Publish to Maven Central
         run: |
           ./mvnw clean deploy -P release -B \
             -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}"
+
+      - name: Tag Release and Bump to Next Snapshot Version
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Tag the release commit
+          git tag -a "v${{ steps.versions.outputs.RELEASE_VERSION }}" -m "Release v${{ steps.versions.outputs.RELEASE_VERSION }}"
+          git push origin "v${{ steps.versions.outputs.RELEASE_VERSION }}"
+          
+          # Bump to next snapshot version
+          ./mvnw versions:set -DnewVersion=${{ steps.versions.outputs.NEXT_VERSION }} -DprocessAllModules -DgenerateBackupPoms=false
+          git commit -am "chore(release): prepare for next development iteration ${{ steps.versions.outputs.NEXT_VERSION }}"
+          git push origin HEAD:${{ github.ref_name }}
