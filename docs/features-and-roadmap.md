@@ -4,7 +4,7 @@
 
 ---
 
-## 1. Current Features (v1.0.0-SNAPSHOT)
+## 1. Current Features (v0.0.1-SNAPSHOT)
 
 ### 1.1 Multi-Tenant Core Architecture
 - **Isolated Tenancy Model**: Pure domain representation via `TenantId` (RFC 9562 UUIDv7) and `TenantOwned` interfaces without coupling to host application databases.
@@ -98,6 +98,6 @@
 - [ ] **OpenTelemetry Metrics & Tracing**: Pre-instrumented authentication timing, token validation latencies, and security failure counters.
 
 ### Phase 6: Release Engineering & Open Source Distribution
-- [ ] **GitHub Actions CI/CD**: Automated matrix testing across Java 25 versions.
+- [x] **GitHub Actions CI/CD**: Automated testing across Java 25 versions.
 - [ ] **Maven Central Publication**: Automated signing (GPG) and publishing via Central Portal / Sonatype OSSRH.
-- [ ] **Interactive Playground Sample App**: Example multi-tenant Spring Boot reference application demonstrating common usage patterns.
+- [x] **Interactive Playground Sample App**: Example multi-tenant Spring Boot reference application demonstrating common usage patterns.
