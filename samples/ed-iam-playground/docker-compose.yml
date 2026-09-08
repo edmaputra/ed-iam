@@ -1,0 +1,45 @@
+services:
+  playground:
+    image: ghcr.io/edmaputra/ed-iam-playground:latest
+    build:
+      context: ../..
+      dockerfile: samples/ed-iam-playground/Dockerfile
+    container_name: ed-iam-playground
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - PORT=8080
+      - SPRING_PROFILES_ACTIVE=default
+      - JAVA_OPTS=-XX:MaxRAMPercentage=75.0 -XX:+UseZGC
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    restart: unless-stopped
+
+  # Optional PostgreSQL service for testing against a real database
+  # Enable with: docker compose --profile postgres up
+  postgres:
+    image: postgres:17-alpine
+    container_name: ed-iam-playground-db
+    profiles:
+      - postgres
+    environment:
+      POSTGRES_DB: playground
+      POSTGRES_USER: iam_user
+      POSTGRES_PASSWORD: iam_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iam_user -d playground"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
