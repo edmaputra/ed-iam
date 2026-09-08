@@ -108,6 +108,18 @@ public class AppTenantContextBridge implements TenantContextBridge {
 
 ---
 
+## Interactive Playground & Reference Application
+
+Try `ed-iam` in action with our bundled interactive reference application and IAM management console:
+
+```bash
+docker run -d --name ed-iam-playground -p 8080:8080 ghcr.io/edmaputra/ed-iam-playground:latest
+```
+
+Open [http://localhost:8080](http://localhost:8080) to explore pre-seeded personas, multi-tenancy context switching, hierarchical scope trees, and user lifecycle management. For full instructions and Docker Compose setup, see [samples/ed-iam-playground](samples/ed-iam-playground/README.md).
+
+---
+
 ## Building & Running Tests
 
 Requirements:
