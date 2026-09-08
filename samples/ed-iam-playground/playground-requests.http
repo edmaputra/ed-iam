@@ -1,0 +1,343 @@
+### ed-iam Interactive Playground HTTP Requests
+### Covers all Management Endpoints (Users, Roles, Groups, Scopes, Auth) and Scenarios
+
+@baseUrl = http://localhost:8080
+@metroTenantId = 11111111-1111-1111-1111-111111111111
+@stJudeTenantId = 22222222-2222-2222-2222-222222222222
+@metroRootScopeId = aaaa1111-0000-0000-0000-000000000001
+@cardiologyScopeId = aaaa1111-0000-0000-0000-000000000002
+@icuScopeId = aaaa1111-0000-0000-0000-000000000003
+@pediatricsScopeId = aaaa1111-0000-0000-0000-000000000004
+
+# =============================================================================
+# 1. AUTHENTICATION & DEMO SCENARIOS
+# =============================================================================
+
+### 1.1 Zero-Config Login: Dr. Gregory House (Single-Tenant Auto-Resolution)
+# @name doctorLogin
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "doctor@metro.org",
+  "password": "P@ssw0rd123!"
+}
+
+> {%
+  client.global.set("doctorToken", response.body.accessToken);
+  client.global.set("doctorRefreshToken", response.body.refreshToken);
+%}
+
+### 1.2 Query Cardiology Patients (In-Scope -> 200 OK)
+GET {{baseUrl}}/api/v1/playground/patients?departmentId={{cardiologyScopeId}}
+Authorization: Bearer {{doctorToken}}
+
+### 1.3 Query ICU Ward Patients (Child Scope of Cardiology -> 200 OK)
+GET {{baseUrl}}/api/v1/playground/patients?departmentId={{icuScopeId}}
+Authorization: Bearer {{doctorToken}}
+
+### 1.4 Query Pediatrics Patients (Outside Scope -> 403 Forbidden)
+GET {{baseUrl}}/api/v1/playground/patients?departmentId={{pediatricsScopeId}}
+Authorization: Bearer {{doctorToken}}
+
+### 1.5 Multi-Tenant Login: Dr. Allison Cameron (Returns availableTenantIds)
+# @name consultantLogin
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "consultant@healthgroup.org",
+  "password": "P@ssw0rd123!"
+}
+
+> {%
+  client.global.set("consultantToken", response.body.accessToken);
+%}
+
+### 1.6 Switch Tenant: Switch Dr. Cameron to St. Jude Medical Center
+# @name switchTenant
+POST {{baseUrl}}/api/v1/auth/switch-tenant
+Authorization: Bearer {{consultantToken}}
+Content-Type: application/json
+
+{
+  "tenantId": "{{stJudeTenantId}}"
+}
+
+> {%
+  client.global.set("stJudeToken", response.body.accessToken);
+%}
+
+### 1.7 Verify Switched Context (Auditor Role in St. Jude)
+GET {{baseUrl}}/api/v1/playground/actor-context
+Authorization: Bearer {{stJudeToken}}
+
+### 1.8 Group Role Inheritance Login: Nurse Jackie Peyton (Inherits via SURGICAL_TEAM)
+# @name nurseLogin
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "nurse@metro.org",
+  "password": "P@ssw0rd123!"
+}
+
+> {%
+  client.global.set("nurseToken", response.body.accessToken);
+%}
+
+### 1.9 Query Cardiology as Nurse Jackie (Inherited CLINICIAN -> 200 OK)
+GET {{baseUrl}}/api/v1/playground/patients?departmentId={{cardiologyScopeId}}
+Authorization: Bearer {{nurseToken}}
+
+### 1.10 Suspended Account Login: Dr. Robert Chase (Expected: 401 Unauthorized)
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "suspended@metro.org",
+  "password": "P@ssw0rd123!"
+}
+
+### 1.11 Administrator Login: Dr. Lisa Cuddy (Tenant Admin)
+# @name adminLogin
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@metro.org",
+  "password": "P@ssw0rd123!"
+}
+
+> {%
+  client.global.set("adminToken", response.body.accessToken);
+  client.global.set("adminRefreshToken", response.body.refreshToken);
+%}
+
+# =============================================================================
+# 2. USER MANAGEMENT ENDPOINTS (/api/v1/users)
+# =============================================================================
+
+### 2.1 Lookup User by Email
+# @name lookupUser
+GET {{baseUrl}}/api/v1/users?email=suspended@metro.org
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.global.set("targetUserId", response.body.id);
+%}
+
+### 2.2 Get User by ID
+GET {{baseUrl}}/api/v1/users/{{targetUserId}}
+Authorization: Bearer {{adminToken}}
+
+### 2.3 Create New User
+# @name createUser
+POST {{baseUrl}}/api/v1/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "email": "dr.wilson@metro.org",
+  "password": "P@ssw0rd123!",
+  "fullName": "Dr. James Wilson",
+  "platformSuperAdmin": false
+}
+
+> {%
+  client.global.set("newUserId", response.body.id);
+%}
+
+### 2.4 Update User Profile
+PUT {{baseUrl}}/api/v1/users/{{newUserId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "fullName": "Dr. James Evan Wilson (Head of Oncology)"
+}
+
+### 2.5 Change User Status: Activate Suspended User
+PUT {{baseUrl}}/api/v1/users/{{targetUserId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "ACTIVE"
+}
+
+### 2.6 Change User Status: Re-Suspend User
+PUT {{baseUrl}}/api/v1/users/{{targetUserId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "SUSPENDED"
+}
+
+### 2.7 Get User Role Assignments
+GET {{baseUrl}}/api/v1/users/{{targetUserId}}/roles
+Authorization: Bearer {{adminToken}}
+
+### 2.8 Get User Group Memberships
+GET {{baseUrl}}/api/v1/users/{{targetUserId}}/groups
+Authorization: Bearer {{adminToken}}
+
+# =============================================================================
+# 3. ROLE MANAGEMENT ENDPOINTS (/api/v1/roles)
+# =============================================================================
+
+### 3.1 List Tenant Roles
+# @name listRoles
+GET {{baseUrl}}/api/v1/roles
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+### 3.2 Create Custom Role
+# @name createRole
+POST {{baseUrl}}/api/v1/roles
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+Content-Type: application/json
+
+{
+  "tenantId": "{{metroTenantId}}",
+  "code": "PHARMACIST",
+  "name": "Clinical Pharmacist",
+  "description": "Formulary review and inpatient prescription fulfillment",
+  "permissions": [
+    "PATIENT_READ",
+    "PRESCRIPTION_DISPENSE"
+  ]
+}
+
+> {%
+  client.global.set("newRoleId", response.body.id);
+%}
+
+### 3.3 Get Role by ID
+GET {{baseUrl}}/api/v1/roles/{{newRoleId}}
+Authorization: Bearer {{adminToken}}
+
+### 3.4 Update Role
+PUT {{baseUrl}}/api/v1/roles/{{newRoleId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Lead Clinical Pharmacist",
+  "description": "Updated duties and clinical oversight",
+  "permissions": [
+    "PATIENT_READ",
+    "PRESCRIPTION_DISPENSE",
+    "FORMULARY_ADMIN"
+  ]
+}
+
+### 3.5 Delete Custom Role
+DELETE {{baseUrl}}/api/v1/roles/{{newRoleId}}
+Authorization: Bearer {{adminToken}}
+
+# =============================================================================
+# 4. GROUP MANAGEMENT ENDPOINTS (/api/v1/groups)
+# =============================================================================
+
+### 4.1 List Tenant Groups
+# @name listGroups
+GET {{baseUrl}}/api/v1/groups
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+### 4.2 Create Group
+# @name createGroup
+POST {{baseUrl}}/api/v1/groups
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+Content-Type: application/json
+
+{
+  "tenantId": "{{metroTenantId}}",
+  "code": "ICU_RAPID_RESPONSE",
+  "name": "ICU Rapid Response Team",
+  "description": "Critical care mobile resuscitation unit",
+  "externalIdpGroupName": "idp-icu-rapid"
+}
+
+> {%
+  client.global.set("newGroupId", response.body.id);
+%}
+
+### 4.3 Get Group Members
+GET {{baseUrl}}/api/v1/groups/{{newGroupId}}/members
+Authorization: Bearer {{adminToken}}
+
+### 4.4 Get Group Role Assignments
+GET {{baseUrl}}/api/v1/groups/{{newGroupId}}/roles
+Authorization: Bearer {{adminToken}}
+
+### 4.5 Delete Group
+DELETE {{baseUrl}}/api/v1/groups/{{newGroupId}}
+Authorization: Bearer {{adminToken}}
+
+# =============================================================================
+# 5. SCOPE HIERARCHY ENDPOINTS (/api/v1/scopes)
+# =============================================================================
+
+### 5.1 Get Dynamic Scope Tree
+GET {{baseUrl}}/api/v1/scopes/tree
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+### 5.2 Get Flat Scope List
+GET {{baseUrl}}/api/v1/scopes
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+### 5.3 Create Child Scope Node
+# @name createScope
+POST {{baseUrl}}/api/v1/scopes
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+Content-Type: application/json
+
+{
+  "tenantId": "{{metroTenantId}}",
+  "parentId": "{{cardiologyScopeId}}",
+  "code": "ELECTROPHYSIOLOGY",
+  "name": "Electrophysiology Lab"
+}
+
+> {%
+  client.global.set("newScopeId", response.body.id);
+%}
+
+### 5.4 Reparent / Move Scope Node
+POST {{baseUrl}}/api/v1/scopes/{{newScopeId}}/move
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+Content-Type: application/json
+
+{
+  "newParentId": "{{metroRootScopeId}}"
+}
+
+### 5.5 Delete Scope Node
+DELETE {{baseUrl}}/api/v1/scopes/{{newScopeId}}
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+# =============================================================================
+# 6. AUTH PROFILE & TOKEN ROTATION ENDPOINTS (/api/v1/auth)
+# =============================================================================
+
+### 6.1 Inspect Token Profile Claims (GET /api/v1/auth/me)
+GET {{baseUrl}}/api/v1/auth/me
+Authorization: Bearer {{adminToken}}
+
+### 6.2 Rotate Refresh Token (POST /api/v1/auth/refresh)
+POST {{baseUrl}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{adminRefreshToken}}"
+}

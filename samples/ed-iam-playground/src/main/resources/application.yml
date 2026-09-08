@@ -1,0 +1,46 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ed-iam-playground
+
+  # Out-of-the-box in-memory PostgreSQL-compatible H2 database
+  datasource:
+    url: jdbc:h2:mem:playground;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: false
+
+  # Developer tools
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+
+# ed-iam Starter Configuration
+iam:
+  jwt:
+    secret: "demo-secret-key-that-is-at-least-256-bits-long-for-hmac-sha-256-playground!"
+    access-token-expiration-seconds: 3600
+    refresh-token-expiration-seconds: 604800
+  management:
+    endpoints:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    io.github.edmaputra.iam: DEBUG

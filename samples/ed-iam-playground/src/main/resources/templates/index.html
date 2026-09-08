@@ -1,0 +1,1780 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ed-iam Interactive Playground</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+  <!-- Navigation Bar -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <span class="font-bold text-lg text-white">ed-iam</span>
+          <span class="ml-2 text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">Playground v0.0.1</span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-4 text-sm">
+        <a href="/h2-console" target="_blank" class="text-slate-400 hover:text-indigo-400 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-database text-xs"></i> H2 Console
+        </a>
+        <a href="https://github.com/edmaputra/ed-iam" target="_blank" class="text-slate-400 hover:text-indigo-400 transition flex items-center gap-1.5">
+          <i class="fa-brands fa-github text-xs"></i> GitHub
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Active Session Bar -->
+    <section class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center space-x-4">
+          <div id="sessionAvatar" class="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-slate-400 text-lg border border-slate-600">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="sessionName" class="font-semibold text-white text-base">Not Authenticated</span>
+              <span id="sessionStatusBadge" class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">Guest</span>
+            </div>
+            <p id="sessionEmail" class="text-xs text-slate-400">Click a persona card below to log in</p>
+          </div>
+        </div>
+
+        <!-- Tenant Switcher & Quick Actions -->
+        <div class="flex flex-wrap items-center gap-3">
+          <div id="tenantSwitcherContainer" class="hidden items-center gap-2">
+            <label for="tenantSelect" class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Tenant:</label>
+            <select id="tenantSelect" onchange="switchTenant(this.value)" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-1.5 text-indigo-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+
+          <div id="activeTenantDisplay" class="hidden text-xs bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded-lg text-slate-300">
+            <span class="text-slate-500">Tenant:</span> <span id="activeTenantName" class="font-mono text-indigo-400 font-medium">Metro General Hospital</span>
+          </div>
+
+          <button id="logoutBtn" onclick="logout()" class="hidden text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition">
+            <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Logout
+          </button>
+        </div>
+      </div>
+
+      <!-- Roles & Permissions Badges -->
+      <div id="permissionsBar" class="hidden mt-4 pt-4 border-t border-slate-700/50 flex flex-wrap items-center gap-2 text-xs">
+        <span class="text-slate-400 font-semibold mr-1">Roles:</span>
+        <div id="rolesList" class="flex flex-wrap gap-1.5"></div>
+        <span class="text-slate-400 font-semibold ml-4 mr-1">Permissions:</span>
+        <div id="permissionsList" class="flex flex-wrap gap-1.5"></div>
+      </div>
+    </section>
+
+    <!-- Grid of 1-Click Personas -->
+    <section>
+      <div class="mb-4">
+        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+          <i class="fa-solid fa-users text-indigo-400"></i> 1-Click Demo Personas
+        </h2>
+        <p class="text-xs text-slate-400">Select an identity to test tenant auto-resolution, scoped RBAC, or cross-tenant switching.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <!-- Persona 1: Clinician (Cardiology Scope) -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 hover:border-indigo-500/60 transition flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">Single-Tenant</span>
+              <span class="text-xs text-slate-400 font-mono">Scoped RBAC</span>
+            </div>
+            <h3 class="font-bold text-white text-base">Dr. Gregory House</h3>
+            <p class="text-xs text-slate-400 font-mono mt-0.5">doctor@metro.org</p>
+            <div class="mt-4 space-y-1.5 text-xs text-slate-300">
+              <p><span class="text-slate-400">Tenant:</span> Metro General</p>
+              <p><span class="text-slate-400">Role:</span> <code class="text-indigo-300">CLINICIAN</code></p>
+              <p><span class="text-slate-400">Scope:</span> <span class="text-emerald-400 font-medium">Cardiology Subtree</span></p>
+              <p class="text-slate-400 text-[11px] mt-2 italic">Tests zero-config auto-resolution and scope restriction (denied in Pediatrics!).</p>
+            </div>
+          </div>
+          <button onclick="loginAs('doctor@metro.org')" class="mt-5 w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-stethoscope"></i> Login as Dr. House
+          </button>
+        </div>
+
+        <!-- Persona 2: Multi-Tenant Consultant -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 hover:border-cyan-500/60 transition flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-medium">Multi-Tenant</span>
+              <span class="text-xs text-slate-400 font-mono">Cross-Tenant</span>
+            </div>
+            <h3 class="font-bold text-white text-base">Dr. Allison Cameron</h3>
+            <p class="text-xs text-slate-400 font-mono mt-0.5">consultant@healthgroup.org</p>
+            <div class="mt-4 space-y-1.5 text-xs text-slate-300">
+              <p><span class="text-slate-400">Tenants:</span> Metro &amp; St. Jude</p>
+              <p><span class="text-slate-400">Metro:</span> <code class="text-indigo-300">CONSULTANT</code></p>
+              <p><span class="text-slate-400">St. Jude:</span> <code class="text-cyan-300">AUDITOR</code></p>
+              <p class="text-slate-400 text-[11px] mt-2 italic">Tests multi-tenant switching via /api/v1/auth/switch-tenant.</p>
+            </div>
+          </div>
+          <button onclick="loginAs('consultant@healthgroup.org')" class="mt-5 w-full py-2 px-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs shadow-lg shadow-cyan-600/30 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-arrows-split-up-and-left"></i> Login as Cameron
+          </button>
+        </div>
+
+        <!-- Persona 3: Hospital Administrator -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 hover:border-purple-500/60 transition flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium">Tenant Admin</span>
+              <span class="text-xs text-slate-400 font-mono">Tenant-Wide</span>
+            </div>
+            <h3 class="font-bold text-white text-base">Dr. Lisa Cuddy</h3>
+            <p class="text-xs text-slate-400 font-mono mt-0.5">admin@metro.org</p>
+            <div class="mt-4 space-y-1.5 text-xs text-slate-300">
+              <p><span class="text-slate-400">Tenant:</span> Metro General</p>
+              <p><span class="text-slate-400">Role:</span> <code class="text-purple-300">HOSPITAL_ADMIN</code></p>
+              <p><span class="text-slate-400">Scope:</span> <span class="text-purple-400 font-medium">All Departments (*)</span></p>
+              <p class="text-slate-400 text-[11px] mt-2 italic">Tests full administrative access across all management APIs.</p>
+            </div>
+          </div>
+          <button onclick="loginAs('admin@metro.org')" class="mt-5 w-full py-2 px-3 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs shadow-lg shadow-purple-600/30 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-user-shield"></i> Login as Dr. Cuddy
+          </button>
+        </div>
+
+        <!-- Persona 4: Nurse Jackie (Group Role Inheritor) -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 hover:border-teal-500/60 transition flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs px-2.5 py-1 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30 font-medium">Group RBAC</span>
+              <span class="text-xs text-slate-400 font-mono">Inherited</span>
+            </div>
+            <h3 class="font-bold text-white text-base">Nurse Jackie</h3>
+            <p class="text-xs text-slate-400 font-mono mt-0.5">nurse@metro.org</p>
+            <div class="mt-4 space-y-1.5 text-xs text-slate-300">
+              <p><span class="text-slate-400">Tenant:</span> Metro General</p>
+              <p><span class="text-slate-400">Direct Role:</span> <span class="text-slate-500 italic">None</span></p>
+              <p><span class="text-slate-400">Group:</span> <code class="text-teal-300">SURGICAL_TEAM</code></p>
+              <p><span class="text-slate-400">Inherited:</span> <code class="text-emerald-300">CLINICIAN</code></p>
+              <p class="text-slate-400 text-[11px] mt-2 italic">Tests Group Role Inheritance! Access is resolved via group membership.</p>
+            </div>
+          </div>
+          <button onclick="loginAs('nurse@metro.org')" class="mt-5 w-full py-2 px-3 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-medium text-xs shadow-lg shadow-teal-600/30 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-user-nurse"></i> Login as Jackie
+          </button>
+        </div>
+
+        <!-- Persona 5: Dr. Robert Chase (Suspended Staff) -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 hover:border-red-500/60 transition flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs px-2.5 py-1 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 font-medium">Lifecycle</span>
+              <span class="text-xs text-red-400 font-mono">Suspended</span>
+            </div>
+            <h3 class="font-bold text-white text-base">Dr. Robert Chase</h3>
+            <p class="text-xs text-slate-400 font-mono mt-0.5">suspended@metro.org</p>
+            <div class="mt-4 space-y-1.5 text-xs text-slate-300">
+              <p><span class="text-slate-400">Tenant:</span> Metro General</p>
+              <p><span class="text-slate-400">Status:</span> <span class="text-red-400 font-bold">SUSPENDED</span></p>
+              <p><span class="text-slate-400">Role:</span> <code class="text-slate-400">CLINICIAN</code></p>
+              <p class="text-slate-400 text-[11px] mt-2 italic">Tests account suspension! Login rejects with HTTP 401 'User account is suspended'.</p>
+            </div>
+          </div>
+          <button onclick="loginAs('suspended@metro.org')" class="mt-5 w-full py-2 px-3 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium text-xs shadow-lg shadow-red-600/30 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-user-lock"></i> Test Suspended
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dedicated Multi-Tenant Context Switcher Card -->
+    <section class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h2 class="text-base font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-arrows-split-up-and-left text-cyan-400"></i> Multi-Tenant Context Switcher
+            <span class="text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-mono">POST /api/v1/auth/switch-tenant</span>
+          </h2>
+          <p class="text-xs text-slate-400">Dynamically switch between multiple organizations without re-entering credentials.</p>
+        </div>
+        <div id="tenantSwitchPrompt" class="text-xs font-mono text-cyan-400 font-semibold"></div>
+      </div>
+
+      <!-- State 1: Shown when not logged in or single-tenant -->
+      <div id="singleTenantNotice" class="p-4 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <i class="fa-solid fa-circle-info text-cyan-400 text-xl"></i>
+          <div>
+            <span class="text-slate-200 font-medium block">How to test tenant switching:</span>
+            <span>Log in as <strong>Dr. Allison Cameron</strong> (<code class="text-cyan-300">consultant@healthgroup.org</code>). She belongs to both <strong>Metro General Hospital</strong> and <strong>St. Jude Medical Center</strong>.</span>
+          </div>
+        </div>
+        <button onclick="loginAs('consultant@healthgroup.org')" class="shrink-0 py-2 px-4 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs shadow-md shadow-cyan-600/30 transition">
+          <i class="fa-solid fa-arrows-split-up-and-left mr-1"></i> Login as Dr. Cameron
+        </button>
+      </div>
+
+      <!-- State 2: Interactive Cards shown when multi-tenant user is active -->
+      <div id="multiTenantPanel" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Metro Hospital Card -->
+        <div id="tenantCardMetro" class="p-4 rounded-xl border transition cursor-pointer flex flex-col justify-between" onclick="switchTenant(METRO_TENANT_ID)">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                <i class="fa-solid fa-hospital text-indigo-400"></i> Metro General Hospital
+              </span>
+              <span id="badgeMetro" class="text-[10px] px-2 py-0.5 rounded-full font-medium"></span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-mono">UUID: 11111111-1111-1111-1111-111111111111</p>
+            <div class="mt-3 text-xs space-y-1">
+              <p><span class="text-slate-400">Role in Tenant:</span> <code class="text-indigo-300 font-bold">CONSULTANT</code></p>
+              <p><span class="text-slate-400">Permissions:</span> <span class="text-slate-300">PATIENT_READ, CLINICAL_CONSULT</span></p>
+            </div>
+          </div>
+          <button id="btnSwitchMetro" class="mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-medium transition"></button>
+        </div>
+
+        <!-- St. Jude Card -->
+        <div id="tenantCardStJude" class="p-4 rounded-xl border transition cursor-pointer flex flex-col justify-between" onclick="switchTenant(ST_JUDE_TENANT_ID)">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                <i class="fa-solid fa-hospital-user text-cyan-400"></i> St. Jude Medical Center
+              </span>
+              <span id="badgeStJude" class="text-[10px] px-2 py-0.5 rounded-full font-medium"></span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-mono">UUID: 22222222-2222-2222-2222-222222222222</p>
+            <div class="mt-3 text-xs space-y-1">
+              <p><span class="text-slate-400">Role in Tenant:</span> <code class="text-cyan-300 font-bold">AUDITOR</code></p>
+              <p><span class="text-slate-400">Permissions:</span> <span class="text-slate-300">AUDIT_READ, COMPLIANCE_VIEW</span></p>
+            </div>
+          </div>
+          <button id="btnSwitchStJude" class="mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-medium transition"></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scope-Based Access Evaluator -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Department Authorization Tester -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl space-y-5">
+        <div>
+          <h2 class="text-base font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-sitemap text-indigo-400"></i> Scope-Based Access Evaluator
+          </h2>
+          <p class="text-xs text-slate-400">Query clinical records by department to test ScopeNode subtree authorization checks.</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button onclick="fetchPatientsByScope(CARDIOLOGY_SCOPE_ID, 'Cardiology Department')" class="p-3 bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-lg text-left transition group">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-white group-hover:text-emerald-300">Cardiology</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1 font-mono">Scope: Cardio</p>
+            <span class="inline-block mt-2 text-[10px] text-emerald-400 font-medium">Expected: 200 OK</span>
+          </button>
+
+          <button onclick="fetchPatientsByScope(ICU_SCOPE_ID, 'Cardiology ICU Ward')" class="p-3 bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-lg text-left transition group">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-white group-hover:text-emerald-300">ICU Ward</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1 font-mono">Cardio Subchild</p>
+            <span class="inline-block mt-2 text-[10px] text-emerald-400 font-medium">Expected: 200 OK (Inherited)</span>
+          </button>
+
+          <button onclick="fetchPatientsByScope(PEDIATRICS_SCOPE_ID, 'Pediatrics Department')" class="p-3 bg-slate-900 border border-slate-700 hover:border-red-500 rounded-lg text-left transition group">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-white group-hover:text-red-300">Pediatrics</span>
+              <span class="w-2 h-2 rounded-full bg-red-400"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1 font-mono">Outside Scope</p>
+            <span class="inline-block mt-2 text-[10px] text-red-400 font-medium">Expected: 403 Forbidden</span>
+          </button>
+
+          <button onclick="fetchCurrentTenantPatients()" class="p-3 bg-slate-900 border border-slate-700 hover:border-indigo-500 rounded-lg text-left transition group">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-white group-hover:text-indigo-300">Active Tenant Records</span>
+              <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1 font-mono">GET /api/v1/playground/patients</p>
+            <span class="inline-block mt-2 text-[10px] text-indigo-400 font-medium">Tests Tenant Isolation</span>
+          </button>
+        </div>
+
+        <!-- Query Result Card -->
+        <div id="scopeResultCard" class="bg-slate-950 border border-slate-800 rounded-lg p-4 min-h-[140px] flex flex-col justify-center">
+          <p class="text-xs text-slate-500 text-center italic">Click one of the department buttons above to execute a scope-protected query</p>
+        </div>
+      </div>
+
+      <!-- Scope Hierarchy Tree Visualizer -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl space-y-4">
+        <div>
+          <h2 class="text-base font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-network-wired text-indigo-400"></i> Scope Hierarchy Tree
+          </h2>
+          <p class="text-xs text-slate-400">Materialized path tree structure in Metro General Hospital</p>
+        </div>
+
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 text-xs font-mono space-y-2 text-slate-300">
+          <div class="flex items-center gap-2 text-indigo-400 font-semibold">
+            <i class="fa-solid fa-hospital"></i> Metro General Hospital (Root Node)
+          </div>
+          <div class="pl-6 border-l border-slate-800 space-y-2">
+            <div>
+              <div class="flex items-center gap-2 text-emerald-400">
+                <i class="fa-solid fa-folder-tree"></i> Cardiology Department <span class="text-[10px] text-slate-500">(/11111111.../aaaa1111...0002/)</span>
+              </div>
+              <div class="pl-6 border-l border-slate-800 mt-2">
+                <div class="flex items-center gap-2 text-emerald-300">
+                  <i class="fa-solid fa-bed-pulse"></i> ICU Ward <span class="text-[10px] text-slate-500">(Inherits Cardiology access)</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-850">
+              <div class="flex items-center gap-2 text-amber-400">
+                <i class="fa-solid fa-folder-tree"></i> Pediatrics Department <span class="text-[10px] text-slate-500">(/11111111.../aaaa1111...0004/)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800 p-3 rounded-lg flex items-start gap-2">
+          <i class="fa-solid fa-circle-info text-indigo-400 mt-0.5"></i>
+          <span>When Dr. House is assigned to <strong>Cardiology</strong> with <code>inheritChildren=true</code>, ed-iam's <code>EffectiveAccessResolver</code> computes access to both Cardiology and ICU. Access to Pediatrics is rejected with HTTP 403.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- Interactive IAM Entity Management Console                                -->
+    <!-- ========================================================================= -->
+    <section class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-6 shadow-xl space-y-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-700">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2.5">
+            <i class="fa-solid fa-sliders text-indigo-400"></i> IAM Entity Management Console
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">iam.management.endpoints.enabled=true</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">Directly interact with and manage Users, Roles, Groups, Hierarchical Scopes, and Auth credentials.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400 font-medium">Active Context:</span>
+          <span id="mgmtContextTenant" class="text-xs font-mono bg-slate-900 border border-slate-700 text-indigo-300 px-3 py-1 rounded-lg">Metro General Hospital</span>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div class="flex flex-wrap gap-2 border-b border-slate-700/70 pb-3 text-xs font-medium">
+        <button id="tabBtnUsers" onclick="switchMgmtTab('users')" class="px-3.5 py-2 rounded-lg bg-indigo-600 text-white flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-users"></i> Users &amp; Lifecycle
+        </button>
+        <button id="tabBtnRoles" onclick="switchMgmtTab('roles')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-id-badge"></i> Roles &amp; Permissions
+        </button>
+        <button id="tabBtnGroups" onclick="switchMgmtTab('groups')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-people-group"></i> Groups &amp; Teams
+        </button>
+        <button id="tabBtnScopes" onclick="switchMgmtTab('scopes')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-sitemap"></i> Scopes &amp; Hierarchy
+        </button>
+        <button id="tabBtnAuth" onclick="switchMgmtTab('auth')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-key"></i> Auth &amp; Tokens
+        </button>
+      </div>
+
+      <!-- TAB 1: USERS & LIFECYCLE -->
+      <div id="panelUsers" class="space-y-5">
+        <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl space-y-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs text-slate-400 font-semibold mr-1">Quick Select:</span>
+            <button onclick="lookupUser('doctor@metro.org')" class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white transition">Dr. House</button>
+            <button onclick="lookupUser('nurse@metro.org')" class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-teal-600 text-slate-300 hover:text-white transition">Nurse Jackie</button>
+            <button onclick="lookupUser('suspended@metro.org')" class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white transition">Dr. Chase (Suspended)</button>
+            <button onclick="lookupUser('admin@metro.org')" class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white transition">Dr. Cuddy (Admin)</button>
+            <button onclick="lookupUser('consultant@healthgroup.org')" class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white transition">Dr. Cameron</button>
+          </div>
+          <div class="flex flex-col sm:flex-row items-center gap-2">
+            <input id="userLookupEmail" type="email" placeholder="Enter user email (e.g. nurse@metro.org)..." class="flex-1 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <button onclick="lookupUser(document.getElementById('userLookupEmail').value)" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow transition flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-magnifying-glass"></i> Lookup User
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div id="userDisplayCard" class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">User Details &amp; Lifecycle</span>
+              <span id="mgmtUserStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-mono bg-slate-800 text-slate-400">Select a User</span>
+            </div>
+            <div id="mgmtUserDetailContent" class="text-xs text-slate-400 italic">
+              Select or lookup a user above to inspect their profile, status, assigned roles, and group memberships.
+            </div>
+          </div>
+
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Create New User</span>
+              <span class="text-[10px] font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">POST /api/v1/users</span>
+            </div>
+            <form onsubmit="event.preventDefault(); createUser();" class="space-y-3 text-xs">
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Email Address</label>
+                <input id="newEmail" type="email" required placeholder="surgeon@metro.org" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Full Name</label>
+                <input id="newName" type="text" required placeholder="Dr. James Wilson" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Password</label>
+                <input id="newPassword" type="password" required value="P@ssw0rd123!" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+              <div class="flex items-center gap-2 pt-1">
+                <input id="newSuperAdmin" type="checkbox" class="rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-indigo-500">
+                <label for="newSuperAdmin" class="text-slate-300">Platform Super Admin</label>
+              </div>
+              <button type="submit" class="w-full mt-2 py-2 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-user-plus"></i> Create User
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: ROLES & PERMISSIONS -->
+      <div id="panelRoles" class="hidden space-y-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-400">Manage fine-grained custom roles and permission bindings for the active tenant.</span>
+          <button onclick="refreshRoles()" class="px-3 py-1.5 bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 rounded-lg text-xs transition flex items-center gap-1.5">
+            <i class="fa-solid fa-arrows-rotate"></i> Refresh Roles
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 space-y-3">
+            <div id="rolesListContainer" class="space-y-3">
+              <p class="text-xs text-slate-500 italic">Click "Refresh Roles" to load roles in current tenant context.</p>
+            </div>
+          </div>
+
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Create Custom Role</span>
+              <span class="text-[10px] font-mono bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">POST /api/v1/roles</span>
+            </div>
+            <form onsubmit="event.preventDefault(); createRole();" class="space-y-3 text-xs">
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Role Code</label>
+                <input id="newRoleCode" type="text" required placeholder="PHARMACIST" class="w-full uppercase bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Display Name</label>
+                <input id="newRoleName" type="text" required placeholder="Clinical Pharmacist" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Description</label>
+                <input id="newRoleDesc" type="text" placeholder="Handles clinical medication orders" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Permissions</label>
+                <div class="grid grid-cols-2 gap-1.5 mb-2 text-[11px]">
+                  <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                    <input type="checkbox" name="rolePerm" value="PATIENT_READ" checked class="rounded text-indigo-600"> PATIENT_READ
+                  </label>
+                  <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                    <input type="checkbox" name="rolePerm" value="PATIENT_WRITE" class="rounded text-indigo-600"> PATIENT_WRITE
+                  </label>
+                  <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                    <input type="checkbox" name="rolePerm" value="CLINICAL_CONSULT" class="rounded text-indigo-600"> CLINICAL_CONSULT
+                  </label>
+                  <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                    <input type="checkbox" name="rolePerm" value="AUDIT_READ" class="rounded text-indigo-600"> AUDIT_READ
+                  </label>
+                  <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                    <input type="checkbox" name="rolePerm" value="USER_ADMIN" class="rounded text-indigo-600"> USER_ADMIN
+                  </label>
+                  <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                    <input type="checkbox" name="rolePerm" value="*" class="rounded text-indigo-600"> Global Wildcard (*)
+                  </label>
+                </div>
+                <input id="customPerms" type="text" placeholder="Or custom: RX_DISPENSE, LAB_ORDER" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+              <button type="submit" class="w-full mt-2 py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg shadow-md shadow-indigo-600/20 transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Create Role
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: GROUPS & TEAMS -->
+      <div id="panelGroups" class="hidden space-y-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-400">Manage user groups, federated IdP mapping, and group role inheritance.</span>
+          <button onclick="refreshGroups()" class="px-3 py-1.5 bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 rounded-lg text-xs transition flex items-center gap-1.5">
+            <i class="fa-solid fa-arrows-rotate"></i> Refresh Groups
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 space-y-3">
+            <div id="groupsListContainer" class="space-y-3">
+              <p class="text-xs text-slate-500 italic">Click "Refresh Groups" to load groups in current tenant.</p>
+            </div>
+            <div id="groupInspectionBox" class="hidden bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span id="groupInspectionTitle" class="font-semibold text-white">Group Details</span>
+                <button onclick="document.getElementById('groupInspectionBox').classList.add('hidden')" class="text-slate-500 hover:text-slate-300">✕ Close</button>
+              </div>
+              <div id="groupInspectionContent" class="space-y-2 text-slate-300"></div>
+            </div>
+          </div>
+
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Create New Group</span>
+              <span class="text-[10px] font-mono bg-teal-500/10 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-full">POST /api/v1/groups</span>
+            </div>
+            <form onsubmit="event.preventDefault(); createGroup();" class="space-y-3 text-xs">
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Group Code</label>
+                <input id="newGroupCode" type="text" required placeholder="TRIAGE_TEAM" class="w-full uppercase bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-teal-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Display Name</label>
+                <input id="newGroupName" type="text" required placeholder="Emergency Triage Staff" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-teal-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Description</label>
+                <input id="newGroupDesc" type="text" placeholder="First responders and acute admissions" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-teal-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">External IdP Group Claim (OIDC/SAML)</label>
+                <input id="newGroupExternal" type="text" placeholder="idp-triage-staff" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-teal-500 focus:outline-none">
+              </div>
+              <button type="submit" class="w-full mt-2 py-2 px-4 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-lg shadow-md shadow-teal-600/20 transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Create Group
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: SCOPES & HIERARCHY -->
+      <div id="panelScopes" class="hidden space-y-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-400">Hierarchical ScopeNode management: create sub-departments, reparent trees, and explore live materialized paths.</span>
+          <button onclick="refreshScopeTree()" class="px-3 py-1.5 bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 rounded-lg text-xs transition flex items-center gap-1.5">
+            <i class="fa-solid fa-arrows-rotate"></i> Refresh Live Scope Tree
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+              <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <i class="fa-solid fa-network-wired text-indigo-400"></i> Dynamic Hierarchy Tree
+              </span>
+              <span class="text-[10px] font-mono text-slate-500">GET /api/v1/scopes/tree</span>
+            </div>
+            <div id="dynamicScopeTreeContainer" class="p-3 bg-slate-950 rounded-lg border border-slate-850 font-mono text-xs space-y-2 max-h-[420px] overflow-y-auto">
+              <p class="text-slate-500 italic">Click "Refresh Live Scope Tree" to load nodes.</p>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span class="font-semibold text-slate-300">Create Scope Node</span>
+                <span class="text-[10px] font-mono text-emerald-400">POST /api/v1/scopes</span>
+              </div>
+              <form onsubmit="event.preventDefault(); createScope();" class="space-y-2.5">
+                <div>
+                  <label class="block text-slate-400 mb-1">Parent Scope ID (leave blank for root)</label>
+                  <input id="scopeParentId" type="text" placeholder="UUID of parent scope..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1 text-slate-200 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="block text-slate-400 mb-1">Scope Code</label>
+                    <input id="scopeCode" type="text" required placeholder="NEUROLOGY" class="w-full uppercase bg-slate-950 border border-slate-700 rounded-lg px-3 py-1 text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                  </div>
+                  <div>
+                    <label class="block text-slate-400 mb-1">Display Name</label>
+                    <input id="scopeName" type="text" required placeholder="Neurology Department" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1 text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                  </div>
+                </div>
+                <button type="submit" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg shadow transition">
+                  <i class="fa-solid fa-plus mr-1"></i> Add Scope Node
+                </button>
+              </form>
+            </div>
+
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span class="font-semibold text-slate-300">Move / Reparent Scope Subtree</span>
+                <span class="text-[10px] font-mono text-cyan-400">POST /api/v1/scopes/{id}/move</span>
+              </div>
+              <form onsubmit="event.preventDefault(); moveScope();" class="space-y-2.5">
+                <div>
+                  <label class="block text-slate-400 mb-1">Scope ID to Move</label>
+                  <input id="moveScopeId" type="text" required placeholder="Target scope UUID..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1 text-slate-200 font-mono focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                  <label class="block text-slate-400 mb-1">New Parent Scope ID</label>
+                  <input id="moveParentId" type="text" required placeholder="New parent scope UUID..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1 text-slate-200 font-mono focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                </div>
+                <button type="submit" class="w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-lg shadow transition">
+                  <i class="fa-solid fa-arrows-split-up-and-left mr-1"></i> Reparent Scope Subtree
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: AUTH & TOKENS -->
+      <div id="panelAuth" class="hidden space-y-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-400">Test authentication endpoints, claims validation, and JWT token rotation.</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 text-xs">
+            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+              <i class="fa-solid fa-id-card text-indigo-400"></i> Identity &amp; Profile (/api/v1/auth/me)
+            </h3>
+            <p class="text-slate-400">Retrieve authenticated identity, claims, active tenant, and resolved permissions.</p>
+            <button onclick="fetchAuthMe()" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-user-check"></i> Call GET /api/v1/auth/me
+            </button>
+            <div id="authMeResult" class="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto">
+              // Click above to inspect claims
+            </div>
+          </div>
+
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 text-xs">
+            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+              <i class="fa-solid fa-arrows-rotate text-cyan-400"></i> Token Refresh (/api/v1/auth/refresh)
+            </h3>
+            <p class="text-slate-400">Exchange the stored refresh token for a newly signed JWT access token and rotated refresh token.</p>
+            <button onclick="rotateRefreshToken()" class="w-full py-2 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-rotate"></i> Call POST /api/v1/auth/refresh
+            </button>
+            <div id="refreshResult" class="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto">
+              // Click above to rotate tokens
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Live API Inspector Console -->
+    <section class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-terminal text-indigo-400"></i> Live HTTP Request &amp; Response Inspector
+          </h2>
+          <p class="text-xs text-slate-400">Inspect the exact HTTP headers and JSON payloads exchanged with ed-iam.</p>
+        </div>
+        <span id="apiStatusBadge" class="hidden text-xs px-2.5 py-1 rounded-full font-mono"></span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <div class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1 flex items-center justify-between">
+            <span>Request</span>
+            <span id="reqMethodUrl" class="font-mono text-[11px] text-indigo-400"></span>
+          </div>
+          <pre id="requestInspector" class="bg-slate-950 border border-slate-800 text-slate-300 text-xs font-mono p-3 rounded-lg overflow-x-auto h-48">// Ready for request</pre>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1 flex items-center justify-between">
+            <span>Response</span>
+            <span id="respLatency" class="text-[11px] text-slate-500 font-mono"></span>
+          </div>
+          <pre id="responseInspector" class="bg-slate-950 border border-slate-800 text-slate-300 text-xs font-mono p-3 rounded-lg overflow-x-auto h-48">// Response will appear here</pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Script for UI reactivity and API interactions -->
+  <script th:inline="javascript">
+    const DEFAULT_PASSWORD = /*[[${defaultPassword}]]*/ 'P@ssw0rd123!';
+    const METRO_TENANT_ID = /*[[${metroTenantId}]]*/ '11111111-1111-1111-1111-111111111111';
+    const ST_JUDE_TENANT_ID = /*[[${stJudeTenantId}]]*/ '22222222-2222-2222-2222-222222222222';
+    const CARDIOLOGY_SCOPE_ID = /*[[${cardiologyScopeId}]]*/ 'aaaa1111-0000-0000-0000-000000000002';
+    const ICU_SCOPE_ID = /*[[${icuScopeId}]]*/ 'aaaa1111-0000-0000-0000-000000000003';
+    const PEDIATRICS_SCOPE_ID = /*[[${pediatricsScopeId}]]*/ 'aaaa1111-0000-0000-0000-000000000004';
+    const NURSE_EMAIL = /*[[${nurseEmail}]]*/ 'nurse@metro.org';
+    const SUSPENDED_EMAIL = /*[[${suspendedEmail}]]*/ 'suspended@metro.org';
+    const SURGICAL_GROUP_CODE = /*[[${surgicalGroupCode}]]*/ 'SURGICAL_TEAM';
+
+    let currentToken = localStorage.getItem('iam_token') || null;
+    let currentRefreshToken = localStorage.getItem('iam_refresh_token') || null;
+    let currentUser = JSON.parse(localStorage.getItem('iam_user') || 'null');
+    let currentTenantId = localStorage.getItem('iam_tenant_id') || null;
+
+    // Initialize session state on load
+    window.addEventListener('DOMContentLoaded', () => {
+      if (currentToken && currentUser) {
+        updateSessionUi(currentUser, currentTenantId);
+        fetchActorContext();
+      }
+    });
+
+    async function loginAs(email) {
+      logRequest('POST', '/api/v1/auth/login', {
+        headers: { 'Content-Type': 'application/json' },
+        body: { email: email, password: DEFAULT_PASSWORD }
+      });
+
+      const startTime = performance.now();
+      try {
+        const response = await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email, password: DEFAULT_PASSWORD })
+        });
+        const latency = Math.round(performance.now() - startTime);
+        const data = await response.json();
+
+        logResponse(response.status, latency, data);
+
+        if (response.ok) {
+          currentToken = data.accessToken;
+          currentRefreshToken = data.refreshToken;
+          currentUser = data.user;
+          currentTenantId = data.user.tenantId;
+
+          localStorage.setItem('iam_token', currentToken);
+          localStorage.setItem('iam_refresh_token', currentRefreshToken);
+          localStorage.setItem('iam_user', JSON.stringify(currentUser));
+          localStorage.setItem('iam_tenant_id', currentTenantId);
+
+          updateSessionUi(currentUser, currentTenantId);
+          await fetchActorContext();
+        } else {
+          alert('Login rejected (' + response.status + '): ' + (data.detail || data.message || response.statusText));
+        }
+      } catch (err) {
+        logResponse(500, Math.round(performance.now() - startTime), { error: err.message });
+      }
+    }
+
+    async function switchTenant(newTenantId) {
+      if (!currentToken) return;
+
+      logRequest('POST', '/api/v1/auth/switch-tenant', {
+        headers: {
+          'Authorization': `Bearer ${currentToken.substring(0, 15)}...`,
+          'Content-Type': 'application/json'
+        },
+        body: { tenantId: newTenantId }
+      });
+
+      const startTime = performance.now();
+      try {
+        const response = await fetch('/api/v1/auth/switch-tenant', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ tenantId: newTenantId })
+        });
+        const latency = Math.round(performance.now() - startTime);
+        const data = await response.json();
+
+        logResponse(response.status, latency, data);
+
+        if (response.ok) {
+          currentToken = data.accessToken;
+          currentUser = data.user;
+          currentTenantId = data.user.tenantId;
+
+          localStorage.setItem('iam_token', currentToken);
+          localStorage.setItem('iam_user', JSON.stringify(currentUser));
+          localStorage.setItem('iam_tenant_id', currentTenantId);
+
+          updateSessionUi(currentUser, currentTenantId);
+          await fetchActorContext();
+        } else {
+          alert('Tenant switch failed: ' + (data.message || response.statusText));
+        }
+      } catch (err) {
+        logResponse(500, Math.round(performance.now() - startTime), { error: err.message });
+      }
+    }
+
+    async function fetchActorContext() {
+      if (!currentToken) return;
+      try {
+        const res = await fetch('/api/v1/playground/actor-context', {
+          headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (res.ok) {
+          const ctx = await res.json();
+          renderPermissions(ctx.roles, ctx.permissions);
+        }
+      } catch (e) {
+        console.error('Failed to fetch actor context', e);
+      }
+    }
+
+    async function fetchPatientsByScope(departmentId, deptName) {
+      if (!currentToken) {
+        alert('Please log in with a persona first.');
+        return;
+      }
+
+      const url = `/api/v1/playground/patients?departmentId=${departmentId}`;
+      logRequest('GET', url, {
+        headers: {
+          'Authorization': `Bearer ${currentToken.substring(0, 15)}...`
+        }
+      });
+
+      const startTime = performance.now();
+      const resContainer = document.getElementById('scopeResultCard');
+
+      try {
+        const response = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        const latency = Math.round(performance.now() - startTime);
+        let data = null;
+        try { data = await response.json(); } catch(e) {}
+
+        logResponse(response.status, latency, data);
+
+        if (response.ok) {
+          resContainer.innerHTML = `
+            <div class="space-y-3">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span class="text-xs font-semibold text-white">${deptName}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <i class="fa-solid fa-check mr-1"></i> Access Granted (200 OK)
+                </span>
+              </div>
+              <div class="space-y-2">
+                ${data.map(p => `
+                  <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-xs">
+                    <div class="flex justify-between font-semibold text-slate-200">
+                      <span>${p.patientName}</span>
+                      <span class="text-[11px] text-indigo-400 font-mono">${p.departmentName}</span>
+                    </div>
+                    <p class="text-slate-400 mt-1 text-[11px]"><span class="text-slate-500">Diagnosis:</span> ${p.diagnosis}</p>
+                    <p class="text-slate-500 text-[10px] mt-0.5">${p.treatmentNotes || ''}</p>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        } else {
+          resContainer.innerHTML = `
+            <div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-xs space-y-1">
+              <div class="flex items-center gap-2 text-red-400 font-semibold">
+                <i class="fa-solid fa-shield-xmark text-base"></i>
+                <span>403 Forbidden - Outside Scope Hierarchy</span>
+              </div>
+              <p class="text-slate-300 text-[11px]">Actor is not authorized to access department scope: <code>${departmentId}</code>.</p>
+              <p class="text-slate-400 text-[10px] pt-1">The user's assigned scope does not include this department node or its materialized path.</p>
+            </div>
+          `;
+        }
+      } catch (err) {
+        logResponse(500, Math.round(performance.now() - startTime), { error: err.message });
+      }
+    }
+
+    async function fetchCurrentTenantPatients() {
+      if (!currentToken) {
+        alert('Please log in with a persona first.');
+        return;
+      }
+
+      const url = '/api/v1/playground/patients';
+      const tenantName = currentTenantId === METRO_TENANT_ID ? 'Metro General Hospital' : 'St. Jude Medical Center';
+      logRequest('GET', url, {
+        headers: {
+          'Authorization': `Bearer ${currentToken.substring(0, 15)}...`
+        }
+      });
+
+      const startTime = performance.now();
+      const resContainer = document.getElementById('scopeResultCard');
+
+      try {
+        const response = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        const latency = Math.round(performance.now() - startTime);
+        let data = null;
+        try { data = await response.json(); } catch(e) {}
+
+        logResponse(response.status, latency, data);
+
+        if (response.ok) {
+          resContainer.innerHTML = `
+            <div class="space-y-3">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span class="text-xs font-semibold text-white">All Patients in ${tenantName}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <i class="fa-solid fa-check mr-1"></i> Access Granted (${data.length} records)
+                </span>
+              </div>
+              <div class="space-y-2">
+                ${data.map(p => `
+                  <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-xs">
+                    <div class="flex justify-between font-semibold text-slate-200">
+                      <span>${p.patientName}</span>
+                      <span class="text-[11px] text-indigo-400 font-mono">${p.departmentName}</span>
+                    </div>
+                    <p class="text-slate-400 mt-1 text-[11px]"><span class="text-slate-500">Diagnosis:</span> ${p.diagnosis}</p>
+                    <p class="text-slate-500 text-[10px] mt-0.5">${p.treatmentNotes || ''}</p>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        } else {
+          resContainer.innerHTML = `
+            <div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-xs space-y-1">
+              <div class="flex items-center gap-2 text-red-400 font-semibold">
+                <i class="fa-solid fa-shield-xmark text-base"></i>
+                <span>403 Forbidden - Missing Permission in ${tenantName}</span>
+              </div>
+              <p class="text-slate-300 text-[11px]">Actor is not authorized to read patient records in <strong>${tenantName}</strong>.</p>
+              <p class="text-slate-400 text-[10px] pt-1">In this tenant, your role is <code class="text-cyan-300">AUDITOR</code> (permissions: <code>AUDIT_READ, COMPLIANCE_VIEW</code>), which does NOT have <code>PATIENT_READ</code>. This demonstrates cross-tenant role isolation!</p>
+            </div>
+          `;
+        }
+      } catch (err) {
+        logResponse(500, Math.round(performance.now() - startTime), { error: err.message });
+      }
+    }
+
+    function updateSessionUi(user, tenantId) {
+      document.getElementById('sessionName').textContent = user.fullName || user.email;
+      document.getElementById('sessionEmail').textContent = user.email;
+      document.getElementById('sessionStatusBadge').textContent = 'Authenticated';
+      document.getElementById('sessionStatusBadge').className = 'text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+
+      document.getElementById('sessionAvatar').innerHTML = '<i class="fa-solid fa-user-doctor text-indigo-400"></i>';
+      document.getElementById('logoutBtn').classList.remove('hidden');
+      document.getElementById('permissionsBar').classList.remove('hidden');
+
+      // Tenant selector setup in top bar
+      const availableTenants = user.availableTenantIds || [tenantId];
+      if (availableTenants.length > 1) {
+        document.getElementById('tenantSwitcherContainer').classList.remove('hidden');
+        document.getElementById('tenantSwitcherContainer').classList.add('flex');
+        document.getElementById('activeTenantDisplay').classList.add('hidden');
+
+        const select = document.getElementById('tenantSelect');
+        select.innerHTML = '';
+        availableTenants.forEach(tId => {
+          const opt = document.createElement('option');
+          opt.value = tId;
+          opt.textContent = tId === METRO_TENANT_ID ? 'Metro General Hospital' : (tId === ST_JUDE_TENANT_ID ? 'St. Jude Center' : tId.substring(0, 8));
+          if (tId === tenantId) opt.selected = true;
+          select.appendChild(opt);
+        });
+      } else {
+        document.getElementById('tenantSwitcherContainer').classList.add('hidden');
+        document.getElementById('activeTenantDisplay').classList.remove('hidden');
+        document.getElementById('activeTenantName').textContent = tenantId === METRO_TENANT_ID ? 'Metro General Hospital' : (tenantId === ST_JUDE_TENANT_ID ? 'St. Jude Center' : tenantId);
+      }
+
+      // Multi-Tenant Context Switcher Card setup
+      const isMultiTenant = availableTenants.length > 1;
+      const singleNotice = document.getElementById('singleTenantNotice');
+      const multiPanel = document.getElementById('multiTenantPanel');
+      const promptText = document.getElementById('tenantSwitchPrompt');
+
+      if (isMultiTenant) {
+        singleNotice.classList.add('hidden');
+        multiPanel.classList.remove('hidden');
+        promptText.textContent = `Active Organization: ${tenantId === METRO_TENANT_ID ? 'Metro General Hospital' : 'St. Jude Medical Center'}`;
+
+        const isMetro = tenantId === METRO_TENANT_ID;
+
+        // Metro Card
+        const cardMetro = document.getElementById('tenantCardMetro');
+        const badgeMetro = document.getElementById('badgeMetro');
+        const btnMetro = document.getElementById('btnSwitchMetro');
+
+        if (isMetro) {
+          cardMetro.className = 'p-4 rounded-xl border-2 border-emerald-500/80 bg-slate-900/90 shadow-lg shadow-emerald-500/10 flex flex-col justify-between';
+          badgeMetro.textContent = 'Active Context';
+          badgeMetro.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium';
+          btnMetro.textContent = 'Currently Active';
+          btnMetro.className = 'mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-default';
+          btnMetro.disabled = true;
+        } else {
+          cardMetro.className = 'p-4 rounded-xl border border-slate-700 bg-slate-950/80 hover:border-indigo-500/60 transition cursor-pointer flex flex-col justify-between';
+          badgeMetro.textContent = 'Available';
+          badgeMetro.className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-medium';
+          btnMetro.innerHTML = '<i class="fa-solid fa-arrows-rotate mr-1"></i> Switch to Metro General';
+          btnMetro.className = 'mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition';
+          btnMetro.disabled = false;
+        }
+
+        // St. Jude Card
+        const cardStJude = document.getElementById('tenantCardStJude');
+        const badgeStJude = document.getElementById('badgeStJude');
+        const btnStJude = document.getElementById('btnSwitchStJude');
+
+        if (!isMetro) {
+          cardStJude.className = 'p-4 rounded-xl border-2 border-cyan-500/80 bg-slate-900/90 shadow-lg shadow-cyan-500/10 flex flex-col justify-between';
+          badgeStJude.textContent = 'Active Context';
+          badgeStJude.className = 'text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-medium';
+          btnStJude.textContent = 'Currently Active';
+          btnStJude.className = 'mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 cursor-default';
+          btnStJude.disabled = true;
+        } else {
+          cardStJude.className = 'p-4 rounded-xl border border-slate-700 bg-slate-950/80 hover:border-cyan-500/60 transition cursor-pointer flex flex-col justify-between';
+          badgeStJude.textContent = 'Available';
+          badgeStJude.className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-medium';
+          btnStJude.innerHTML = '<i class="fa-solid fa-arrows-rotate mr-1"></i> Switch to St. Jude Center';
+          btnStJude.className = 'mt-4 w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white shadow-md shadow-cyan-600/30 transition';
+          btnStJude.disabled = false;
+        }
+      } else {
+        singleNotice.classList.remove('hidden');
+        multiPanel.classList.add('hidden');
+        promptText.textContent = '';
+      }
+
+      const tenantLabel = tenantId === METRO_TENANT_ID ? 'Metro General Hospital' : (tenantId === ST_JUDE_TENANT_ID ? 'St. Jude Medical Center' : tenantId);
+      const mgmtTenantEl = document.getElementById('mgmtContextTenant');
+      if (mgmtTenantEl) mgmtTenantEl.textContent = tenantLabel;
+    }
+
+    // =========================================================================
+    // IAM Management Console JavaScript Controller
+    // =========================================================================
+    let activeMgmtTab = 'users';
+
+    function switchMgmtTab(tab) {
+      activeMgmtTab = tab;
+      const tabs = ['users', 'roles', 'groups', 'scopes', 'auth'];
+      tabs.forEach(t => {
+        const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+        const panel = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (t === tab) {
+          btn.className = 'px-3.5 py-2 rounded-lg bg-indigo-600 text-white flex items-center gap-1.5 transition';
+          panel.classList.remove('hidden');
+        } else {
+          btn.className = 'px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition';
+          panel.classList.add('hidden');
+        }
+      });
+
+      if (tab === 'roles') refreshRoles();
+      if (tab === 'groups') refreshGroups();
+      if (tab === 'scopes') refreshScopeTree();
+    }
+
+    // --- Central API Call Helper ---
+    async function executeApiCall(method, url, body = null, customHeaders = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...customHeaders
+      };
+      if (currentToken) {
+        headers['Authorization'] = `Bearer ${currentToken}`;
+      }
+      const effectiveTenant = currentTenantId || METRO_TENANT_ID;
+      if (!headers['X-Tenant-ID']) {
+        headers['X-Tenant-ID'] = effectiveTenant;
+      }
+
+      logRequest(method, url, {
+        headers: {
+          ...headers,
+          Authorization: headers.Authorization ? `${headers.Authorization.substring(0, 18)}...` : undefined
+        },
+        body: body
+      });
+
+      const startTime = performance.now();
+      try {
+        const options = { method, headers };
+        if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+          options.body = JSON.stringify(body);
+        }
+        const response = await fetch(url, options);
+        const latency = Math.round(performance.now() - startTime);
+        let data = null;
+        const ct = response.headers.get('content-type');
+        if (ct && ct.includes('application/json')) {
+          try { data = await response.json(); } catch(e) {}
+        } else {
+          try { data = await response.text(); } catch(e) {}
+        }
+        logResponse(response.status, latency, data);
+        return { ok: response.ok, status: response.status, data };
+      } catch (err) {
+        logResponse(500, Math.round(performance.now() - startTime), { error: err.message });
+        return { ok: false, status: 500, data: { error: err.message } };
+      }
+    }
+
+    // --- Tab 1: Users & Lifecycle ---
+    let selectedUser = null;
+
+    async function lookupUser(email) {
+      if (!email) return;
+      document.getElementById('userLookupEmail').value = email;
+      const res = await executeApiCall('GET', `/api/v1/users?email=${encodeURIComponent(email)}`);
+      if (res.ok && res.data) {
+        selectedUser = res.data;
+        renderSelectedUser(selectedUser);
+        await fetchUserRoles(selectedUser.id);
+        await fetchUserGroups(selectedUser.id);
+      } else {
+        alert('User not found: ' + email);
+      }
+    }
+
+    function renderSelectedUser(u) {
+      const badge = document.getElementById('mgmtUserStatusBadge');
+      badge.textContent = u.status;
+      if (u.status === 'ACTIVE') {
+        badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold';
+      } else if (u.status === 'SUSPENDED') {
+        badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-mono bg-red-500/20 text-red-300 border border-red-500/30 font-bold';
+      } else {
+        badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-mono bg-slate-700 text-slate-300';
+      }
+
+      const content = document.getElementById('mgmtUserDetailContent');
+      content.className = 'space-y-4 text-xs';
+      content.innerHTML = `
+        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-1">
+          <div class="flex justify-between items-center">
+            <span class="text-white font-bold text-sm">${u.fullName || 'No Name'}</span>
+            <span class="text-[11px] text-indigo-400 font-mono">${u.platformSuperAdmin ? 'Platform SuperAdmin' : 'Standard User'}</span>
+          </div>
+          <p class="text-slate-400 font-mono text-[11px]">${u.email}</p>
+          <p class="text-slate-500 text-[10px] font-mono">ID: ${u.id}</p>
+        </div>
+
+        <div class="flex flex-wrap gap-2 pt-1">
+          ${u.status === 'ACTIVE'
+            ? `<button onclick="changeUserStatus('${u.id}', 'SUSPENDED')" class="px-3 py-1.5 bg-red-600/20 text-red-300 border border-red-500/30 hover:bg-red-600/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                 <i class="fa-solid fa-user-lock"></i> Suspend User
+               </button>`
+            : `<button onclick="changeUserStatus('${u.id}', 'ACTIVE')" class="px-3 py-1.5 bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                 <i class="fa-solid fa-user-check"></i> Activate User
+               </button>`}
+          <button onclick="deleteUser('${u.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-300 border border-slate-700 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+            <i class="fa-solid fa-trash"></i> Delete User
+          </button>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-id-badge text-indigo-400"></i> Direct Role Assignments
+            </span>
+            <span class="text-[10px] font-mono text-slate-500">GET /api/v1/users/{id}/roles</span>
+          </div>
+          <div id="userRolesList" class="space-y-1.5">
+            <span class="text-slate-500 text-[11px] italic">Loading roles...</span>
+          </div>
+          <div class="p-2.5 bg-slate-950 rounded-lg border border-slate-800 space-y-2 mt-2">
+            <span class="text-[11px] text-slate-400 font-semibold block">Assign Role to this User</span>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input id="assignRoleIdInput" type="text" placeholder="Role UUID..." class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 font-mono focus:outline-none">
+              <input id="assignScopeIdInput" type="text" placeholder="Scope UUID (optional)..." class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 font-mono focus:outline-none">
+            </div>
+            <button onclick="assignRoleToUser('${u.id}')" class="w-full py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-semibold transition">
+              <i class="fa-solid fa-plus mr-1"></i> Assign Role
+            </button>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-people-group text-teal-400"></i> Group Memberships
+            </span>
+            <span class="text-[10px] font-mono text-slate-500">GET /api/v1/users/{id}/groups</span>
+          </div>
+          <div id="userGroupsList" class="space-y-1.5">
+            <span class="text-slate-500 text-[11px] italic">Loading groups...</span>
+          </div>
+          <div class="p-2.5 bg-slate-950 rounded-lg border border-slate-800 space-y-2 mt-2">
+            <span class="text-[11px] text-slate-400 font-semibold block">Add User to Group</span>
+            <div class="flex gap-2">
+              <input id="addGroupIdInput" type="text" placeholder="Group UUID..." class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 font-mono focus:outline-none">
+              <button onclick="addUserToGroup('${u.id}')" class="px-3 py-1 bg-teal-600 hover:bg-teal-500 text-white rounded text-[11px] font-semibold transition">
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function changeUserStatus(userId, status) {
+      const res = await executeApiCall('PUT', `/api/v1/users/${userId}/status`, { status });
+      if (res.ok && res.data) {
+        selectedUser = res.data;
+        renderSelectedUser(selectedUser);
+        await fetchUserRoles(selectedUser.id);
+        await fetchUserGroups(selectedUser.id);
+      }
+    }
+
+    async function deleteUser(userId) {
+      if (!confirm('Are you sure you want to delete this user?')) return;
+      const res = await executeApiCall('DELETE', `/api/v1/users/${userId}`);
+      if (res.ok) {
+        selectedUser = null;
+        document.getElementById('mgmtUserStatusBadge').textContent = 'Deleted';
+        document.getElementById('mgmtUserStatusBadge').className = 'text-xs px-2.5 py-0.5 rounded-full font-mono bg-slate-800 text-slate-400';
+        document.getElementById('mgmtUserDetailContent').innerHTML = '<p class="text-xs text-slate-500 italic">User successfully deleted.</p>';
+      }
+    }
+
+    async function createUser() {
+      const email = document.getElementById('newEmail').value.trim();
+      const fullName = document.getElementById('newName').value.trim();
+      const password = document.getElementById('newPassword').value;
+      const platformSuperAdmin = document.getElementById('newSuperAdmin').checked;
+
+      const res = await executeApiCall('POST', '/api/v1/users', {
+        email, password, fullName, platformSuperAdmin
+      });
+      if (res.ok && res.data) {
+        alert('User created successfully: ' + res.data.email);
+        await lookupUser(res.data.email);
+      } else {
+        alert('Failed to create user: ' + JSON.stringify(res.data));
+      }
+    }
+
+    async function fetchUserRoles(userId) {
+      const container = document.getElementById('userRolesList');
+      if (!container) return;
+      const res = await executeApiCall('GET', `/api/v1/users/${userId}/roles`);
+      if (res.ok && Array.isArray(res.data)) {
+        if (res.data.length === 0) {
+          container.innerHTML = '<span class="text-slate-500 text-[11px] italic">No direct role assignments (may inherit from group).</span>';
+        } else {
+          container.innerHTML = res.data.map(a => `
+            <div class="p-2 bg-slate-900 rounded border border-slate-800 flex items-center justify-between text-[11px]">
+              <div>
+                <span class="text-indigo-300 font-mono font-semibold">Role: ${a.roleId.substring(0, 8)}...</span>
+                ${a.scopeNodeId ? `<span class="text-slate-400 block text-[10px] font-mono">Scope: ${a.scopeNodeId.substring(0, 8)}...</span>` : '<span class="text-emerald-400 block text-[10px]">Tenant-Wide</span>'}
+              </div>
+              <button onclick="unassignUserRole('${userId}', '${a.id}')" class="text-[10px] px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded transition">
+                Revoke
+              </button>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    async function assignRoleToUser(userId) {
+      const roleId = document.getElementById('assignRoleIdInput').value.trim();
+      const scopeNodeId = document.getElementById('assignScopeIdInput').value.trim() || null;
+      if (!roleId) { alert('Please enter a Role ID'); return; }
+
+      const res = await executeApiCall('POST', `/api/v1/users/${userId}/roles`, {
+        roleId,
+        tenantId: currentTenantId || METRO_TENANT_ID,
+        scopeNodeId
+      });
+      if (res.ok) {
+        document.getElementById('assignRoleIdInput').value = '';
+        document.getElementById('assignScopeIdInput').value = '';
+        await fetchUserRoles(userId);
+      } else {
+        alert('Failed to assign role: ' + JSON.stringify(res.data));
+      }
+    }
+
+    async function unassignUserRole(userId, assignmentId) {
+      const res = await executeApiCall('DELETE', `/api/v1/users/${userId}/roles/${assignmentId}`);
+      if (res.ok) {
+        await fetchUserRoles(userId);
+      }
+    }
+
+    async function fetchUserGroups(userId) {
+      const container = document.getElementById('userGroupsList');
+      if (!container) return;
+      const res = await executeApiCall('GET', `/api/v1/users/${userId}/groups`);
+      if (res.ok && Array.isArray(res.data)) {
+        if (res.data.length === 0) {
+          container.innerHTML = '<span class="text-slate-500 text-[11px] italic">No group memberships.</span>';
+        } else {
+          container.innerHTML = res.data.map(gid => `
+            <div class="p-2 bg-slate-900 rounded border border-slate-800 flex items-center justify-between text-[11px]">
+              <span class="text-teal-300 font-mono font-semibold">Group: ${gid}</span>
+              <button onclick="removeUserFromGroup('${userId}', '${gid}')" class="text-[10px] px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded transition">
+                Remove
+              </button>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    async function addUserToGroup(userId) {
+      const groupId = document.getElementById('addGroupIdInput').value.trim();
+      if (!groupId) { alert('Please enter a Group ID'); return; }
+      const res = await executeApiCall('POST', `/api/v1/users/${userId}/groups/${groupId}`);
+      if (res.ok) {
+        document.getElementById('addGroupIdInput').value = '';
+        await fetchUserGroups(userId);
+      } else {
+        alert('Failed to add to group: ' + JSON.stringify(res.data));
+      }
+    }
+
+    async function removeUserFromGroup(userId, groupId) {
+      const res = await executeApiCall('DELETE', `/api/v1/users/${userId}/groups/${groupId}`);
+      if (res.ok) {
+        await fetchUserGroups(userId);
+      }
+    }
+
+    // --- Tab 2: Roles & Permissions ---
+    let cachedRoles = [];
+
+    async function refreshRoles() {
+      const container = document.getElementById('rolesListContainer');
+      const res = await executeApiCall('GET', '/api/v1/roles');
+      if (res.ok && Array.isArray(res.data)) {
+        cachedRoles = res.data;
+        if (cachedRoles.length === 0) {
+          container.innerHTML = '<p class="text-xs text-slate-500 italic">No roles configured for this tenant.</p>';
+          return;
+        }
+        container.innerHTML = cachedRoles.map(r => `
+          <div class="p-3 bg-slate-900/80 border border-slate-800 rounded-xl space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-white font-mono text-sm">${r.code}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full ${r.systemRole ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}">${r.systemRole ? 'SYSTEM' : 'CUSTOM'}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="navigator.clipboard.writeText('${r.id}'); alert('Copied Role ID: ${r.id}')" class="text-[10px] text-slate-400 hover:text-white font-mono">
+                  <i class="fa-solid fa-copy mr-1"></i> ID
+                </button>
+                ${!r.systemRole ? `
+                  <button onclick="deleteRole('${r.id}')" class="text-[10px] px-2 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition">
+                    Delete
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+            <p class="text-slate-300 font-medium">${r.name}</p>
+            <p class="text-slate-500 text-[11px]">${r.description || ''}</p>
+            <div class="pt-1 flex flex-wrap gap-1">
+              ${(r.permissions || []).map(p => `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-mono">${p}</span>`).join('')}
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    async function createRole() {
+      const code = document.getElementById('newRoleCode').value.trim();
+      const name = document.getElementById('newRoleName').value.trim();
+      const description = document.getElementById('newRoleDesc').value.trim();
+
+      const perms = Array.from(document.querySelectorAll('input[name="rolePerm"]:checked')).map(cb => cb.value);
+      const customPermsStr = document.getElementById('customPerms').value.trim();
+      if (customPermsStr) {
+        customPermsStr.split(',').map(p => p.trim()).filter(Boolean).forEach(p => perms.push(p));
+      }
+
+      if (perms.length === 0) { alert('Please select or specify at least one permission.'); return; }
+
+      const res = await executeApiCall('POST', '/api/v1/roles', {
+        tenantId: currentTenantId || METRO_TENANT_ID,
+        code, name, description,
+        permissions: Array.from(new Set(perms))
+      });
+
+      if (res.ok) {
+        alert('Role created: ' + code);
+        document.getElementById('newRoleCode').value = '';
+        document.getElementById('newRoleName').value = '';
+        document.getElementById('newRoleDesc').value = '';
+        document.getElementById('customPerms').value = '';
+        await refreshRoles();
+      } else {
+        alert('Failed to create role: ' + JSON.stringify(res.data));
+      }
+    }
+
+    async function deleteRole(roleId) {
+      if (!confirm('Are you sure you want to delete this role?')) return;
+      const res = await executeApiCall('DELETE', `/api/v1/roles/${roleId}`);
+      if (res.ok) {
+        await refreshRoles();
+      } else {
+        alert('Failed to delete role: ' + JSON.stringify(res.data));
+      }
+    }
+
+    // --- Tab 3: Groups & Teams ---
+    let cachedGroups = [];
+
+    async function refreshGroups() {
+      const container = document.getElementById('groupsListContainer');
+      const res = await executeApiCall('GET', '/api/v1/groups');
+      if (res.ok && Array.isArray(res.data)) {
+        cachedGroups = res.data;
+        if (cachedGroups.length === 0) {
+          container.innerHTML = '<p class="text-xs text-slate-500 italic">No groups found in this tenant.</p>';
+          return;
+        }
+        container.innerHTML = cachedGroups.map(g => `
+          <div class="p-3 bg-slate-900/80 border border-slate-800 rounded-xl space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-teal-300 font-mono text-sm">${g.code}</span>
+              <div class="flex items-center gap-2">
+                <button onclick="navigator.clipboard.writeText('${g.id}'); alert('Copied Group ID: ${g.id}')" class="text-[10px] text-slate-400 hover:text-white font-mono">
+                  <i class="fa-solid fa-copy mr-1"></i> ID
+                </button>
+                <button onclick="deleteGroup('${g.id}')" class="text-[10px] px-2 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition">
+                  Delete
+                </button>
+              </div>
+            </div>
+            <p class="text-white font-medium">${g.name}</p>
+            <p class="text-slate-400 text-[11px]">${g.description || ''}</p>
+            ${g.externalIdpGroupName ? `<p class="text-[10px] text-indigo-400 font-mono">External IdP: ${g.externalIdpGroupName}</p>` : ''}
+            <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
+              <button onclick="inspectGroupMembers('${g.id}', '${g.name}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition flex items-center gap-1">
+                <i class="fa-solid fa-users text-teal-400"></i> Members
+              </button>
+              <button onclick="inspectGroupRoles('${g.id}', '${g.name}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition flex items-center gap-1">
+                <i class="fa-solid fa-id-badge text-indigo-400"></i> Assigned Roles
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    async function inspectGroupMembers(groupId, groupName) {
+      const box = document.getElementById('groupInspectionBox');
+      const title = document.getElementById('groupInspectionTitle');
+      const content = document.getElementById('groupInspectionContent');
+      box.classList.remove('hidden');
+      title.textContent = `Members in "${groupName}"`;
+
+      const res = await executeApiCall('GET', `/api/v1/groups/${groupId}/members`);
+      if (res.ok && Array.isArray(res.data)) {
+        if (res.data.length === 0) {
+          content.innerHTML = '<p class="text-slate-500 italic">No members in this group yet.</p>';
+        } else {
+          content.innerHTML = res.data.map(m => `
+            <div class="p-2 bg-slate-950 rounded border border-slate-800 flex justify-between items-center">
+              <div>
+                <span class="text-white font-semibold">${m.fullName || m.email}</span>
+                <span class="text-slate-400 block text-[10px] font-mono">${m.email}</span>
+              </div>
+              <span class="text-[10px] font-mono text-slate-500">${m.status}</span>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    async function inspectGroupRoles(groupId, groupName) {
+      const box = document.getElementById('groupInspectionBox');
+      const title = document.getElementById('groupInspectionTitle');
+      const content = document.getElementById('groupInspectionContent');
+      box.classList.remove('hidden');
+      title.textContent = `Roles Assigned to "${groupName}"`;
+
+      const res = await executeApiCall('GET', `/api/v1/groups/${groupId}/roles`);
+      if (res.ok && Array.isArray(res.data)) {
+        let html = '';
+        if (res.data.length === 0) {
+          html = '<p class="text-slate-500 italic">No roles assigned to this group yet.</p>';
+        } else {
+          html = res.data.map(a => `
+            <div class="p-2 bg-slate-950 rounded border border-slate-800 flex justify-between items-center">
+              <div>
+                <span class="text-indigo-300 font-mono font-semibold">Role: ${a.roleId}</span>
+                ${a.scopeNodeId ? `<span class="text-slate-400 block text-[10px] font-mono">Scope: ${a.scopeNodeId}</span>` : '<span class="text-emerald-400 block text-[10px]">Tenant-Wide</span>'}
+              </div>
+              <button onclick="revokeGroupRole('${groupId}', '${a.id}', '${groupName}')" class="text-[10px] px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded transition">Revoke</button>
+            </div>
+          `).join('');
+        }
+        html += `
+          <div class="p-2.5 bg-slate-950 rounded border border-slate-800 space-y-2 mt-2">
+            <span class="text-[11px] text-slate-400 font-semibold block">Assign Role to Group</span>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input id="grpAssignRoleId" type="text" placeholder="Role UUID..." class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 font-mono focus:outline-none">
+              <input id="grpAssignScopeId" type="text" placeholder="Scope UUID (optional)..." class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 font-mono focus:outline-none">
+            </div>
+            <button onclick="assignRoleToGroup('${groupId}', '${groupName}')" class="w-full py-1 bg-teal-600 hover:bg-teal-500 text-white rounded text-[11px] font-semibold transition">
+              Assign Role to Group
+            </button>
+          </div>
+        `;
+        content.innerHTML = html;
+      }
+    }
+
+    async function assignRoleToGroup(groupId, groupName) {
+      const roleId = document.getElementById('grpAssignRoleId').value.trim();
+      const scopeNodeId = document.getElementById('grpAssignScopeId').value.trim() || null;
+      if (!roleId) { alert('Please enter a Role ID'); return; }
+
+      const res = await executeApiCall('POST', `/api/v1/groups/${groupId}/roles`, {
+        roleId,
+        tenantId: currentTenantId || METRO_TENANT_ID,
+        scopeNodeId
+      });
+      if (res.ok) {
+        await inspectGroupRoles(groupId, groupName);
+      } else {
+        alert('Failed to assign role to group: ' + JSON.stringify(res.data));
+      }
+    }
+
+    async function revokeGroupRole(groupId, assignmentId, groupName) {
+      const res = await executeApiCall('DELETE', `/api/v1/groups/${groupId}/roles/${assignmentId}`);
+      if (res.ok) {
+        await inspectGroupRoles(groupId, groupName);
+      }
+    }
+
+    async function createGroup() {
+      const code = document.getElementById('newGroupCode').value.trim();
+      const name = document.getElementById('newGroupName').value.trim();
+      const description = document.getElementById('newGroupDesc').value.trim();
+      const externalIdpGroupName = document.getElementById('newGroupExternal').value.trim() || null;
+
+      const res = await executeApiCall('POST', '/api/v1/groups', {
+        tenantId: currentTenantId || METRO_TENANT_ID,
+        code, name, description, externalIdpGroupName
+      });
+      if (res.ok) {
+        alert('Group created: ' + code);
+        document.getElementById('newGroupCode').value = '';
+        document.getElementById('newGroupName').value = '';
+        document.getElementById('newGroupDesc').value = '';
+        document.getElementById('newGroupExternal').value = '';
+        await refreshGroups();
+      } else {
+        alert('Failed to create group: ' + JSON.stringify(res.data));
+      }
+    }
+
+    async function deleteGroup(groupId) {
+      if (!confirm('Are you sure you want to delete this group?')) return;
+      const res = await executeApiCall('DELETE', `/api/v1/groups/${groupId}`);
+      if (res.ok) {
+        await refreshGroups();
+        document.getElementById('groupInspectionBox').classList.add('hidden');
+      } else {
+        alert('Failed to delete group: ' + JSON.stringify(res.data));
+      }
+    }
+
+    // --- Tab 4: Scopes & Hierarchy ---
+    async function refreshScopeTree() {
+      const container = document.getElementById('dynamicScopeTreeContainer');
+      const res = await executeApiCall('GET', '/api/v1/scopes/tree');
+      if (res.ok && Array.isArray(res.data)) {
+        if (res.data.length === 0) {
+          container.innerHTML = '<p class="text-slate-500 italic">No scope trees found for this tenant.</p>';
+          return;
+        }
+        container.innerHTML = renderTreeNodes(res.data);
+      }
+    }
+
+    function renderTreeNodes(nodes) {
+      return nodes.map(n => `
+        <div class="space-y-1">
+          <div class="p-2 bg-slate-900 rounded border border-slate-800 flex items-center justify-between">
+            <div>
+              <span class="text-indigo-400 font-bold">${n.name}</span>
+              <span class="text-[10px] text-slate-400 font-mono ml-2">[${n.code}]</span>
+              <div class="text-[10px] text-slate-500 font-mono">Path: ${n.path}</div>
+            </div>
+            <div class="flex items-center gap-1">
+              <button onclick="navigator.clipboard.writeText('${n.id}'); alert('Copied Scope ID: ${n.id}')" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-white font-mono">
+                Copy ID
+              </button>
+              <button onclick="document.getElementById('scopeParentId').value = '${n.id}'; document.getElementById('moveParentId').value = '${n.id}'; alert('Selected as Parent Scope: ${n.name}')" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30">
+                Pick Parent
+              </button>
+              <button onclick="deleteScope('${n.id}')" class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20">
+                ✕
+              </button>
+            </div>
+          </div>
+          ${n.children && n.children.length > 0 ? `
+            <div class="pl-4 border-l-2 border-slate-800 ml-2 space-y-1 mt-1">
+              ${renderTreeNodes(n.children)}
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    async function createScope() {
+      const parentId = document.getElementById('scopeParentId').value.trim() || null;
+      const code = document.getElementById('scopeCode').value.trim();
+      const name = document.getElementById('scopeName').value.trim();
+
+      const res = await executeApiCall('POST', '/api/v1/scopes', {
+        tenantId: currentTenantId || METRO_TENANT_ID,
+        parentId, code, name
+      });
+      if (res.ok) {
+        alert('Scope created: ' + name);
+        document.getElementById('scopeCode').value = '';
+        document.getElementById('scopeName').value = '';
+        await refreshScopeTree();
+      } else {
+        alert('Failed to create scope: ' + JSON.stringify(res.data));
+      }
+    }
+
+    async function moveScope() {
+      const scopeId = document.getElementById('moveScopeId').value.trim();
+      const newParentId = document.getElementById('moveParentId').value.trim();
+      if (!scopeId || !newParentId) { alert('Scope ID and New Parent ID are required.'); return; }
+
+      const res = await executeApiCall('POST', `/api/v1/scopes/${scopeId}/move`, { newParentId });
+      if (res.ok) {
+        alert('Scope moved successfully!');
+        document.getElementById('moveScopeId').value = '';
+        document.getElementById('moveParentId').value = '';
+        await refreshScopeTree();
+      } else {
+        alert('Failed to move scope: ' + JSON.stringify(res.data));
+      }
+    }
+
+    async function deleteScope(scopeId) {
+      if (!confirm('Are you sure you want to delete this scope node? Descendants may be affected!')) return;
+      const res = await executeApiCall('DELETE', `/api/v1/scopes/${scopeId}`);
+      if (res.ok) {
+        await refreshScopeTree();
+      } else {
+        alert('Failed to delete scope: ' + JSON.stringify(res.data));
+      }
+    }
+
+    // --- Tab 5: Auth & Tokens ---
+    async function fetchAuthMe() {
+      const res = await executeApiCall('GET', '/api/v1/auth/me');
+      document.getElementById('authMeResult').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    async function rotateRefreshToken() {
+      if (!currentRefreshToken) {
+        alert('No refresh token available in session. Please log in first.');
+        return;
+      }
+      const res = await executeApiCall('POST', '/api/v1/auth/refresh', { refreshToken: currentRefreshToken });
+      document.getElementById('refreshResult').textContent = JSON.stringify(res.data, null, 2);
+      if (res.ok && res.data && res.data.accessToken) {
+        currentToken = res.data.accessToken;
+        currentRefreshToken = res.data.refreshToken;
+        currentUser = res.data.user;
+        currentTenantId = res.data.user.tenantId;
+
+        localStorage.setItem('iam_token', currentToken);
+        localStorage.setItem('iam_refresh_token', currentRefreshToken);
+        localStorage.setItem('iam_user', JSON.stringify(currentUser));
+        localStorage.setItem('iam_tenant_id', currentTenantId);
+
+        updateSessionUi(currentUser, currentTenantId);
+        await fetchActorContext();
+      }
+    }
+
+    function renderPermissions(roles, permissions) {
+      const rolesDiv = document.getElementById('rolesList');
+      rolesDiv.innerHTML = (roles || []).map(r => `<span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">${r}</span>`).join('');
+
+      const permsDiv = document.getElementById('permissionsList');
+      permsDiv.innerHTML = (permissions || []).map(p => `<span class="px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-mono">${p}</span>`).join('');
+    }
+
+    function logout() {
+      currentToken = null;
+      currentUser = null;
+      currentTenantId = null;
+      localStorage.clear();
+      location.reload();
+    }
+
+    function logRequest(method, url, details) {
+      document.getElementById('reqMethodUrl').textContent = `${method} ${url}`;
+      document.getElementById('requestInspector').textContent = JSON.stringify(details, null, 2);
+    }
+
+    function logResponse(status, latency, data) {
+      const badge = document.getElementById('apiStatusBadge');
+      badge.classList.remove('hidden');
+      if (status >= 200 && status < 300) {
+        badge.textContent = `${status} OK`;
+        badge.className = 'text-xs px-2.5 py-1 rounded-full font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      } else {
+        badge.textContent = `${status} ${status === 403 ? 'FORBIDDEN' : 'ERROR'}`;
+        badge.className = 'text-xs px-2.5 py-1 rounded-full font-mono bg-red-500/20 text-red-300 border border-red-500/30';
+      }
+      document.getElementById('respLatency').textContent = `${latency}ms`;
+      document.getElementById('responseInspector').textContent = JSON.stringify(data, null, 2);
+    }
+  </script>
+</body>
+</html>
