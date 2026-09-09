@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <rect width="512" height="512" rx="80" fill="#000000"/>
+  <g id="emblem-bw" transform="translate(256, 256) scale(1.34) translate(-256, -244)">
+    <path d="M 190 186 
+             V 134 
+             C 190 94, 218 68, 256 68 
+             C 294 68, 322 94, 322 134 
+             V 186" 
+          fill="none" 
+          stroke="#ffffff" 
+          stroke-width="34" 
+          stroke-linecap="round"/>
+    <path d="M 126 216 
+             L 240 190 
+             V 242 
+             L 184 254 
+             V 276 
+             L 238 276 
+             V 320 
+             L 184 320 
+             V 350 
+             L 240 384 
+             V 426 
+             L 126 350 
+             Z" 
+          fill="#ffffff" 
+          stroke="#ffffff" 
+          stroke-width="6" 
+          stroke-linejoin="round"/>
+    <path d="M 272 190 
+             L 386 216 
+             V 350 
+             L 272 426 
+             Z 
+             M 304 250 
+             L 354 258 
+             V 334 
+             L 304 376 
+             Z" 
+          fill-rule="evenodd" 
+          fill="#ffffff" 
+          stroke="#ffffff" 
+          stroke-width="6" 
+          stroke-linejoin="round"/>
+  </g>
+</svg>

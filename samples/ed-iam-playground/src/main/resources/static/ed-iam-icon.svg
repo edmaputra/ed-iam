@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 480" width="100%" height="100%">
+  <defs>
+    <!-- Brand Gradient: Spring Green (#4ade80) to Electric Cyan (#00f2fe) -->
+    <linearGradient id="edIamGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4ade80" />
+      <stop offset="40%" stop-color="#22d3ee" />
+      <stop offset="100%" stop-color="#00f2fe" />
+    </linearGradient>
+
+    <!-- Subtle Drop Shadow Glow -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#00f2fe" flood-opacity="0.30" />
+    </filter>
+  </defs>
+
+  <!-- Decreased Background Size: 400x480 with sleek tight corner radius -->
+  <rect width="400" height="480" rx="64" fill="#14181f"/>
+
+  <!-- Extra Large ED Monogram Emblem -->
+  <g id="emblem" transform="translate(200, 242) scale(1.26) translate(-256, -244)" filter="url(#glow)">
+    <!-- Padlock Shackle / Arc -->
+    <path d="M 190 186 
+             V 134 
+             C 190 94, 218 68, 256 68 
+             C 294 68, 322 94, 322 134 
+             V 186" 
+          fill="none" 
+          stroke="url(#edIamGradient)" 
+          stroke-width="34" 
+          stroke-linecap="round"/>
+
+    <!-- Left Wing: 'E' - Extra Large, Bolder Spine, Anchored Solid Bottom Arm -->
+    <path d="M 126 216 
+             L 240 190 
+             V 242 
+             L 184 254 
+             V 276 
+             L 238 276 
+             V 320 
+             L 184 320 
+             V 350 
+             L 240 384 
+             V 426 
+             L 126 350 
+             Z" 
+          fill="url(#edIamGradient)" 
+          stroke="url(#edIamGradient)" 
+          stroke-width="6" 
+          stroke-linejoin="round"/>
+
+    <!-- Right Wing: 'D' - Matching Wide Heroic Silhouette -->
+    <path d="M 272 190 
+             L 386 216 
+             V 350 
+             L 272 426 
+             Z 
+             M 304 250 
+             L 354 258 
+             V 334 
+             L 304 376 
+             Z" 
+          fill-rule="evenodd" 
+          fill="url(#edIamGradient)" 
+          stroke="url(#edIamGradient)" 
+          stroke-width="6" 
+          stroke-linejoin="round"/>
+  </g>
+</svg>
