@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.persistence.entity.UserRoleAssignmentJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserRoleAssignmentJpaRepository;
@@ -20,18 +22,10 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRepository {
 
 	private final UserRoleAssignmentJpaRepository repository;
-
-	/**
-	 * Constructs the adapter with the underlying Spring Data repository.
-	 *
-	 * @param repository the Spring Data repository
-	 */
-	public UserRoleAssignmentRepositoryAdapter(UserRoleAssignmentJpaRepository repository) {
-		this.repository = Objects.requireNonNull(repository, "UserRoleAssignmentJpaRepository must not be null.");
-	}
 
 	@Override
 	public Optional<UserRoleAssignment> findById(UserRoleAssignmentId id) {

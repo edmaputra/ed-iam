@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
+import jakarta.validation.constraints.NotBlank;
+
 import io.github.edmaputra.iam.domain.model.Role;
 
 /**
@@ -18,13 +20,20 @@ public final class RoleManagementDtos {
 
 	public record CreateRoleRequest(
 			UUID tenantId,
+
+			@NotBlank(message = "Role code must not be blank.")
 			String code,
+
+			@NotBlank(message = "Role name must not be blank.")
 			String name,
+
 			String description,
 			Set<String> permissions) {}
 
 	public record UpdateRoleRequest(
+			@NotBlank(message = "Role name must not be blank.")
 			String name,
+
 			String description,
 			Set<String> permissions) {}
 

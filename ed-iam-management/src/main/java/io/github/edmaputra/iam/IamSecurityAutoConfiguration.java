@@ -43,6 +43,7 @@ import io.github.edmaputra.iam.application.port.out.ApiKeyValidatorPort;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProvider;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProviderRouter;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
+import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
 import io.github.edmaputra.iam.application.service.AuthenticationService;
 import io.github.edmaputra.iam.application.service.EffectiveAccessResolver;
 import io.github.edmaputra.iam.application.service.FederatedIdentityService;
@@ -199,8 +200,8 @@ public class IamSecurityAutoConfiguration {
 			AuthenticationProviderRouter authRouter,
 			UserRepository userRepository,
 			EffectiveAccessResolver effectiveAccessResolver,
-			JwtTokenProvider jwtTokenProvider) {
-		return new AuthenticationService(authRouter, userRepository, effectiveAccessResolver, jwtTokenProvider);
+			TokenProviderPort tokenProvider) {
+		return new AuthenticationService(authRouter, userRepository, effectiveAccessResolver, tokenProvider);
 	}
 
 	@Bean

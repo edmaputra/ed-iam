@@ -2,10 +2,11 @@ package io.github.edmaputra.iam.adapter.rest;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,18 +46,15 @@ import io.github.edmaputra.iam.adapter.rest.support.TenantResolutionHelper;
  */
 @RestController
 @RequestMapping("/api/v1/groups")
+@RequiredArgsConstructor
 public class GroupController {
 
 	private final ManageGroupUseCase manageGroupUseCase;
 
-	public GroupController(ManageGroupUseCase manageGroupUseCase) {
-		this.manageGroupUseCase = Objects.requireNonNull(manageGroupUseCase, "ManageGroupUseCase must not be null.");
-	}
-
 	@PostMapping
 	public ResponseEntity<GroupResponse> createGroup(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
-			@RequestBody CreateGroupRequest request) {
+			@Valid @RequestBody CreateGroupRequest request) {
 		UUID tenantUuid = TenantResolutionHelper.resolveTenantId(headerTenantId, request.tenantId());
 
 		CreateGroupCommand command = new CreateGroupCommand(
@@ -94,7 +92,7 @@ public class GroupController {
 	@PutMapping("/{id}")
 	public ResponseEntity<GroupResponse> updateGroup(
 			@PathVariable UUID id,
-			@RequestBody UpdateGroupRequest request) {
+			@Valid @RequestBody UpdateGroupRequest request) {
 		UpdateGroupCommand command = new UpdateGroupCommand(
 				new GroupId(id),
 				request.name(),
@@ -114,7 +112,7 @@ public class GroupController {
 	@PostMapping("/{id}/roles")
 	public ResponseEntity<GroupRoleAssignmentResponse> assignRole(
 			@PathVariable UUID id,
-			@RequestBody AssignGroupRoleRequest request) {
+			@Valid @RequestBody AssignGroupRoleRequest request) {
 		ScopeNodeId scopeId = request.scopeNodeId() != null ? new ScopeNodeId(request.scopeNodeId()) : null;
 		AssignGroupRoleCommand command = new AssignGroupRoleCommand(
 				new GroupId(id),

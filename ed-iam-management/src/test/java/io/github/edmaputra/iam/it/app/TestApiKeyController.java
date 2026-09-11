@@ -1,8 +1,8 @@
 package io.github.edmaputra.iam.it.app;
 
-import java.util.Objects;
 import java.util.UUID;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,18 +23,10 @@ import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
  */
 @RestController
 @RequestMapping("/api/test/api-key")
+@RequiredArgsConstructor
 public class TestApiKeyController {
 
 	private final AuthenticationProviderRouter authRouter;
-
-	/**
-	 * Constructs the test API key controller with the authentication provider router.
-	 *
-	 * @param authRouter the authentication provider router
-	 */
-	public TestApiKeyController(AuthenticationProviderRouter authRouter) {
-		this.authRouter = Objects.requireNonNull(authRouter, "AuthenticationProviderRouter must not be null.");
-	}
 
 	/**
 	 * Authenticates an API key supplied via the {@code X-API-Key} header or JSON request body.

@@ -1,6 +1,6 @@
 package io.github.edmaputra.iam.adapter.security.provider;
 
-import java.util.Objects;
+import lombok.RequiredArgsConstructor;
 
 import io.github.edmaputra.iam.application.port.out.ApiKeyValidatorPort;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProvider;
@@ -17,18 +17,10 @@ import io.github.edmaputra.iam.domain.exception.AuthenticationException;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class ApiKeyAuthProvider implements AuthenticationProvider {
 
 	private final ApiKeyValidatorPort apiKeyValidator;
-
-	/**
-	 * Constructs the API key auth provider.
-	 *
-	 * @param apiKeyValidator the API key validation port
-	 */
-	public ApiKeyAuthProvider(ApiKeyValidatorPort apiKeyValidator) {
-		this.apiKeyValidator = Objects.requireNonNull(apiKeyValidator, "ApiKeyValidatorPort must not be null.");
-	}
 
 	@Override
 	public boolean supports(AuthCredentialType credentialType) {

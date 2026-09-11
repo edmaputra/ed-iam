@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,16 +30,11 @@ import io.github.edmaputra.iam.playground.domain.PatientRecordRepository;
  */
 @RestController
 @RequestMapping("/api/v1/playground/patients")
+@RequiredArgsConstructor
 public class PatientRecordController {
 
 	private final CurrentActorProvider currentActorProvider;
 	private final PatientRecordRepository patientRecordRepository;
-
-	public PatientRecordController(CurrentActorProvider currentActorProvider,
-			PatientRecordRepository patientRecordRepository) {
-		this.currentActorProvider = currentActorProvider;
-		this.patientRecordRepository = patientRecordRepository;
-	}
 
 	@GetMapping
 	public ResponseEntity<List<PatientRecord>> getPatientRecords(

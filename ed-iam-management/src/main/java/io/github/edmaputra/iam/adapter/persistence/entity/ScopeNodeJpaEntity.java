@@ -24,7 +24,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ScopeNodeEntity {
+public class ScopeNodeJpaEntity {
 
 	@Id
 	@Column(name = "id", nullable = false)

@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Bean;
 import io.github.edmaputra.iam.adapter.persistence.adapter.ScopeNodeRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.repository.ScopeNodeJpaRepository;
 import io.github.edmaputra.iam.application.port.in.ManageScopeUseCase;
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.service.ScopeHierarchyService;
 import io.github.edmaputra.iam.application.service.ScopeSubtreeResolver;
 import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
@@ -34,17 +35,29 @@ public class IamScopeAutoConfiguration {
 	}
 
 	/**
+	 * Registers the default {@link EventPublisherPort} bridging domain events to Spring's {@link ApplicationEventPublisher}.
+	 *
+	 * @param applicationEventPublisher the Spring application event publisher
+	 * @return event publisher port adapter
+	 */
+	@Bean
+	@ConditionalOnMissingBean
+	public EventPublisherPort iamEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+		return applicationEventPublisher::publishEvent;
+	}
+
+	/**
 	 * Registers the {@link ManageScopeUseCase} bean.
 	 *
 	 * @param scopeNodeRepository the scope node repository
-	 * @param eventPublisher      the Spring application event publisher
+	 * @param eventPublisher      the domain event publisher port
 	 * @return scope hierarchy management service
 	 */
 	@Bean
 	@ConditionalOnMissingBean
 	public ManageScopeUseCase manageScopeUseCase(
 			ScopeNodeRepository scopeNodeRepository,
-			ApplicationEventPublisher eventPublisher) {
+			EventPublisherPort eventPublisher) {
 		return new ScopeHierarchyService(scopeNodeRepository, eventPublisher);
 	}
 

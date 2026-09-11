@@ -215,13 +215,13 @@ class TokenRefreshAndLifecycleIT extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("Should reject /refresh with malformed, tampered, or missing refresh token")
 	void shouldRejectInvalidRefreshTokens() {
-		// Missing / empty token triggers IllegalArgumentException -> 400 Bad Request
+		// Missing / empty token triggers validation error -> 422 Unprocessable Content
 		webTestClient.post()
 				.uri("/api/v1/auth/refresh")
 				.contentType(MediaType.APPLICATION_JSON)
 				.bodyValue("{\"refreshToken\":\"\"}")
 				.exchange()
-				.expectStatus().isBadRequest();
+				.expectStatus().isEqualTo(422);
 
 		// Tampered token fails JWT signature verification -> 401 Unauthorized
 		webTestClient.post()

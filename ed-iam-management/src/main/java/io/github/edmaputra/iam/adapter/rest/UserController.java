@@ -2,10 +2,11 @@ package io.github.edmaputra.iam.adapter.rest;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,21 +46,18 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  */
 @RestController
 @RequestMapping("/api/v1/users")
+@RequiredArgsConstructor
 public class UserController {
 
 	private final ManageUserUseCase manageUserUseCase;
 
-	public UserController(ManageUserUseCase manageUserUseCase) {
-		this.manageUserUseCase = Objects.requireNonNull(manageUserUseCase, "ManageUserUseCase must not be null.");
-	}
-
 	@PostMapping
-	public ResponseEntity<UserResponse> createUser(@RequestBody CreateUserRequest request) {
+	public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
 		CreateUserCommand command = new CreateUserCommand(
 				request.email(),
 				request.password(),
 				request.fullName(),
-				request.platformSuperAdmin());
+				request.isPlatformSuperAdmin());
 
 		User created = manageUserUseCase.createUser(command);
 		return ResponseEntity.created(URI.create("/api/v1/users/" + created.getId().value()))
@@ -81,7 +79,7 @@ public class UserController {
 	@PutMapping("/{id}")
 	public ResponseEntity<UserResponse> updateUser(
 			@PathVariable UUID id,
-			@RequestBody UpdateUserRequest request) {
+			@Valid @RequestBody UpdateUserRequest request) {
 		User updated = manageUserUseCase.updateUser(new UpdateUserCommand(new UserId(id), request.fullName()));
 		return ResponseEntity.ok(UserResponse.fromDomain(updated));
 	}
@@ -89,7 +87,7 @@ public class UserController {
 	@PutMapping("/{id}/status")
 	public ResponseEntity<UserResponse> changeUserStatus(
 			@PathVariable UUID id,
-			@RequestBody ChangeUserStatusRequest request) {
+			@Valid @RequestBody ChangeUserStatusRequest request) {
 		User updated = manageUserUseCase.changeUserStatus(new ChangeUserStatusCommand(new UserId(id), request.status()));
 		return ResponseEntity.ok(UserResponse.fromDomain(updated));
 	}
@@ -103,7 +101,7 @@ public class UserController {
 	@PostMapping("/{id}/roles")
 	public ResponseEntity<UserRoleAssignmentResponse> assignRole(
 			@PathVariable UUID id,
-			@RequestBody AssignUserRoleRequest request) {
+			@Valid @RequestBody AssignUserRoleRequest request) {
 		ScopeNodeId scopeId = request.scopeNodeId() != null ? new ScopeNodeId(request.scopeNodeId()) : null;
 		AssignUserRoleCommand command = new AssignUserRoleCommand(
 				new UserId(id),

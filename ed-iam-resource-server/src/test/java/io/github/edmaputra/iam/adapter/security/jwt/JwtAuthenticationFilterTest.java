@@ -1,7 +1,6 @@
 package io.github.edmaputra.iam.adapter.security.jwt;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
 
@@ -153,6 +152,8 @@ class JwtAuthenticationFilterTest {
 			assertThat(securityContextAccessor.currentActor()).isPresent();
 			assertThat(securityContextAccessor.currentActor().get().userId()).isEqualTo(userId);
 			assertThat(securityContextAccessor.currentActor().get().email()).isEqualTo("user@tenant.org");
+			assertThat(org.slf4j.MDC.get("tenantId")).isEqualTo(tenantId.toString());
+			assertThat(org.slf4j.MDC.get("actorId")).isEqualTo(userId.toString());
 		};
 
 		// execute when tenantBridge.runWithTenant is invoked
@@ -166,6 +167,8 @@ class JwtAuthenticationFilterTest {
 
 		verify(tenantBridge).runWithTenant(any(UUID.class), any());
 		assertThat(securityContextAccessor.currentActor()).isEmpty(); // unbound after completion
+		assertThat(org.slf4j.MDC.get("tenantId")).isNull(); // cleaned up after completion
+		assertThat(org.slf4j.MDC.get("actorId")).isNull();
 	}
 
 	@Test

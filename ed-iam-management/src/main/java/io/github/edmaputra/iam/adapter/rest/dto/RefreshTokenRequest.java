@@ -1,6 +1,6 @@
 package io.github.edmaputra.iam.adapter.rest.dto;
 
-import java.util.Objects;
+import jakarta.validation.constraints.NotBlank;
 
 import io.github.edmaputra.iam.application.port.in.RefreshTokenCommand;
 
@@ -12,11 +12,9 @@ import io.github.edmaputra.iam.application.port.in.RefreshTokenCommand;
  * @author edmaputra
  * @since 1.0.0
  */
-public record RefreshTokenRequest(String refreshToken) {
-
-	public RefreshTokenRequest {
-		Objects.requireNonNull(refreshToken, "RefreshToken must not be null.");
-	}
+public record RefreshTokenRequest(
+		@NotBlank(message = "Refresh token must not be blank.")
+		String refreshToken) {
 
 	/**
 	 * Maps this REST request to the inbound {@link RefreshTokenCommand}.

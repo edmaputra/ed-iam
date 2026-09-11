@@ -3,7 +3,6 @@ package io.github.edmaputra.iam.application.port.out;
 import io.github.edmaputra.iam.domain.auth.AuthCredentialType;
 import io.github.edmaputra.iam.domain.auth.AuthCredentials;
 import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
-import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 
 /**
  * Service Provider Interface (SPI) for pluggable authentication mechanisms.

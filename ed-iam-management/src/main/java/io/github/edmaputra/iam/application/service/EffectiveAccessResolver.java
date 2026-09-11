@@ -7,6 +7,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.application.model.EffectiveAccess;
 import io.github.edmaputra.iam.domain.model.Group;
@@ -33,6 +35,7 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class EffectiveAccessResolver {
 
 	private final UserGroupMembershipRepository userGroupMembershipRepository;
@@ -42,34 +45,6 @@ public class EffectiveAccessResolver {
 	private final RoleRepository roleRepository;
 	private final ScopeNodeRepository scopeNodeRepository;
 	private final ScopeSubtreeResolver scopeSubtreeResolver;
-
-	/**
-	 * Constructs the effective access resolver with required repositories and subtree engine.
-	 *
-	 * @param userGroupMembershipRepository user group membership repository
-	 * @param groupRepository               group repository
-	 * @param userRoleAssignmentRepository  user role assignment repository
-	 * @param groupRoleAssignmentRepository group role assignment repository
-	 * @param roleRepository                role repository
-	 * @param scopeNodeRepository           scope node repository
-	 * @param scopeSubtreeResolver          scope subtree calculation resolver
-	 */
-	public EffectiveAccessResolver(
-			UserGroupMembershipRepository userGroupMembershipRepository,
-			GroupRepository groupRepository,
-			UserRoleAssignmentRepository userRoleAssignmentRepository,
-			GroupRoleAssignmentRepository groupRoleAssignmentRepository,
-			RoleRepository roleRepository,
-			ScopeNodeRepository scopeNodeRepository,
-			ScopeSubtreeResolver scopeSubtreeResolver) {
-		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
-		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
-		this.userRoleAssignmentRepository = Objects.requireNonNull(userRoleAssignmentRepository, "UserRoleAssignmentRepository must not be null.");
-		this.groupRoleAssignmentRepository = Objects.requireNonNull(groupRoleAssignmentRepository, "GroupRoleAssignmentRepository must not be null.");
-		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
-		this.scopeNodeRepository = Objects.requireNonNull(scopeNodeRepository, "ScopeNodeRepository must not be null.");
-		this.scopeSubtreeResolver = Objects.requireNonNull(scopeSubtreeResolver, "ScopeSubtreeResolver must not be null.");
-	}
 
 	/**
 	 * Computes the complete {@link EffectiveAccess} for a given user within a tenant context.

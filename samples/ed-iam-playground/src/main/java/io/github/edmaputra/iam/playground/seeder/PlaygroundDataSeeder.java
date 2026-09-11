@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -39,6 +40,7 @@ import io.github.edmaputra.iam.playground.domain.PatientRecordRepository;
  * @since 0.0.1
  */
 @Component
+@RequiredArgsConstructor
 public class PlaygroundDataSeeder {
 
 	private static final Logger log = LoggerFactory.getLogger(PlaygroundDataSeeder.class);
@@ -74,27 +76,6 @@ public class PlaygroundDataSeeder {
 	private final UserGroupMembershipRepository userGroupMembershipRepository;
 	private final PasswordEncoderPort passwordEncoder;
 	private final PatientRecordRepository patientRecordRepository;
-
-	public PlaygroundDataSeeder(
-			UserRepository userRepository,
-			RoleRepository roleRepository,
-			ScopeNodeRepository scopeNodeRepository,
-			UserRoleAssignmentRepository userRoleAssignmentRepository,
-			GroupRepository groupRepository,
-			GroupRoleAssignmentRepository groupRoleAssignmentRepository,
-			UserGroupMembershipRepository userGroupMembershipRepository,
-			PasswordEncoderPort passwordEncoder,
-			PatientRecordRepository patientRecordRepository) {
-		this.userRepository = userRepository;
-		this.roleRepository = roleRepository;
-		this.scopeNodeRepository = scopeNodeRepository;
-		this.userRoleAssignmentRepository = userRoleAssignmentRepository;
-		this.groupRepository = groupRepository;
-		this.groupRoleAssignmentRepository = groupRoleAssignmentRepository;
-		this.userGroupMembershipRepository = userGroupMembershipRepository;
-		this.passwordEncoder = passwordEncoder;
-		this.patientRecordRepository = patientRecordRepository;
-	}
 
 	@EventListener(ApplicationReadyEvent.class)
 	@Transactional

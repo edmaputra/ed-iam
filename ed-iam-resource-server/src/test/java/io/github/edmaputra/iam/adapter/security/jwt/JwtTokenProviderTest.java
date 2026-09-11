@@ -7,9 +7,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import io.github.edmaputra.iam.application.model.EffectiveAccess;
+import io.github.edmaputra.iam.application.model.RefreshTokenClaims;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
-import io.github.edmaputra.iam.application.model.EffectiveAccess;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 import io.github.edmaputra.iam.domain.model.UserId;
 

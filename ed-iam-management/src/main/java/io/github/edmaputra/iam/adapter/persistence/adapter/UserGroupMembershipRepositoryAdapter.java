@@ -3,6 +3,8 @@ package io.github.edmaputra.iam.adapter.persistence.adapter;
 import java.util.List;
 import java.util.Objects;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.adapter.persistence.entity.UserGroupMembershipJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.entity.UserGroupMembershipJpaId;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserGroupMembershipJpaRepository;
@@ -17,18 +19,10 @@ import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class UserGroupMembershipRepositoryAdapter implements UserGroupMembershipRepository {
 
 	private final UserGroupMembershipJpaRepository repository;
-
-	/**
-	 * Constructs the adapter with the underlying Spring Data repository.
-	 *
-	 * @param repository the Spring Data repository
-	 */
-	public UserGroupMembershipRepositoryAdapter(UserGroupMembershipJpaRepository repository) {
-		this.repository = Objects.requireNonNull(repository, "UserGroupMembershipJpaRepository must not be null.");
-	}
 
 	@Override
 	public List<UserGroupMembership> findAllByUserId(UserId userId) {

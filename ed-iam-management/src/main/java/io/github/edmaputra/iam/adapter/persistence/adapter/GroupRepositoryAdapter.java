@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.StreamSupport;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.persistence.entity.GroupJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.GroupJpaRepository;
@@ -19,18 +21,10 @@ import io.github.edmaputra.iam.domain.repository.GroupRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class GroupRepositoryAdapter implements GroupRepository {
 
 	private final GroupJpaRepository repository;
-
-	/**
-	 * Constructs the adapter with the underlying Spring Data repository.
-	 *
-	 * @param repository the Spring Data repository
-	 */
-	public GroupRepositoryAdapter(GroupJpaRepository repository) {
-		this.repository = Objects.requireNonNull(repository, "GroupJpaRepository must not be null.");
-	}
 
 	@Override
 	public Optional<Group> findById(GroupId id) {

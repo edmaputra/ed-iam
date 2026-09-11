@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.adapter.persistence.entity.UserIdentityJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserIdentityJpaRepository;
 import io.github.edmaputra.iam.domain.model.ProviderType;
@@ -18,18 +20,10 @@ import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class UserIdentityRepositoryAdapter implements UserIdentityRepository {
 
 	private final UserIdentityJpaRepository repository;
-
-	/**
-	 * Constructs the adapter with the underlying Spring Data repository.
-	 *
-	 * @param repository the Spring Data repository
-	 */
-	public UserIdentityRepositoryAdapter(UserIdentityJpaRepository repository) {
-		this.repository = Objects.requireNonNull(repository, "UserIdentityJpaRepository must not be null.");
-	}
 
 	@Override
 	public Optional<UserIdentity> findById(UserIdentityId id) {

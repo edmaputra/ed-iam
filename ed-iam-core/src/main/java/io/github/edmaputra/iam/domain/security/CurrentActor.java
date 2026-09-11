@@ -45,4 +45,13 @@ public interface CurrentActor {
 	}
 
 	Set<UUID> accessibleScopeNodeIds();
+
+	/**
+	 * Returns the set of materialized hierarchy scope path prefixes accessible to the actor.
+	 *
+	 * @return set of accessible scope path strings, or empty set if none
+	 */
+	default Set<String> accessibleScopePaths() {
+		return Set.of();
+	}
 }

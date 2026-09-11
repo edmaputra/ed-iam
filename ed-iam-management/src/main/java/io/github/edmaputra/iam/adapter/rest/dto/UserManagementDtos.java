@@ -1,10 +1,13 @@
 package io.github.edmaputra.iam.adapter.rest.dto;
 
 import java.time.Instant;
-import java.util.Set;
 import java.util.UUID;
 
-import io.github.edmaputra.iam.domain.model.Role;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserRoleAssignment;
 import io.github.edmaputra.iam.domain.model.UserStatus;
@@ -20,18 +23,39 @@ public final class UserManagementDtos {
 	private UserManagementDtos() {}
 
 	public record CreateUserRequest(
+			@NotBlank(message = "Email must not be blank.")
+			@Email(message = "Email must be a valid email address.")
 			String email,
+
+			@NotBlank(message = "Password must not be blank.")
+			@Size(min = 8, message = "Password must be at least 8 characters.")
 			String password,
+
+			@NotBlank(message = "Full name must not be blank.")
 			String fullName,
-			boolean platformSuperAdmin) {}
 
-	public record UpdateUserRequest(String fullName) {}
+			Boolean platformSuperAdmin) {
 
-	public record ChangeUserStatusRequest(UserStatus status) {}
+		public boolean isPlatformSuperAdmin() {
+			return Boolean.TRUE.equals(platformSuperAdmin);
+		}
+	}
+
+	public record UpdateUserRequest(
+			@NotBlank(message = "Full name must not be blank.")
+			String fullName) {}
+
+	public record ChangeUserStatusRequest(
+			@NotNull(message = "Status must not be null.")
+			UserStatus status) {}
 
 	public record AssignUserRoleRequest(
+			@NotNull(message = "Role ID must not be null.")
 			UUID roleId,
+
+			@NotNull(message = "Tenant ID must not be null.")
 			UUID tenantId,
+
 			UUID scopeNodeId) {}
 
 	public record UserResponse(

@@ -1,7 +1,6 @@
 package io.github.edmaputra.iam.application.port.in;
 
 import java.util.Objects;
-import java.util.Set;
 
 import io.github.edmaputra.iam.domain.model.RoleId;
 import io.github.edmaputra.iam.domain.model.ScopeNodeId;
