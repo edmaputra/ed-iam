@@ -2,6 +2,9 @@ package io.github.edmaputra.iam.adapter.rest.dto;
 
 import java.util.UUID;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 import io.github.edmaputra.iam.domain.model.ScopeNode;
 
 /**
@@ -15,13 +18,21 @@ public final class ScopeManagementDtos {
 	private ScopeManagementDtos() {}
 
 	public record CreateScopeRequest(
+			@NotNull(message = "Tenant ID must not be null.")
 			UUID tenantId,
+
 			UUID parentId,
+
+			@NotBlank(message = "Scope code must not be blank.")
 			String code,
+
+			@NotBlank(message = "Scope name must not be blank.")
 			String name) {}
 
 	public record UpdateScopeRequest(
 			String code,
+
+			@NotBlank(message = "Scope name must not be blank.")
 			String name) {}
 
 	public record MoveScopeRequest(

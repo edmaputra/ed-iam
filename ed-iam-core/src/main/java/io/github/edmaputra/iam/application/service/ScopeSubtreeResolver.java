@@ -7,6 +7,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.domain.model.ScopeNode;
 import io.github.edmaputra.iam.domain.model.ScopeNodeId;
@@ -18,18 +20,10 @@ import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class ScopeSubtreeResolver {
 
 	private final ScopeNodeRepository scopeNodeRepository;
-
-	/**
-	 * Constructs the resolver with the scope node repository.
-	 *
-	 * @param scopeNodeRepository the scope node repository
-	 */
-	public ScopeSubtreeResolver(ScopeNodeRepository scopeNodeRepository) {
-		this.scopeNodeRepository = Objects.requireNonNull(scopeNodeRepository, "ScopeNodeRepository must not be null.");
-	}
 
 	/**
 	 * Resolves all accessible scope node IDs for a given assigned node ID.

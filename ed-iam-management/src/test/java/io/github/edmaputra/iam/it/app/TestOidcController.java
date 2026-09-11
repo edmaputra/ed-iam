@@ -1,9 +1,9 @@
 package io.github.edmaputra.iam.it.app;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,13 +24,10 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  */
 @RestController
 @RequestMapping("/api/test/oidc")
+@RequiredArgsConstructor
 public class TestOidcController {
 
 	private final AuthenticationProviderRouter authRouter;
-
-	public TestOidcController(AuthenticationProviderRouter authRouter) {
-		this.authRouter = Objects.requireNonNull(authRouter, "AuthenticationProviderRouter must not be null.");
-	}
 
 	@PostMapping("/authenticate")
 	public ResponseEntity<OidcIdentityResponse> authenticate(@RequestBody OidcAuthenticateRequest request) {

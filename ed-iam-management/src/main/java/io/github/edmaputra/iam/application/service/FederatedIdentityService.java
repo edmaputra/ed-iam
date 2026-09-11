@@ -4,10 +4,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
-import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.ProviderType;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserGroupMembership;
@@ -23,31 +24,13 @@ import io.github.edmaputra.iam.domain.repository.UserRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class FederatedIdentityService {
 
 	private final UserRepository userRepository;
 	private final UserIdentityRepository userIdentityRepository;
 	private final GroupRepository groupRepository;
 	private final UserGroupMembershipRepository userGroupMembershipRepository;
-
-	/**
-	 * Constructs the federated identity service with required domain repositories.
-	 *
-	 * @param userRepository               the user repository
-	 * @param userIdentityRepository       the user identity linkage repository
-	 * @param groupRepository              the group repository
-	 * @param userGroupMembershipRepository the group membership repository
-	 */
-	public FederatedIdentityService(
-			UserRepository userRepository,
-			UserIdentityRepository userIdentityRepository,
-			GroupRepository groupRepository,
-			UserGroupMembershipRepository userGroupMembershipRepository) {
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-		this.userIdentityRepository = Objects.requireNonNull(userIdentityRepository, "UserIdentityRepository must not be null.");
-		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
-		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
-	}
 
 	/**
 	 * Links an external identity to an existing account, or creates a new user account via JIT provisioning.

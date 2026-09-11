@@ -1,6 +1,6 @@
 package io.github.edmaputra.iam.adapter.security.provider;
 
-import java.util.Objects;
+import lombok.RequiredArgsConstructor;
 
 import io.github.edmaputra.iam.application.port.out.AuthenticationProvider;
 import io.github.edmaputra.iam.application.service.FederatedIdentityService;
@@ -17,18 +17,10 @@ import io.github.edmaputra.iam.domain.model.ProviderType;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class OidcAuthProvider implements AuthenticationProvider {
 
 	private final FederatedIdentityService federatedIdentityService;
-
-	/**
-	 * Constructs the OIDC auth provider with the federated identity service.
-	 *
-	 * @param federatedIdentityService the federated identity linking and provisioning service
-	 */
-	public OidcAuthProvider(FederatedIdentityService federatedIdentityService) {
-		this.federatedIdentityService = Objects.requireNonNull(federatedIdentityService, "FederatedIdentityService must not be null.");
-	}
 
 	@Override
 	public boolean supports(AuthCredentialType credentialType) {

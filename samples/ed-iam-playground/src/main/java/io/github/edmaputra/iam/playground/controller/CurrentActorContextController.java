@@ -1,9 +1,9 @@
 package io.github.edmaputra.iam.playground.controller;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,13 +21,10 @@ import io.github.edmaputra.iam.playground.config.HostTenantContext;
  */
 @RestController
 @RequestMapping("/api/v1/playground")
+@RequiredArgsConstructor
 public class CurrentActorContextController {
 
 	private final CurrentActorProvider currentActorProvider;
-
-	public CurrentActorContextController(CurrentActorProvider currentActorProvider) {
-		this.currentActorProvider = currentActorProvider;
-	}
 
 	@GetMapping("/actor-context")
 	public ResponseEntity<ActorContextResponse> getActorContext() {

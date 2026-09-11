@@ -1,13 +1,13 @@
 package io.github.edmaputra.iam.adapter.security.jwt;
 
 import java.io.IOException;
-import java.util.Objects;
-import java.util.Optional;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -15,7 +15,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.tenancy.TenantContextBridge;
-import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.security.SecurityContextAccessor;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 
@@ -27,6 +26,7 @@ import io.github.edmaputra.iam.domain.exception.AuthenticationException;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	/** Standard Bearer authorization header prefix. */
@@ -35,22 +35,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	private final JwtTokenProvider jwtTokenProvider;
 	private final SecurityContextAccessor securityContextAccessor;
 	private final ObjectProvider<TenantContextBridge> tenantContextBridgeProvider;
-
-	/**
-	 * Constructs the authentication filter with token provider, security context accessor, and optional tenant context bridge provider.
-	 *
-	 * @param jwtTokenProvider            the token parser and verifier
-	 * @param securityContextAccessor     the actor context binding accessor
-	 * @param tenantContextBridgeProvider the tenant context bridge provider
-	 */
-	public JwtAuthenticationFilter(
-			JwtTokenProvider jwtTokenProvider,
-			SecurityContextAccessor securityContextAccessor,
-			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider) {
-		this.jwtTokenProvider = Objects.requireNonNull(jwtTokenProvider, "JwtTokenProvider must not be null.");
-		this.securityContextAccessor = Objects.requireNonNull(securityContextAccessor, "SecurityContextAccessor must not be null.");
-		this.tenantContextBridgeProvider = Objects.requireNonNull(tenantContextBridgeProvider, "TenantContextBridgeProvider must not be null.");
-	}
 
 	@Override
 	protected void doFilterInternal(
@@ -85,6 +69,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		}
 
 		try {
+			if (actor.tenantId() != null) {
+				MDC.put("tenantId", actor.tenantId().toString());
+			}
+			if (actor.userId() != null) {
+				MDC.put("actorId", actor.userId().toString());
+			}
 			securityContextAccessor.callWithActor(actor, () -> {
 				TenantContextBridge tenantBridge = tenantContextBridgeProvider.getIfAvailable();
 				if (actor.tenantId() != null && tenantBridge != null) {
@@ -103,6 +93,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		}
 		catch (Exception ex) {
 			throw new ServletException("Security-scoped request execution failed.", ex);
+		}
+		finally {
+			MDC.remove("tenantId");
+			MDC.remove("actorId");
 		}
 	}
 

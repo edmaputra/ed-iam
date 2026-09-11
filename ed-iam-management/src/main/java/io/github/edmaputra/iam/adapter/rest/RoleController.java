@@ -2,10 +2,11 @@ package io.github.edmaputra.iam.adapter.rest;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,18 +39,15 @@ import io.github.edmaputra.iam.adapter.rest.support.TenantResolutionHelper;
  */
 @RestController
 @RequestMapping("/api/v1/roles")
+@RequiredArgsConstructor
 public class RoleController {
 
 	private final ManageRoleUseCase manageRoleUseCase;
 
-	public RoleController(ManageRoleUseCase manageRoleUseCase) {
-		this.manageRoleUseCase = Objects.requireNonNull(manageRoleUseCase, "ManageRoleUseCase must not be null.");
-	}
-
 	@PostMapping
 	public ResponseEntity<RoleResponse> createRole(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
-			@RequestBody CreateRoleRequest request) {
+			@Valid @RequestBody CreateRoleRequest request) {
 		UUID tenantUuid = TenantResolutionHelper.resolveTenantId(headerTenantId, request.tenantId());
 
 		CreateRoleCommand command = new CreateRoleCommand(
@@ -87,7 +85,7 @@ public class RoleController {
 	@PutMapping("/{id}")
 	public ResponseEntity<RoleResponse> updateRole(
 			@PathVariable UUID id,
-			@RequestBody UpdateRoleRequest request) {
+			@Valid @RequestBody UpdateRoleRequest request) {
 		UpdateRoleCommand command = new UpdateRoleCommand(
 				new RoleId(id),
 				request.name(),

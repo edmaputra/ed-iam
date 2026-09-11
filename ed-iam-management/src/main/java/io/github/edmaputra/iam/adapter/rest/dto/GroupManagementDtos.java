@@ -3,6 +3,9 @@ package io.github.edmaputra.iam.adapter.rest.dto;
 import java.time.Instant;
 import java.util.UUID;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupRoleAssignment;
 
@@ -17,20 +20,32 @@ public final class GroupManagementDtos {
 	private GroupManagementDtos() {}
 
 	public record CreateGroupRequest(
+			@NotNull(message = "Tenant ID must not be null.")
 			UUID tenantId,
+
+			@NotBlank(message = "Group code must not be blank.")
 			String code,
+
+			@NotBlank(message = "Group name must not be blank.")
 			String name,
+
 			String description,
 			String externalIdpGroupName) {}
 
 	public record UpdateGroupRequest(
+			@NotBlank(message = "Group name must not be blank.")
 			String name,
+
 			String description,
 			String externalIdpGroupName) {}
 
 	public record AssignGroupRoleRequest(
+			@NotNull(message = "Role ID must not be null.")
 			UUID roleId,
+
+			@NotNull(message = "Tenant ID must not be null.")
 			UUID tenantId,
+
 			UUID scopeNodeId) {}
 
 	public record GroupResponse(

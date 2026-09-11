@@ -5,8 +5,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
-import io.github.edmaputra.iam.adapter.persistence.entity.ScopeNodeEntity;
+import io.github.edmaputra.iam.adapter.persistence.entity.ScopeNodeJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.ScopeNodeJpaRepository;
 import io.github.edmaputra.iam.domain.model.ScopeNode;
 import io.github.edmaputra.iam.domain.model.ScopeNodeId;
@@ -18,24 +20,16 @@ import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class ScopeNodeRepositoryAdapter implements ScopeNodeRepository {
 
 	private final ScopeNodeJpaRepository repository;
 
-	/**
-	 * Constructs the adapter with the underlying Spring Data repository.
-	 *
-	 * @param repository the Spring Data repository
-	 */
-	public ScopeNodeRepositoryAdapter(ScopeNodeJpaRepository repository) {
-		this.repository = Objects.requireNonNull(repository, "ScopeNodeJpaRepository must not be null.");
-	}
-
 	@Override
 	public ScopeNode save(ScopeNode node) {
 		Objects.requireNonNull(node, "ScopeNode must not be null.");
-		ScopeNodeEntity entity = toEntity(node);
-		ScopeNodeEntity saved = repository.save(entity);
+		ScopeNodeJpaEntity entity = toEntity(node);
+		ScopeNodeJpaEntity saved = repository.save(entity);
 		return toDomain(saved);
 	}
 
@@ -102,7 +96,7 @@ public class ScopeNodeRepositoryAdapter implements ScopeNodeRepository {
 		repository.deleteById(id.value());
 	}
 
-	private ScopeNode toDomain(ScopeNodeEntity entity) {
+	private ScopeNode toDomain(ScopeNodeJpaEntity entity) {
 		return new ScopeNode(
 				new ScopeNodeId(entity.getId()),
 				new TenantId(entity.getTenantId()),
@@ -114,8 +108,8 @@ public class ScopeNodeRepositoryAdapter implements ScopeNodeRepository {
 				entity.getUpdatedAt());
 	}
 
-	private ScopeNodeEntity toEntity(ScopeNode node) {
-		return new ScopeNodeEntity(
+	private ScopeNodeJpaEntity toEntity(ScopeNode node) {
+		return new ScopeNodeJpaEntity(
 				node.getId().value(),
 				node.getTenantId().value(),
 				node.optionalParentId().map(ScopeNodeId::value).orElse(null),

@@ -10,15 +10,15 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import io.github.edmaputra.iam.adapter.persistence.entity.ScopeNodeEntity;
+import io.github.edmaputra.iam.adapter.persistence.entity.ScopeNodeJpaEntity;
 
 /**
- * Spring Data JPA repository for IAM scope hierarchy nodes ({@link ScopeNodeEntity}).
+ * Spring Data JPA repository for IAM scope hierarchy nodes ({@link ScopeNodeJpaEntity}).
  *
  * @author edmaputra
  * @since 1.0.0
  */
-public interface ScopeNodeJpaRepository extends JpaRepository<ScopeNodeEntity, UUID> {
+public interface ScopeNodeJpaRepository extends JpaRepository<ScopeNodeJpaEntity, UUID> {
 
 	/**
 	 * Finds all scope nodes belonging to a specific tenant.
@@ -26,7 +26,7 @@ public interface ScopeNodeJpaRepository extends JpaRepository<ScopeNodeEntity, U
 	 * @param tenantId the tenant ID
 	 * @return list of matching scope node entities
 	 */
-	List<ScopeNodeEntity> findAllByTenantId(UUID tenantId);
+	List<ScopeNodeJpaEntity> findAllByTenantId(UUID tenantId);
 
 	/**
 	 * Finds a scope node by tenant ID and unique code.
@@ -35,7 +35,7 @@ public interface ScopeNodeJpaRepository extends JpaRepository<ScopeNodeEntity, U
 	 * @param code the scope node code
 	 * @return optional containing the matching entity, or empty
 	 */
-	Optional<ScopeNodeEntity> findByTenantIdAndCode(UUID tenantId, String code);
+	Optional<ScopeNodeJpaEntity> findByTenantIdAndCode(UUID tenantId, String code);
 
 	/**
 	 * Finds a scope node by tenant ID and materialized path.
@@ -44,7 +44,7 @@ public interface ScopeNodeJpaRepository extends JpaRepository<ScopeNodeEntity, U
 	 * @param path     the materialized path
 	 * @return optional containing the matching entity, or empty
 	 */
-	Optional<ScopeNodeEntity> findByTenantIdAndPath(UUID tenantId, String path);
+	Optional<ScopeNodeJpaEntity> findByTenantIdAndPath(UUID tenantId, String path);
 
 	/**
 	 * Finds all root scope nodes for a tenant (parentId is null).
@@ -52,7 +52,7 @@ public interface ScopeNodeJpaRepository extends JpaRepository<ScopeNodeEntity, U
 	 * @param tenantId the tenant ID
 	 * @return list of root scope node entities
 	 */
-	List<ScopeNodeEntity> findAllByTenantIdAndParentIdIsNull(UUID tenantId);
+	List<ScopeNodeJpaEntity> findAllByTenantIdAndParentIdIsNull(UUID tenantId);
 
 	/**
 	 * Finds all direct child nodes of a parent scope node.
@@ -60,7 +60,7 @@ public interface ScopeNodeJpaRepository extends JpaRepository<ScopeNodeEntity, U
 	 * @param parentId the parent scope node ID
 	 * @return list of direct children
 	 */
-	List<ScopeNodeEntity> findByParentId(UUID parentId);
+	List<ScopeNodeJpaEntity> findByParentId(UUID parentId);
 
 	/**
 	 * Finds all direct child nodes of a parent scope node.
@@ -68,7 +68,7 @@ public interface ScopeNodeJpaRepository extends JpaRepository<ScopeNodeEntity, U
 	 * @param parentId the parent scope node ID
 	 * @return list of direct children
 	 */
-	List<ScopeNodeEntity> findAllByParentId(UUID parentId);
+	List<ScopeNodeJpaEntity> findAllByParentId(UUID parentId);
 
 	/**
 	 * Finds all descendant scope nodes whose materialized path starts with the given prefix.
@@ -76,7 +76,7 @@ public interface ScopeNodeJpaRepository extends JpaRepository<ScopeNodeEntity, U
 	 * @param pathPrefix the materialized path prefix
 	 * @return list of descendant entities
 	 */
-	List<ScopeNodeEntity> findByPathStartingWith(String pathPrefix);
+	List<ScopeNodeJpaEntity> findByPathStartingWith(String pathPrefix);
 
 	/**
 	 * Checks if any child node exists for a given parent ID.
@@ -123,7 +123,7 @@ public interface ScopeNodeJpaRepository extends JpaRepository<ScopeNodeEntity, U
 	 * @return number of updated entities
 	 */
 	@Modifying
-	@Query("UPDATE ScopeNodeEntity s SET s.path = CONCAT(:newPrefix, SUBSTRING(s.path, LENGTH(:oldPrefix) + 1)), s.updatedAt = :now WHERE s.path LIKE CONCAT(:oldPrefix, '%')")
+	@Query("UPDATE ScopeNodeJpaEntity s SET s.path = CONCAT(:newPrefix, SUBSTRING(s.path, LENGTH(:oldPrefix) + 1)), s.updatedAt = :now WHERE s.path LIKE CONCAT(:oldPrefix, '%')")
 	int updatePathPrefix(
 			@Param("oldPrefix") String oldPrefix,
 			@Param("newPrefix") String newPrefix,

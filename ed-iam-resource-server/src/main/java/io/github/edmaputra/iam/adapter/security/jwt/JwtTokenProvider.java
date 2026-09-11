@@ -17,12 +17,14 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
+import io.github.edmaputra.iam.application.model.EffectiveAccess;
+import io.github.edmaputra.iam.application.model.RefreshTokenClaims;
+import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
+import io.github.edmaputra.iam.domain.exception.AuthenticationException;
+import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor;
-import io.github.edmaputra.iam.application.model.EffectiveAccess;
-import io.github.edmaputra.iam.domain.exception.AuthenticationException;
-import io.github.edmaputra.iam.domain.model.UserId;
 
 /**
  * Provider responsible for issuing and verifying HMAC-SHA256 signed JSON Web Tokens (JWT).
@@ -31,7 +33,7 @@ import io.github.edmaputra.iam.domain.model.UserId;
  * @author edmaputra
  * @since 1.0.0
  */
-public class JwtTokenProvider {
+public class JwtTokenProvider implements TokenProviderPort {
 
 	private static final String CLAIM_EMAIL = "email";
 	private static final String CLAIM_TENANT_ID = "tenantId";

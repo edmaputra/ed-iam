@@ -2,10 +2,11 @@ package io.github.edmaputra.iam.adapter.rest;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -43,18 +44,15 @@ import io.github.edmaputra.iam.adapter.rest.support.TenantResolutionHelper;
  */
 @RestController
 @RequestMapping("/api/v1/scopes")
+@RequiredArgsConstructor
 public class ScopeController {
 
 	private final ManageScopeUseCase manageScopeUseCase;
 
-	public ScopeController(ManageScopeUseCase manageScopeUseCase) {
-		this.manageScopeUseCase = Objects.requireNonNull(manageScopeUseCase, "ManageScopeUseCase must not be null.");
-	}
-
 	@PostMapping
 	public ResponseEntity<ScopeNodeResponse> createScope(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
-			@RequestBody CreateScopeRequest request) {
+			@Valid @RequestBody CreateScopeRequest request) {
 		UUID tenantUuid = TenantResolutionHelper.resolveTenantId(headerTenantId, request.tenantId());
 		TenantId tenantId = new TenantId(tenantUuid);
 		OperationContext context = OperationContext.system();
@@ -105,7 +103,7 @@ public class ScopeController {
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@RequestParam(value = "tenantId", required = false) UUID paramTenantId,
 			@PathVariable UUID id,
-			@RequestBody UpdateScopeRequest request) {
+			@Valid @RequestBody UpdateScopeRequest request) {
 		UUID tenantUuid = TenantResolutionHelper.resolveTenantId(headerTenantId, paramTenantId);
 		UpdateScopeNodeCommand command = new UpdateScopeNodeCommand(
 				new TenantId(tenantUuid),
@@ -122,7 +120,7 @@ public class ScopeController {
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@RequestParam(value = "tenantId", required = false) UUID paramTenantId,
 			@PathVariable UUID id,
-			@RequestBody MoveScopeRequest request) {
+			@Valid @RequestBody MoveScopeRequest request) {
 		UUID tenantUuid = TenantResolutionHelper.resolveTenantId(headerTenantId, paramTenantId);
 		MoveScopeNodeCommand command = new MoveScopeNodeCommand(
 				new TenantId(tenantUuid),

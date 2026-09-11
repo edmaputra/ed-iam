@@ -4,9 +4,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import org.springframework.context.ApplicationEventPublisher;
+import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.domain.context.OperationContext;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.application.model.ScopeTreeNode;
@@ -29,23 +30,11 @@ import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class ScopeHierarchyService implements ManageScopeUseCase {
 
 	private final ScopeNodeRepository scopeNodeRepository;
-	private final ApplicationEventPublisher eventPublisher;
-
-	/**
-	 * Constructs the scope hierarchy service.
-	 *
-	 * @param scopeNodeRepository the scope node repository
-	 * @param eventPublisher      the application event publisher
-	 */
-	public ScopeHierarchyService(
-			ScopeNodeRepository scopeNodeRepository,
-			ApplicationEventPublisher eventPublisher) {
-		this.scopeNodeRepository = Objects.requireNonNull(scopeNodeRepository, "ScopeNodeRepository must not be null.");
-		this.eventPublisher = Objects.requireNonNull(eventPublisher, "ApplicationEventPublisher must not be null.");
-	}
+	private final EventPublisherPort eventPublisher;
 
 	@Override
 	@Transactional
@@ -176,6 +165,6 @@ public class ScopeHierarchyService implements ManageScopeUseCase {
 				"SCOPE_NODE",
 				payload,
 				context);
-		eventPublisher.publishEvent(event);
+		eventPublisher.publish(event);
 	}
 }

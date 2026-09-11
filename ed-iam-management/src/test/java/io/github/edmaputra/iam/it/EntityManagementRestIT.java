@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.json.JsonCompareMode;
 
-import io.github.edmaputra.iam.domain.model.UserStatus;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -616,5 +614,334 @@ class EntityManagementRestIT extends AbstractIntegrationTest {
 				.uri("/api/v1/scopes/" + rootId + "?tenantId=" + tenantId)
 				.exchange()
 				.expectStatus().isNoContent();
+	}
+
+	@Test
+	@DisplayName("Should reject invalid User requests with 422 Unprocessable Entity and RFC 9457 structured errors")
+	void shouldRejectInvalidUserRequestsWithValidationErrors() {
+		// 1. Create User with missing/blank fields
+		String emptyUserJson = """
+				{
+				    "email": "",
+				    "password": "",
+				    "fullName": ""
+				}
+				""";
+
+		webTestClient.post()
+				.uri("/api/v1/users")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(emptyUserJson)
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+				.expectBody()
+				.jsonPath("$.type").isEqualTo("https://api.edmaputra.github.io/problems/validation-error")
+				.jsonPath("$.title").isEqualTo("Validation Failed")
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.instance").isEqualTo("/api/v1/users")
+				.jsonPath("$.errors[?(@.field == 'email')]").isNotEmpty()
+				.jsonPath("$.errors[?(@.field == 'password')]").isNotEmpty()
+				.jsonPath("$.errors[?(@.field == 'fullName')]").isNotEmpty();
+
+		// 2. Create User with invalid email format
+		String invalidEmailJson = """
+				{
+				    "email": "not-an-email",
+				    "password": "ValidPassword123!",
+				    "fullName": "Alice Valid"
+				}
+				""";
+
+		webTestClient.post()
+				.uri("/api/v1/users")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(invalidEmailJson)
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[0].field").isEqualTo("email")
+				.jsonPath("$.errors[0].message").value(String.class, msg ->
+						assertThat(msg).contains("valid email address"));
+
+		// 3. Create User with short password (< 8 chars)
+		String shortPasswordJson = """
+				{
+				    "email": "%s",
+				    "password": "short",
+				    "fullName": "Alice Valid"
+				}
+				""".formatted("valid-" + UUID.randomUUID() + "@clinic.org");
+
+		webTestClient.post()
+				.uri("/api/v1/users")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(shortPasswordJson)
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[0].field").isEqualTo("password")
+				.jsonPath("$.errors[0].message").value(String.class, msg ->
+						assertThat(msg).contains("at least 8 characters"));
+
+		// 4. Update Profile with blank full name
+		String blankUpdateJson = """
+				{
+				    "fullName": "   "
+				}
+				""";
+
+		webTestClient.put()
+				.uri("/api/v1/users/" + UUID.randomUUID())
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(blankUpdateJson)
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'fullName')]").isNotEmpty();
+
+		// 5. Change User Status with null status
+		webTestClient.put()
+				.uri("/api/v1/users/" + UUID.randomUUID() + "/status")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("{}")
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'status')]").isNotEmpty();
+
+		// 6. Assign Role with null roleId and null tenantId
+		webTestClient.post()
+				.uri("/api/v1/users/" + UUID.randomUUID() + "/roles")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("{}")
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'roleId')]").isNotEmpty()
+				.jsonPath("$.errors[?(@.field == 'tenantId')]").isNotEmpty();
+	}
+
+	@Test
+	@DisplayName("Should reject invalid Role requests with 422 Unprocessable Entity or 400 Bad Request")
+	void shouldRejectInvalidRoleRequestsWithValidationErrors() {
+		// 1. Create Role with blank code and blank name
+		String invalidRoleJson = """
+				{
+				    "tenantId": "%s",
+				    "code": "  ",
+				    "name": ""
+				}
+				""".formatted(UUID.randomUUID());
+
+		webTestClient.post()
+				.uri("/api/v1/roles")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(invalidRoleJson)
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+				.expectBody()
+				.jsonPath("$.type").isEqualTo("https://api.edmaputra.github.io/problems/validation-error")
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'code')]").isNotEmpty()
+				.jsonPath("$.errors[?(@.field == 'name')]").isNotEmpty();
+
+		// 2. Create Role without tenant ID (missing in header and body)
+		String noTenantRoleJson = """
+				{
+				    "code": "TEST_ROLE",
+				    "name": "Test Role"
+				}
+				""";
+
+		webTestClient.post()
+				.uri("/api/v1/roles")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(noTenantRoleJson)
+				.exchange()
+				.expectStatus().isBadRequest()
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(400)
+				.jsonPath("$.detail").value(String.class, detail ->
+						assertThat(detail).contains("Tenant ID must be specified"));
+
+		// 3. Update Role with blank name
+		String blankRoleNameJson = """
+				{
+				    "name": " "
+				}
+				""";
+
+		webTestClient.put()
+				.uri("/api/v1/roles/" + UUID.randomUUID())
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(blankRoleNameJson)
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'name')]").isNotEmpty();
+	}
+
+	@Test
+	@DisplayName("Should reject invalid Group requests with 422 Unprocessable Entity")
+	void shouldRejectInvalidGroupRequestsWithValidationErrors() {
+		// 1. Create Group with missing tenantId, blank code, blank name
+		webTestClient.post()
+				.uri("/api/v1/groups")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("{}")
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'tenantId')]").isNotEmpty()
+				.jsonPath("$.errors[?(@.field == 'code')]").isNotEmpty()
+				.jsonPath("$.errors[?(@.field == 'name')]").isNotEmpty();
+
+		// 2. Update Group with blank name
+		String blankGroupNameJson = """
+				{
+				    "name": ""
+				}
+				""";
+
+		webTestClient.put()
+				.uri("/api/v1/groups/" + UUID.randomUUID())
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(blankGroupNameJson)
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'name')]").isNotEmpty();
+
+		// 3. Assign Group Role with null roleId and null tenantId
+		webTestClient.post()
+				.uri("/api/v1/groups/" + UUID.randomUUID() + "/roles")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("{}")
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'roleId')]").isNotEmpty()
+				.jsonPath("$.errors[?(@.field == 'tenantId')]").isNotEmpty();
+	}
+
+	@Test
+	@DisplayName("Should reject invalid Scope requests with 422 Unprocessable Entity")
+	void shouldRejectInvalidScopeRequestsWithValidationErrors() {
+		// 1. Create Scope with missing tenantId, blank code, blank name
+		webTestClient.post()
+				.uri("/api/v1/scopes")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("{}")
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'tenantId')]").isNotEmpty()
+				.jsonPath("$.errors[?(@.field == 'code')]").isNotEmpty()
+				.jsonPath("$.errors[?(@.field == 'name')]").isNotEmpty();
+
+		// 2. Update Scope with blank name
+		String blankScopeNameJson = """
+				{
+				    "code": "ICU",
+				    "name": "   "
+				}
+				""";
+
+		webTestClient.put()
+				.uri("/api/v1/scopes/" + UUID.randomUUID() + "?tenantId=" + UUID.randomUUID())
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(blankScopeNameJson)
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'name')]").isNotEmpty();
+	}
+
+	@Test
+	@DisplayName("Should reject invalid Auth requests with 422 Unprocessable Entity or 400 Bad Request")
+	void shouldRejectInvalidAuthRequestsWithValidationErrors() {
+		// 1. Login with blank email and blank password
+		String blankLoginJson = """
+				{
+				    "email": "",
+				    "password": ""
+				}
+				""";
+
+		webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(blankLoginJson)
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'email')]").isNotEmpty()
+				.jsonPath("$.errors[?(@.field == 'password')]").isNotEmpty();
+
+		// 2. Login with malformed email
+		String malformedEmailLoginJson = """
+				{
+				    "email": "not-a-valid-email",
+				    "password": "Password123!"
+				}
+				""";
+
+		webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(malformedEmailLoginJson)
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[0].field").isEqualTo("email")
+				.jsonPath("$.errors[0].message").value(String.class, msg ->
+						assertThat(msg).contains("valid email address"));
+
+		// 3. Refresh Token with blank token
+		String blankRefreshJson = """
+				{
+				    "refreshToken": ""
+				}
+				""";
+
+		webTestClient.post()
+				.uri("/api/v1/auth/refresh")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(blankRefreshJson)
+				.exchange()
+				.expectStatus().isEqualTo(422)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.errors[?(@.field == 'refreshToken')]").isNotEmpty();
+
+		// 4. Switch Tenant without tenant ID
+		webTestClient.post()
+				.uri("/api/v1/auth/switch-tenant")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("{}")
+				.exchange()
+				.expectStatus().isBadRequest()
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(400)
+				.jsonPath("$.detail").value(String.class, detail ->
+						assertThat(detail).contains("Target tenant ID must be provided"));
 	}
 }

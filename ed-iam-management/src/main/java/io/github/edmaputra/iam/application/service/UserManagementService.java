@@ -5,6 +5,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatusCommand;
@@ -35,6 +37,7 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class UserManagementService implements ManageUserUseCase {
 
 	private final UserRepository userRepository;
@@ -43,21 +46,6 @@ public class UserManagementService implements ManageUserUseCase {
 	private final UserGroupMembershipRepository userGroupMembershipRepository;
 	private final RoleRepository roleRepository;
 	private final GroupRepository groupRepository;
-
-	public UserManagementService(
-			UserRepository userRepository,
-			PasswordEncoderPort passwordEncoder,
-			UserRoleAssignmentRepository userRoleAssignmentRepository,
-			UserGroupMembershipRepository userGroupMembershipRepository,
-			RoleRepository roleRepository,
-			GroupRepository groupRepository) {
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
-		this.userRoleAssignmentRepository = Objects.requireNonNull(userRoleAssignmentRepository, "UserRoleAssignmentRepository must not be null.");
-		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
-		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
-		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
-	}
 
 	@Override
 	public User createUser(CreateUserCommand command) {

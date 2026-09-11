@@ -13,7 +13,6 @@ import io.github.edmaputra.iam.adapter.rest.ScopeController;
 import io.github.edmaputra.iam.adapter.rest.UserController;
 import io.github.edmaputra.iam.application.port.in.ManageGroupUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageRoleUseCase;
-import io.github.edmaputra.iam.application.port.in.ManageScopeUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.service.GroupManagementService;

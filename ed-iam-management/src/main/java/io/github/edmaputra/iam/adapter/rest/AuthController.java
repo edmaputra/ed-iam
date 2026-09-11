@@ -1,8 +1,9 @@
 package io.github.edmaputra.iam.adapter.rest;
 
-import java.util.Objects;
 import java.util.UUID;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,23 +31,11 @@ import io.github.edmaputra.iam.application.port.in.SwitchTenantCommand;
  */
 @RestController
 @RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
 	private final AuthenticateUserUseCase authenticateUserUseCase;
 	private final CurrentActorProvider currentActorProvider;
-
-	/**
-	 * Constructs the authentication controller.
-	 *
-	 * @param authenticateUserUseCase the authenticate user use case inbound port
-	 * @param currentActorProvider   the current actor security provider
-	 */
-	public AuthController(
-			AuthenticateUserUseCase authenticateUserUseCase,
-			CurrentActorProvider currentActorProvider) {
-		this.authenticateUserUseCase = Objects.requireNonNull(authenticateUserUseCase, "AuthenticateUserUseCase must not be null.");
-		this.currentActorProvider = Objects.requireNonNull(currentActorProvider, "CurrentActorProvider must not be null.");
-	}
 
 	/**
 	 * Authenticates user credentials and returns JWT access and refresh tokens.
@@ -59,7 +48,7 @@ public class AuthController {
 	@PostMapping("/login")
 	public ResponseEntity<TokenResponse> login(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
-			@RequestBody LoginRequest request) {
+			@Valid @RequestBody LoginRequest request) {
 		UUID tenantUuid = parseTenantHeader(headerTenantId);
 		TokenResponse response = authenticateUserUseCase.login(request.toCommand(tenantUuid));
 		return ResponseEntity.ok(response);
@@ -84,7 +73,7 @@ public class AuthController {
 	 * @return HTTP 200 with {@link TokenResponse}
 	 */
 	@PostMapping("/refresh")
-	public ResponseEntity<TokenResponse> refresh(@RequestBody RefreshTokenRequest request) {
+	public ResponseEntity<TokenResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
 		TokenResponse response = authenticateUserUseCase.refreshToken(request.toCommand());
 		return ResponseEntity.ok(response);
 	}
@@ -112,7 +101,7 @@ public class AuthController {
 	@PostMapping("/switch-tenant")
 	public ResponseEntity<TokenResponse> switchTenant(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
-			@RequestBody(required = false) SwitchTenantRequest request) {
+			@Valid @RequestBody(required = false) SwitchTenantRequest request) {
 
 		UUID tenantUuid = parseTenantHeader(headerTenantId);
 		if (tenantUuid == null && request != null) {

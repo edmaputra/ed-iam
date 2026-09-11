@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.StreamSupport;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.persistence.entity.GroupRoleAssignmentJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.GroupRoleAssignmentJpaRepository;
@@ -22,18 +24,10 @@ import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class GroupRoleAssignmentRepositoryAdapter implements GroupRoleAssignmentRepository {
 
 	private final GroupRoleAssignmentJpaRepository repository;
-
-	/**
-	 * Constructs the adapter with the underlying Spring Data repository.
-	 *
-	 * @param repository the Spring Data repository
-	 */
-	public GroupRoleAssignmentRepositoryAdapter(GroupRoleAssignmentJpaRepository repository) {
-		this.repository = Objects.requireNonNull(repository, "GroupRoleAssignmentJpaRepository must not be null.");
-	}
 
 	@Override
 	public Optional<GroupRoleAssignment> findById(GroupRoleAssignmentId id) {

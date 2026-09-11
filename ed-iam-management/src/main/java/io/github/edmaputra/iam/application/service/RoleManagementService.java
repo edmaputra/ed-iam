@@ -3,6 +3,8 @@ package io.github.edmaputra.iam.application.service;
 import java.util.List;
 import java.util.Objects;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.application.port.in.ManageRoleUseCase;
 import io.github.edmaputra.iam.application.port.in.RoleCommands.CreateRoleCommand;
 import io.github.edmaputra.iam.application.port.in.RoleCommands.UpdateRoleCommand;
@@ -18,13 +20,10 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class RoleManagementService implements ManageRoleUseCase {
 
 	private final RoleRepository roleRepository;
-
-	public RoleManagementService(RoleRepository roleRepository) {
-		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
-	}
 
 	@Override
 	public Role createRole(CreateRoleCommand command) {

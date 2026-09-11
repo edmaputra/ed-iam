@@ -6,6 +6,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.application.port.in.GroupCommands.AssignGroupRoleCommand;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.CreateGroupCommand;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.UpdateGroupCommand;
@@ -32,6 +34,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class GroupManagementService implements ManageGroupUseCase {
 
 	private final GroupRepository groupRepository;
@@ -39,19 +42,6 @@ public class GroupManagementService implements ManageGroupUseCase {
 	private final UserGroupMembershipRepository userGroupMembershipRepository;
 	private final RoleRepository roleRepository;
 	private final UserRepository userRepository;
-
-	public GroupManagementService(
-			GroupRepository groupRepository,
-			GroupRoleAssignmentRepository groupRoleAssignmentRepository,
-			UserGroupMembershipRepository userGroupMembershipRepository,
-			RoleRepository roleRepository,
-			UserRepository userRepository) {
-		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
-		this.groupRoleAssignmentRepository = Objects.requireNonNull(groupRoleAssignmentRepository, "GroupRoleAssignmentRepository must not be null.");
-		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
-		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-	}
 
 	@Override
 	public Group createGroup(CreateGroupCommand command) {

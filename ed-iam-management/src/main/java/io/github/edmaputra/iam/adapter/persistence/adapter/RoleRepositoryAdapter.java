@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.StreamSupport;
 
+import lombok.RequiredArgsConstructor;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.persistence.entity.RoleJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.RoleJpaRepository;
@@ -19,18 +21,10 @@ import io.github.edmaputra.iam.domain.repository.RoleRepository;
  * @author edmaputra
  * @since 1.0.0
  */
+@RequiredArgsConstructor
 public class RoleRepositoryAdapter implements RoleRepository {
 
 	private final RoleJpaRepository repository;
-
-	/**
-	 * Constructs the adapter with the underlying Spring Data repository.
-	 *
-	 * @param repository the Spring Data repository
-	 */
-	public RoleRepositoryAdapter(RoleJpaRepository repository) {
-		this.repository = Objects.requireNonNull(repository, "RoleJpaRepository must not be null.");
-	}
 
 	@Override
 	public Optional<Role> findById(RoleId id) {

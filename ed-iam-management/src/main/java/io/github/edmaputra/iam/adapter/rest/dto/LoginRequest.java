@@ -1,7 +1,9 @@
 package io.github.edmaputra.iam.adapter.rest.dto;
 
-import java.util.Objects;
 import java.util.UUID;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.application.port.in.LoginCommand;
@@ -15,12 +17,15 @@ import io.github.edmaputra.iam.application.port.in.LoginCommand;
  * @author edmaputra
  * @since 1.0.0
  */
-public record LoginRequest(String email, String password, UUID tenantId) {
+public record LoginRequest(
+		@NotBlank(message = "Email must not be blank.")
+		@Email(message = "Email must be a valid email address.")
+		String email,
 
-	public LoginRequest {
-		Objects.requireNonNull(email, "Email must not be null.");
-		Objects.requireNonNull(password, "Password must not be null.");
-	}
+		@NotBlank(message = "Password must not be blank.")
+		String password,
+
+		UUID tenantId) {
 
 	/**
 	 * Secondary constructor creating a login request without an explicit tenant ID.

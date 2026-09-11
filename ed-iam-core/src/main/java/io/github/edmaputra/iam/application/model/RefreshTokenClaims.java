@@ -1,11 +1,11 @@
-package io.github.edmaputra.iam.adapter.security.jwt;
+package io.github.edmaputra.iam.application.model;
 
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
-import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.domain.model.UserId;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 /**
  * Claims extracted and validated from a signed JWT refresh token.
@@ -15,7 +15,7 @@ import io.github.edmaputra.iam.domain.model.UserId;
  * @param issuedAt  timestamp when the refresh token was issued
  * @param expiresAt timestamp when the refresh token expires
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.1.0
  */
 public record RefreshTokenClaims(
 		UserId userId,
