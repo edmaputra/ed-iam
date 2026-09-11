@@ -34,6 +34,7 @@ import io.github.edmaputra.iam.domain.model.GroupId;
 import io.github.edmaputra.iam.domain.model.GroupRoleAssignment;
 import io.github.edmaputra.iam.domain.model.RoleId;
 import io.github.edmaputra.iam.domain.model.ScopeNodeId;
+import io.github.edmaputra.iam.domain.security.annotation.RequirePermission;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 import io.github.edmaputra.iam.adapter.rest.support.TenantResolutionHelper;
@@ -52,6 +53,7 @@ public class GroupController {
 	private final ManageGroupUseCase manageGroupUseCase;
 
 	@PostMapping
+	@RequirePermission("iam:group:create")
 	public ResponseEntity<GroupResponse> createGroup(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@Valid @RequestBody CreateGroupRequest request) {
@@ -70,12 +72,14 @@ public class GroupController {
 	}
 
 	@GetMapping("/{id}")
+	@RequirePermission("iam:group:read")
 	public ResponseEntity<GroupResponse> getGroupById(@PathVariable UUID id) {
 		Group group = manageGroupUseCase.getGroupById(new GroupId(id));
 		return ResponseEntity.ok(GroupResponse.fromDomain(group));
 	}
 
 	@GetMapping
+	@RequirePermission("iam:group:read")
 	public ResponseEntity<List<GroupResponse>> getGroups(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@RequestParam(value = "tenantId", required = false) UUID paramTenantId) {
@@ -90,6 +94,7 @@ public class GroupController {
 	}
 
 	@PutMapping("/{id}")
+	@RequirePermission("iam:group:update")
 	public ResponseEntity<GroupResponse> updateGroup(
 			@PathVariable UUID id,
 			@Valid @RequestBody UpdateGroupRequest request) {
@@ -104,12 +109,14 @@ public class GroupController {
 	}
 
 	@DeleteMapping("/{id}")
+	@RequirePermission("iam:group:delete")
 	public ResponseEntity<Void> deleteGroup(@PathVariable UUID id) {
 		manageGroupUseCase.deleteGroup(new GroupId(id));
 		return ResponseEntity.noContent().build();
 	}
 
 	@PostMapping("/{id}/roles")
+	@RequirePermission("iam:group:assign-role")
 	public ResponseEntity<GroupRoleAssignmentResponse> assignRole(
 			@PathVariable UUID id,
 			@Valid @RequestBody AssignGroupRoleRequest request) {
@@ -126,6 +133,7 @@ public class GroupController {
 	}
 
 	@DeleteMapping("/{id}/roles/{assignmentId}")
+	@RequirePermission("iam:group:assign-role")
 	public ResponseEntity<Void> revokeRole(
 			@PathVariable UUID id,
 			@PathVariable UUID assignmentId) {
@@ -134,6 +142,7 @@ public class GroupController {
 	}
 
 	@GetMapping("/{id}/roles")
+	@RequirePermission("iam:group:read")
 	public ResponseEntity<List<GroupRoleAssignmentResponse>> getRoleAssignments(@PathVariable UUID id) {
 		List<GroupRoleAssignmentResponse> responses = manageGroupUseCase.getRoleAssignments(new GroupId(id))
 				.stream()
@@ -143,6 +152,7 @@ public class GroupController {
 	}
 
 	@GetMapping("/{id}/members")
+	@RequirePermission("iam:group:read")
 	public ResponseEntity<List<UserResponse>> getGroupMembers(@PathVariable UUID id) {
 		List<UserResponse> responses = manageGroupUseCase.getGroupMembers(new GroupId(id))
 				.stream()

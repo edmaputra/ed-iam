@@ -90,4 +90,55 @@ public abstract class AbstractIntegrationTest {
 
 	@Autowired
 	protected PasswordEncoderPort passwordEncoder;
+
+	@Autowired
+	protected io.github.edmaputra.iam.application.port.out.TokenProviderPort tokenProvider;
+
+	/**
+	 * Creates a signed JWT access token for a platform superadmin actor.
+	 *
+	 * @return access token string
+	 */
+	protected String createSuperAdminToken() {
+		io.github.edmaputra.iam.application.model.EffectiveAccess access =
+				new io.github.edmaputra.iam.application.model.EffectiveAccess(
+						io.github.edmaputra.iam.domain.model.UserId.generate(),
+						"superadmin-it@platform.org",
+						null,
+						true,
+						true,
+						java.util.Set.of(),
+						java.util.Set.of("PLATFORM_SUPERADMIN"),
+						java.util.Set.of("*"),
+						java.util.Set.of(),
+						java.util.Set.of("/")
+				);
+		return tokenProvider.createAccessToken(access);
+	}
+
+	/**
+	 * Creates a signed JWT access token for an actor with custom permissions and tenant scope.
+	 *
+	 * @param email       the user email
+	 * @param tenantId    the tenant ID (may be null)
+	 * @param permissions the permissions granted
+	 * @return access token string
+	 */
+	protected String createActorToken(String email, java.util.UUID tenantId, java.util.Set<String> permissions) {
+		io.github.edmaputra.iam.domain.tenancy.TenantId tid = tenantId != null ? new io.github.edmaputra.iam.domain.tenancy.TenantId(tenantId) : null;
+		io.github.edmaputra.iam.application.model.EffectiveAccess access =
+				new io.github.edmaputra.iam.application.model.EffectiveAccess(
+						io.github.edmaputra.iam.domain.model.UserId.generate(),
+						email,
+						tid,
+						false,
+						false,
+						java.util.Set.of(),
+						java.util.Set.of("USER_ROLE"),
+						permissions,
+						java.util.Set.of(),
+						java.util.Set.of()
+				);
+		return tokenProvider.createAccessToken(access);
+	}
 }

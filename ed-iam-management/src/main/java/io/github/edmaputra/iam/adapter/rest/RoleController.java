@@ -27,6 +27,7 @@ import io.github.edmaputra.iam.application.port.in.RoleCommands.CreateRoleComman
 import io.github.edmaputra.iam.application.port.in.RoleCommands.UpdateRoleCommand;
 import io.github.edmaputra.iam.domain.model.Role;
 import io.github.edmaputra.iam.domain.model.RoleId;
+import io.github.edmaputra.iam.domain.security.annotation.RequirePermission;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 import io.github.edmaputra.iam.adapter.rest.support.TenantResolutionHelper;
@@ -45,6 +46,7 @@ public class RoleController {
 	private final ManageRoleUseCase manageRoleUseCase;
 
 	@PostMapping
+	@RequirePermission("iam:role:create")
 	public ResponseEntity<RoleResponse> createRole(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@Valid @RequestBody CreateRoleRequest request) {
@@ -63,12 +65,14 @@ public class RoleController {
 	}
 
 	@GetMapping("/{id}")
+	@RequirePermission("iam:role:read")
 	public ResponseEntity<RoleResponse> getRoleById(@PathVariable UUID id) {
 		Role role = manageRoleUseCase.getRoleById(new RoleId(id));
 		return ResponseEntity.ok(RoleResponse.fromDomain(role));
 	}
 
 	@GetMapping
+	@RequirePermission("iam:role:read")
 	public ResponseEntity<List<RoleResponse>> getRoles(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@RequestParam(value = "tenantId", required = false) UUID paramTenantId) {
@@ -83,6 +87,7 @@ public class RoleController {
 	}
 
 	@PutMapping("/{id}")
+	@RequirePermission("iam:role:update")
 	public ResponseEntity<RoleResponse> updateRole(
 			@PathVariable UUID id,
 			@Valid @RequestBody UpdateRoleRequest request) {
@@ -97,6 +102,7 @@ public class RoleController {
 	}
 
 	@DeleteMapping("/{id}")
+	@RequirePermission("iam:role:delete")
 	public ResponseEntity<Void> deleteRole(@PathVariable UUID id) {
 		manageRoleUseCase.deleteRole(new RoleId(id));
 		return ResponseEntity.noContent().build();

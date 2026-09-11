@@ -2,6 +2,7 @@ package io.github.edmaputra.iam.it;
 
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -17,6 +18,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @since 1.0.0
  */
 class EntityManagementRestIT extends AbstractIntegrationTest {
+
+	@BeforeEach
+	void authenticateAsSuperAdmin() {
+		this.webTestClient = this.webTestClient.mutate()
+				.defaultHeader("Authorization", "Bearer " + createSuperAdminToken())
+				.build();
+	}
 
 	@Test
 	@DisplayName("Should perform full User lifecycle, status transitions, role assignment, and group membership via /api/v1/users")

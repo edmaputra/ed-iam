@@ -32,6 +32,7 @@ import io.github.edmaputra.iam.application.port.in.UpdateScopeNodeCommand;
 import io.github.edmaputra.iam.domain.context.OperationContext;
 import io.github.edmaputra.iam.domain.model.ScopeNode;
 import io.github.edmaputra.iam.domain.model.ScopeNodeId;
+import io.github.edmaputra.iam.domain.security.annotation.RequirePermission;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 import io.github.edmaputra.iam.adapter.rest.support.TenantResolutionHelper;
@@ -50,6 +51,7 @@ public class ScopeController {
 	private final ManageScopeUseCase manageScopeUseCase;
 
 	@PostMapping
+	@RequirePermission("iam:scope:create")
 	public ResponseEntity<ScopeNodeResponse> createScope(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@Valid @RequestBody CreateScopeRequest request) {
@@ -67,6 +69,7 @@ public class ScopeController {
 	}
 
 	@GetMapping("/tree")
+	@RequirePermission("iam:scope:read")
 	public ResponseEntity<List<ScopeTreeNode>> getScopeTree(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@RequestParam(value = "tenantId", required = false) UUID paramTenantId) {
@@ -76,6 +79,7 @@ public class ScopeController {
 	}
 
 	@GetMapping
+	@RequirePermission("iam:scope:read")
 	public ResponseEntity<List<ScopeNodeResponse>> getFlatScopeList(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@RequestParam(value = "tenantId", required = false) UUID paramTenantId) {
@@ -89,6 +93,7 @@ public class ScopeController {
 	}
 
 	@GetMapping("/{id}")
+	@RequirePermission("iam:scope:read")
 	public ResponseEntity<ScopeNodeResponse> getScopeById(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@RequestParam(value = "tenantId", required = false) UUID paramTenantId,
@@ -99,6 +104,7 @@ public class ScopeController {
 	}
 
 	@PutMapping("/{id}")
+	@RequirePermission("iam:scope:update")
 	public ResponseEntity<ScopeNodeResponse> updateScope(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@RequestParam(value = "tenantId", required = false) UUID paramTenantId,
@@ -116,6 +122,7 @@ public class ScopeController {
 	}
 
 	@PostMapping("/{id}/move")
+	@RequirePermission("iam:scope:move")
 	public ResponseEntity<ScopeNodeResponse> moveScope(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@RequestParam(value = "tenantId", required = false) UUID paramTenantId,
@@ -132,6 +139,7 @@ public class ScopeController {
 	}
 
 	@DeleteMapping("/{id}")
+	@RequirePermission("iam:scope:delete")
 	public ResponseEntity<Void> deleteScope(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@RequestParam(value = "tenantId", required = false) UUID paramTenantId,

@@ -36,6 +36,7 @@ import io.github.edmaputra.iam.domain.model.ScopeNodeId;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserRoleAssignment;
+import io.github.edmaputra.iam.domain.security.annotation.RequirePermission;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 /**
@@ -52,6 +53,7 @@ public class UserController {
 	private final ManageUserUseCase manageUserUseCase;
 
 	@PostMapping
+	@RequirePermission("iam:user:create")
 	public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
 		CreateUserCommand command = new CreateUserCommand(
 				request.email(),
@@ -65,18 +67,21 @@ public class UserController {
 	}
 
 	@GetMapping("/{id}")
+	@RequirePermission("iam:user:read")
 	public ResponseEntity<UserResponse> getUserById(@PathVariable UUID id) {
 		User user = manageUserUseCase.getUserById(new UserId(id));
 		return ResponseEntity.ok(UserResponse.fromDomain(user));
 	}
 
 	@GetMapping
+	@RequirePermission("iam:user:read")
 	public ResponseEntity<UserResponse> getUserByEmail(@RequestParam("email") String email) {
 		User user = manageUserUseCase.getUserByEmail(email);
 		return ResponseEntity.ok(UserResponse.fromDomain(user));
 	}
 
 	@PutMapping("/{id}")
+	@RequirePermission("iam:user:update")
 	public ResponseEntity<UserResponse> updateUser(
 			@PathVariable UUID id,
 			@Valid @RequestBody UpdateUserRequest request) {
@@ -85,6 +90,7 @@ public class UserController {
 	}
 
 	@PutMapping("/{id}/status")
+	@RequirePermission("iam:user:status")
 	public ResponseEntity<UserResponse> changeUserStatus(
 			@PathVariable UUID id,
 			@Valid @RequestBody ChangeUserStatusRequest request) {
@@ -93,12 +99,14 @@ public class UserController {
 	}
 
 	@DeleteMapping("/{id}")
+	@RequirePermission("iam:user:delete")
 	public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
 		manageUserUseCase.deleteUser(new UserId(id));
 		return ResponseEntity.noContent().build();
 	}
 
 	@PostMapping("/{id}/roles")
+	@RequirePermission("iam:user:assign-role")
 	public ResponseEntity<UserRoleAssignmentResponse> assignRole(
 			@PathVariable UUID id,
 			@Valid @RequestBody AssignUserRoleRequest request) {
@@ -115,6 +123,7 @@ public class UserController {
 	}
 
 	@DeleteMapping("/{id}/roles/{assignmentId}")
+	@RequirePermission("iam:user:assign-role")
 	public ResponseEntity<Void> revokeRole(
 			@PathVariable UUID id,
 			@PathVariable UUID assignmentId) {
@@ -123,6 +132,7 @@ public class UserController {
 	}
 
 	@GetMapping("/{id}/roles")
+	@RequirePermission("iam:user:read")
 	public ResponseEntity<List<UserRoleAssignmentResponse>> getRoleAssignments(@PathVariable UUID id) {
 		List<UserRoleAssignmentResponse> responses = manageUserUseCase.getRoleAssignments(new UserId(id))
 				.stream()
@@ -132,6 +142,7 @@ public class UserController {
 	}
 
 	@PostMapping("/{id}/groups/{groupId}")
+	@RequirePermission("iam:user:manage-membership")
 	public ResponseEntity<Void> addUserToGroup(
 			@PathVariable UUID id,
 			@PathVariable UUID groupId) {
@@ -140,6 +151,7 @@ public class UserController {
 	}
 
 	@DeleteMapping("/{id}/groups/{groupId}")
+	@RequirePermission("iam:user:manage-membership")
 	public ResponseEntity<Void> removeUserFromGroup(
 			@PathVariable UUID id,
 			@PathVariable UUID groupId) {
@@ -148,6 +160,7 @@ public class UserController {
 	}
 
 	@GetMapping("/{id}/groups")
+	@RequirePermission("iam:user:read")
 	public ResponseEntity<List<GroupResponse>> getUserGroups(@PathVariable UUID id) {
 		List<GroupResponse> responses = manageUserUseCase.getUserGroups(new UserId(id))
 				.stream()
