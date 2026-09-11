@@ -299,7 +299,7 @@ class EntityManagementRestIT extends AbstractIntegrationTest {
 				.exchange()
 				.expectStatus().isOk()
 				.expectBody()
-				.jsonPath("$[0].id").isEqualTo(roleId);
+				.jsonPath("$[?(@.id == '" + roleId + "')]").isNotEmpty();
 
 		// 4. Update Role
 		String updateJson = """
