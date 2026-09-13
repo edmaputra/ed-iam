@@ -1,6 +1,7 @@
 package io.github.edmaputra.iam.playground;
 
 import java.time.Duration;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -52,6 +53,8 @@ class PlaygroundApplicationTests {
 					assertThat(html).contains("ed-iam");
 					assertThat(html).contains("Interactive Playground");
 					assertThat(html).contains("Dr. Gregory House");
+					assertThat(html).contains("Custom Credentials Login");
+					assertThat(html).contains("customLoginForm");
 				});
 	}
 
@@ -321,5 +324,165 @@ class PlaygroundApplicationTests {
 				.expectBody()
 				.jsonPath("$[0].name").isEqualTo("Metro General Hospital")
 				.jsonPath("$[0].children").isNotEmpty();
+	}
+
+	@Test
+	@DisplayName("Should create user manually, assign scoped clinician role, log in with custom credentials, and enforce permissions/scopes")
+	void shouldSupportCustomCredentialsLoginAndVerifyPermissions() {
+		// 1. Authenticate as Admin
+		byte[] adminLoginResponse = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s"
+						}
+						""".formatted(PlaygroundDataSeeder.ADMIN_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String adminToken = JsonPath.read(new String(adminLoginResponse), "$.accessToken");
+
+		// 2. Fetch Metro roles to retrieve CLINICIAN role ID
+		byte[] rolesResponse = webTestClient.get()
+				.uri("/api/v1/roles")
+				.headers(headers -> {
+					headers.setBearerAuth(adminToken);
+					headers.add("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString());
+				})
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.returnResult().getResponseBody();
+
+		List<String> clinicianRoles = JsonPath.read(new String(rolesResponse), "$[?(@.code == 'CLINICIAN')].id");
+		assertThat(clinicianRoles).isNotEmpty();
+		String clinicianRoleId = clinicianRoles.get(0);
+
+		// 3. Admin creates a new custom user
+		String customEmail = "custom-cardiologist@metro.org";
+		String customPassword = "CustomSecretPass123!";
+		byte[] createUserResponse = webTestClient.post()
+				.uri("/api/v1/users")
+				.headers(headers -> {
+					headers.setBearerAuth(adminToken);
+					headers.add("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString());
+				})
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s",
+						    "fullName": "Dr. Custom Cardiologist",
+						    "platformSuperAdmin": false
+						}
+						""".formatted(customEmail, customPassword))
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.jsonPath("$.email").isEqualTo(customEmail)
+				.returnResult().getResponseBody();
+
+		String customUserId = JsonPath.read(new String(createUserResponse), "$.id");
+
+		// 4. Admin assigns CLINICIAN role scoped to Cardiology Department
+		webTestClient.post()
+				.uri("/api/v1/users/" + customUserId + "/roles")
+				.headers(headers -> {
+					headers.setBearerAuth(adminToken);
+					headers.add("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString());
+				})
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "roleId": "%s",
+						    "tenantId": "%s",
+						    "scopeNodeId": "%s"
+						}
+						""".formatted(clinicianRoleId, PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID, PlaygroundDataSeeder.CARDIOLOGY_SCOPE_ID))
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.jsonPath("$.roleId").isEqualTo(clinicianRoleId)
+				.jsonPath("$.scopeNodeId").isEqualTo(PlaygroundDataSeeder.CARDIOLOGY_SCOPE_ID.toString());
+
+		// 5. Test invalid password rejection
+		webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "WrongPassword123!"
+						}
+						""".formatted(customEmail))
+				.exchange()
+				.expectStatus().isUnauthorized();
+
+		// 6. Test successful login with custom credentials
+		byte[] loginResponse = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s"
+						}
+						""".formatted(customEmail, customPassword))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String customUserToken = JsonPath.read(new String(loginResponse), "$.accessToken");
+		assertThat(customUserToken).isNotBlank();
+
+		// 7. Verify Cardiology scope access (In-Scope -> 200 OK)
+		webTestClient.get()
+				.uri("/api/v1/playground/patients?departmentId=" + PlaygroundDataSeeder.CARDIOLOGY_SCOPE_ID)
+				.headers(headers -> headers.setBearerAuth(customUserToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$[0].departmentName").isEqualTo("Cardiology Department");
+
+		// 8. Verify ICU scope access (Hierarchical Subchild of Cardiology -> 200 OK)
+		webTestClient.get()
+				.uri("/api/v1/playground/patients?departmentId=" + PlaygroundDataSeeder.ICU_SCOPE_ID)
+				.headers(headers -> headers.setBearerAuth(customUserToken))
+				.exchange()
+				.expectStatus().isOk();
+
+		// 9. Verify Pediatrics scope rejection (Out-of-Scope -> 403 Forbidden)
+		webTestClient.get()
+				.uri("/api/v1/playground/patients?departmentId=" + PlaygroundDataSeeder.PEDIATRICS_SCOPE_ID)
+				.headers(headers -> headers.setBearerAuth(customUserToken))
+				.exchange()
+				.expectStatus().isForbidden();
+
+		// 10. Verify endpoint-level permission check: cannot manage roles (403 Forbidden)
+		webTestClient.post()
+				.uri("/api/v1/roles")
+				.headers(headers -> {
+					headers.setBearerAuth(customUserToken);
+					headers.add("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString());
+				})
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "tenantId": "%s",
+						    "code": "TEST_ROLE",
+						    "name": "Test Role",
+						    "description": "Test",
+						    "permissions": ["PATIENT_READ"]
+						}
+						""".formatted(PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID))
+				.exchange()
+				.expectStatus().isForbidden();
 	}
 }
