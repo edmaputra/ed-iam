@@ -22,6 +22,7 @@ A pluggable, production-ready **Identity & Access Management (IAM)** Spring Boot
 - **Isolated Schema Migrations**: Module-scoped Liquibase migrations managing `iam_*` tables.
 
 For our complete capability breakdown and future plans, see the [Features and Roadmap](docs/features-and-roadmap.md).
+For release history and migration details, see the [Changelog](CHANGELOG.md).
 
 ---
 
