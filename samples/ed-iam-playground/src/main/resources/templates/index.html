@@ -213,6 +213,57 @@
       </div>
     </section>
 
+    <!-- Custom Credentials Login Panel -->
+    <section class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h2 class="text-base font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-key text-indigo-400"></i> Custom Credentials Login
+            <span class="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">POST /api/v1/auth/login</span>
+          </h2>
+          <p class="text-xs text-slate-400">Log in as any newly created user with custom credentials to test their effective permissions, role assignments, and scope boundaries.</p>
+        </div>
+      </div>
+
+      <form id="customLoginForm" onsubmit="event.preventDefault(); loginWithCustomCredentials();" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <div>
+          <label for="customLoginEmail" class="block text-xs font-medium text-slate-300 mb-1">Email / Username</label>
+          <input type="email" id="customLoginEmail" required placeholder="e.g. alice@metro.org"
+            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div>
+          <label for="customLoginPassword" class="block text-xs font-medium text-slate-300 mb-1">Password</label>
+          <div class="relative">
+            <input type="password" id="customLoginPassword" required value="P@ssw0rd123!" placeholder="Password"
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-9">
+            <button type="button" onclick="togglePasswordVisibility('customLoginPassword', this)" class="absolute right-2.5 top-2 text-slate-400 hover:text-white text-xs">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label for="customLoginTenant" class="block text-xs font-medium text-slate-300 mb-1">Tenant (Optional)</label>
+          <select id="customLoginTenant" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">Auto-Resolve (Default)</option>
+            <option th:value="${metroTenantId}">Metro General Hospital</option>
+            <option th:value="${stJudeTenantId}">St. Jude Medical Center</option>
+          </select>
+        </div>
+
+        <div class="flex gap-2">
+          <button type="submit" class="w-full py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-1.5 h-[35px]">
+            <i class="fa-solid fa-right-to-bracket"></i> Log In
+          </button>
+          <button type="button" onclick="clearCustomLoginForm()" title="Clear form" class="py-2 px-3 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs transition h-[35px]">
+            <i class="fa-solid fa-rotate-left"></i>
+          </button>
+        </div>
+      </form>
+      <div id="customLoginFeedback" class="hidden text-xs px-3 py-2 rounded-lg font-mono"></div>
+    </section>
+
     <!-- Dedicated Multi-Tenant Context Switcher Card -->
     <section class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -459,7 +510,12 @@
               </div>
               <div>
                 <label class="block text-slate-400 mb-1 font-medium">Password</label>
-                <input id="newPassword" type="password" required value="P@ssw0rd123!" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <div class="relative">
+                  <input id="newPassword" type="password" required value="P@ssw0rd123!" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-8">
+                  <button type="button" onclick="togglePasswordVisibility('newPassword', this)" class="absolute right-2.5 top-2 text-slate-400 hover:text-white text-xs">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
               </div>
               <div class="flex items-center gap-2 pt-1">
                 <input id="newSuperAdmin" type="checkbox" class="rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-indigo-500">
@@ -469,6 +525,7 @@
                 <i class="fa-solid fa-user-plus"></i> Create User
               </button>
             </form>
+            <div id="createdUserNotice" class="hidden text-xs mt-3"></div>
           </div>
         </div>
       </div>
@@ -758,10 +815,15 @@
       }
     });
 
-    async function loginAs(email) {
+    async function loginWithCredentials(email, password, tenantId = null) {
+      const payload = { email: email.trim(), password: password };
+      if (tenantId && tenantId.trim() !== '') {
+        payload.tenantId = tenantId.trim();
+      }
+
       logRequest('POST', '/api/v1/auth/login', {
         headers: { 'Content-Type': 'application/json' },
-        body: { email: email, password: DEFAULT_PASSWORD }
+        body: payload
       });
 
       const startTime = performance.now();
@@ -769,10 +831,11 @@
         const response = await fetch('/api/v1/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email, password: DEFAULT_PASSWORD })
+          body: JSON.stringify(payload)
         });
         const latency = Math.round(performance.now() - startTime);
-        const data = await response.json();
+        let data = null;
+        try { data = await response.json(); } catch(e) {}
 
         logResponse(response.status, latency, data);
 
@@ -789,11 +852,81 @@
 
           updateSessionUi(currentUser, currentTenantId);
           await fetchActorContext();
+          showCustomLoginFeedback(`Authenticated as ${currentUser.email} (${currentUser.platformSuperAdmin ? 'SuperAdmin' : 'Regular User'})`, false);
+          return true;
         } else {
-          alert('Login rejected (' + response.status + '): ' + (data.detail || data.message || response.statusText));
+          const errMsg = data ? (data.detail || data.message || response.statusText) : response.statusText;
+          showCustomLoginFeedback(`Login rejected (${response.status}): ${errMsg}`, true);
+          alert('Login rejected (' + response.status + '): ' + errMsg);
+          return false;
         }
       } catch (err) {
         logResponse(500, Math.round(performance.now() - startTime), { error: err.message });
+        showCustomLoginFeedback(`Login error: ${err.message}`, true);
+        return false;
+      }
+    }
+
+    async function loginAs(email) {
+      const emailInput = document.getElementById('customLoginEmail');
+      const passInput = document.getElementById('customLoginPassword');
+      if (emailInput) emailInput.value = email;
+      if (passInput) passInput.value = DEFAULT_PASSWORD;
+      return await loginWithCredentials(email, DEFAULT_PASSWORD);
+    }
+
+    async function loginWithCustomCredentials() {
+      const email = document.getElementById('customLoginEmail').value;
+      const password = document.getElementById('customLoginPassword').value;
+      const tenantId = document.getElementById('customLoginTenant').value;
+      await loginWithCredentials(email, password, tenantId);
+    }
+
+    function clearCustomLoginForm() {
+      document.getElementById('customLoginEmail').value = '';
+      document.getElementById('customLoginPassword').value = '';
+      document.getElementById('customLoginTenant').value = '';
+      const feedback = document.getElementById('customLoginFeedback');
+      if (feedback) {
+        feedback.className = 'hidden text-xs px-3 py-2 rounded-lg font-mono';
+        feedback.textContent = '';
+      }
+    }
+
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const icon = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) {
+          icon.className = 'fa-solid fa-eye-slash';
+        }
+      } else {
+        input.type = 'password';
+        if (icon) {
+          icon.className = 'fa-solid fa-eye';
+        }
+      }
+    }
+
+    function showCustomLoginFeedback(message, isError) {
+      const el = document.getElementById('customLoginFeedback');
+      if (!el) return;
+      el.className = isError
+        ? 'text-xs px-3 py-2 rounded-lg font-mono bg-red-500/10 text-red-300 border border-red-500/30'
+        : 'text-xs px-3 py-2 rounded-lg font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/30';
+      el.textContent = message;
+    }
+
+    async function quickLoginAsNewUser(email, password) {
+      const emailInput = document.getElementById('customLoginEmail');
+      const passInput = document.getElementById('customLoginPassword');
+      if (emailInput) emailInput.value = email;
+      if (passInput) passInput.value = password;
+      const success = await loginWithCredentials(email, password);
+      if (success) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }
 
@@ -1285,11 +1418,41 @@
       const res = await executeApiCall('POST', '/api/v1/users', {
         email, password, fullName, platformSuperAdmin
       });
+      const notice = document.getElementById('createdUserNotice');
       if (res.ok && res.data) {
-        alert('User created successfully: ' + res.data.email);
         await lookupUser(res.data.email);
+        if (notice) {
+          const escapedPass = password.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          notice.innerHTML = `
+            <div class="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-lg space-y-2">
+              <div class="flex items-center gap-2 text-emerald-300 font-medium">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>User created: <strong class="font-mono text-white">${res.data.email}</strong></span>
+              </div>
+              <p class="text-[11px] text-slate-300">Test this user immediately with their credentials or assign roles below.</p>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <button type="button" onclick="quickLoginAsNewUser('${res.data.email}', '${escapedPass}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium shadow transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-right-to-bracket"></i> Log In as this User
+                </button>
+              </div>
+            </div>
+          `;
+          notice.classList.remove('hidden');
+        }
       } else {
-        alert('Failed to create user: ' + JSON.stringify(res.data));
+        if (notice) {
+          const errDetail = res.data ? (res.data.detail || res.data.message || JSON.stringify(res.data)) : 'Unknown error';
+          notice.innerHTML = `
+            <div class="p-3 bg-red-950/40 border border-red-500/30 rounded-lg text-red-300 flex items-start gap-2">
+              <i class="fa-solid fa-circle-exclamation mt-0.5"></i>
+              <div>
+                <strong>Failed to create user:</strong>
+                <div class="text-[11px] font-mono mt-1">${errDetail}</div>
+              </div>
+            </div>
+          `;
+          notice.classList.remove('hidden');
+        }
       }
     }
 

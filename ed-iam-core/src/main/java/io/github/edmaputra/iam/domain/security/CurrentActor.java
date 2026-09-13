@@ -31,7 +31,20 @@ public interface CurrentActor {
 		if (isPlatformSuperAdmin()) {
 			return true;
 		}
-		return permissions() != null && permissions().contains(permission);
+		if (permissions() == null || permission == null) {
+			return false;
+		}
+		if (permissions().contains("*") || permissions().contains(permission)) {
+			return true;
+		}
+		int colonIndex = permission.indexOf(':');
+		if (colonIndex > 0) {
+			String domainWildcard = permission.substring(0, colonIndex + 1) + "*";
+			if (permissions().contains(domainWildcard)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	default boolean canAccessScope(UUID targetScopeNodeId) {

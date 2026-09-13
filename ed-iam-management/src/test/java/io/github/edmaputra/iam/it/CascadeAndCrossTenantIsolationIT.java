@@ -3,6 +3,7 @@ package io.github.edmaputra.iam.it;
 import java.util.Set;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @since 1.0.0
  */
 class CascadeAndCrossTenantIsolationIT extends AbstractIntegrationTest {
+
+	@BeforeEach
+	void authenticateAsSuperAdmin() {
+		this.webTestClient = this.webTestClient.mutate()
+				.defaultHeader("Authorization", "Bearer " + createSuperAdminToken())
+				.build();
+	}
 
 	@Autowired
 	private UserRepository userRepository;
