@@ -18,7 +18,7 @@ import io.github.edmaputra.iam.domain.repository.UserRepository;
  * Checks BCrypt password hashes and verifies user lifecycle states (active, suspended, deactivated).
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RequiredArgsConstructor
 public class LocalPasswordAuthProvider implements AuthenticationProvider {

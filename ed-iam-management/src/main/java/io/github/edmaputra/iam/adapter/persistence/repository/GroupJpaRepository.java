@@ -13,7 +13,7 @@ import io.github.edmaputra.iam.adapter.persistence.entity.GroupJpaEntity;
  * Spring Data JPA repository for {@link GroupJpaEntity}.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @Repository
 public interface GroupJpaRepository extends JpaRepository<GroupJpaEntity, UUID> {

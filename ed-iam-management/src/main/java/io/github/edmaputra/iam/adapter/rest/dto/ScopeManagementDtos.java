@@ -11,7 +11,7 @@ import io.github.edmaputra.iam.domain.model.ScopeNode;
  * Request and response DTOs for organizational scope administrative management endpoints.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public final class ScopeManagementDtos {
 

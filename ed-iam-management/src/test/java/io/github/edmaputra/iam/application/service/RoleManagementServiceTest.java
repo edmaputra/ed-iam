@@ -27,7 +27,7 @@ import static org.mockito.Mockito.when;
  * Unit test for {@link RoleManagementService}.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class RoleManagementServiceTest {
 

@@ -13,7 +13,7 @@ import lombok.Getter;
  * Supports mapping external IdP group claims for automated federation assignments.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @Getter
 public class Group implements TenantOwned {

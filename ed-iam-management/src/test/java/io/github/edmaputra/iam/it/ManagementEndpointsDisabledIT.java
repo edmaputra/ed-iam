@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code iam.management.endpoints.enabled=false} while application services remain available.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @TestPropertySource(properties = "iam.management.endpoints.enabled=false")
 class ManagementEndpointsDisabledIT extends AbstractIntegrationTest {

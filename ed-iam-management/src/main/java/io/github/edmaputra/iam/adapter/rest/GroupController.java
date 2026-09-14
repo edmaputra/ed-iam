@@ -43,7 +43,7 @@ import io.github.edmaputra.iam.adapter.rest.support.TenantResolutionHelper;
  * REST controller for managing user groups, memberships, and group role assignments.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RestController
 @RequestMapping("/api/v1/groups")

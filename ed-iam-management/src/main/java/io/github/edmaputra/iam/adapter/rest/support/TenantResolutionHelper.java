@@ -6,7 +6,7 @@ import java.util.UUID;
  * Utility for extracting and validating tenant identifiers from HTTP request headers and payloads.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public final class TenantResolutionHelper {
 

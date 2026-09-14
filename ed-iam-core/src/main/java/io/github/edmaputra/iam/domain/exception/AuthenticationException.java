@@ -4,7 +4,7 @@ package io.github.edmaputra.iam.domain.exception;
  * Thrown when credential authentication fails or an account is inactive.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public class AuthenticationException extends RuntimeException {
 

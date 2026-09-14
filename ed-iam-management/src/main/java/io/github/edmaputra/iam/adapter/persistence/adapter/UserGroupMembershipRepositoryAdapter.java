@@ -17,7 +17,7 @@ import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
  * Persistence adapter implementing {@link UserGroupMembershipRepository} backed by Spring Data JPA.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RequiredArgsConstructor
 public class UserGroupMembershipRepositoryAdapter implements UserGroupMembershipRepository {

@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * and Liquibase executes schema setup for all {@code iam_*} tables.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class IamAutoConfigurationAndMigrationIT extends AbstractIntegrationTest {
 

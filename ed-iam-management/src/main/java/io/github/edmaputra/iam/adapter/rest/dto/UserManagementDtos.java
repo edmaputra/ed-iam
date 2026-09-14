@@ -16,7 +16,7 @@ import io.github.edmaputra.iam.domain.model.UserStatus;
  * Request and response DTOs for user administrative management endpoints.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public final class UserManagementDtos {
 

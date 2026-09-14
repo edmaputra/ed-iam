@@ -13,7 +13,7 @@ import lombok.Getter;
  * inheriting permissions to all members of the group.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @Getter
 public class GroupRoleAssignment implements TenantOwned {

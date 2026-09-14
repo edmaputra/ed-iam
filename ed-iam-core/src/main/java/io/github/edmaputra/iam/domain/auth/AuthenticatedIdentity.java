@@ -14,7 +14,7 @@ import io.github.edmaputra.iam.domain.model.UserId;
  * @param platformSuperAdmin  flag indicating if the user is a platform superadmin
  * @param providerType        the provider type that authenticated this identity
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record AuthenticatedIdentity(
 		UserId userId,

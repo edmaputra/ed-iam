@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * and comprehensive RBAC EffectiveAccess resolution (direct roles + group inheritance + scope boundaries).
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class RbacEffectiveAccessAndScopeHierarchyIT extends AbstractIntegrationTest {
 

@@ -7,7 +7,7 @@ import java.util.Optional;
  * Cross-cutting operation context carrying actor identification and optional correlation ID.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record OperationContext(String actor, String correlationId) {
 

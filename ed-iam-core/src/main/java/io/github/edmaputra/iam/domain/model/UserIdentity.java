@@ -10,7 +10,7 @@ import lombok.Getter;
  * Pure domain entity representing a federated identity provider linkage for a local user.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @Getter
 public class UserIdentity {

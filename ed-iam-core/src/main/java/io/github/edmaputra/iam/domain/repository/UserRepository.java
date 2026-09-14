@@ -9,7 +9,7 @@ import io.github.edmaputra.iam.domain.model.UserId;
  * Domain repository port for managing {@link User} entities.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public interface UserRepository {
 

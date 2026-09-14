@@ -4,7 +4,7 @@ package io.github.edmaputra.iam.domain.exception;
  * Thrown when an authenticated actor lacks required permissions or scope access to execute an operation.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public class AccessDeniedException extends RuntimeException {
 

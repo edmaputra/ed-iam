@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Unit test verifying IAM domain event creation and actor context immutability.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class IamEventTest {
 

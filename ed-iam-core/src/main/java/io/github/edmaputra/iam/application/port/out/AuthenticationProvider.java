@@ -8,7 +8,7 @@ import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
  * Service Provider Interface (SPI) for pluggable authentication mechanisms.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public interface AuthenticationProvider {
 

@@ -22,7 +22,7 @@ import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
  * Controller advice handling IAM domain exceptions and mapping them to RFC 9457 {@link ProblemDetail} responses.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RestControllerAdvice(basePackages = "io.github.edmaputra.iam")
 public class IamExceptionHandler {

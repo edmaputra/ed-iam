@@ -17,7 +17,7 @@ import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
  * Spring Boot auto-configuration for IAM hierarchical scope tree persistence and services.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @AutoConfiguration
 public class IamScopeAutoConfiguration {

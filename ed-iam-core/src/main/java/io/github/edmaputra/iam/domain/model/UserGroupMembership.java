@@ -10,7 +10,7 @@ import java.util.Objects;
  * @param userId   the user ID
  * @param joinedAt the timestamp when the user joined the group
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record UserGroupMembership(
 		GroupId groupId,

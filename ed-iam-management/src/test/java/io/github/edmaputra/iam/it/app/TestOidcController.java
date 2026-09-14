@@ -20,7 +20,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * to verify OpenID Connect (OIDC) federated authentication flows over HTTP.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RestController
 @RequestMapping("/api/test/oidc")

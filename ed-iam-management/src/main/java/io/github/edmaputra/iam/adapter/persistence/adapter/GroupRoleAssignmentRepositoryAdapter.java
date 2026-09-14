@@ -22,7 +22,7 @@ import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
  * Persistence adapter implementing {@link GroupRoleAssignmentRepository} backed by Spring Data JPA.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RequiredArgsConstructor
 public class GroupRoleAssignmentRepositoryAdapter implements GroupRoleAssignmentRepository {

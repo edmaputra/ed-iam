@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * and cross-tenant duplicate code isolation using production REST endpoints via {@link org.springframework.test.web.reactive.server.WebTestClient}.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class CascadeAndCrossTenantIsolationIT extends AbstractIntegrationTest {
 

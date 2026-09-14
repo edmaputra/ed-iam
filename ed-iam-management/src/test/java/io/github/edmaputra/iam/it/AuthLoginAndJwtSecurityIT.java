@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * security context propagation, and refresh token exchange using {@link org.springframework.test.web.reactive.server.WebTestClient}.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class AuthLoginAndJwtSecurityIT extends AbstractIntegrationTest {
 

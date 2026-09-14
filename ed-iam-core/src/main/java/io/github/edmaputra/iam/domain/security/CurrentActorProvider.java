@@ -6,7 +6,7 @@ import java.util.Optional;
  * Port for accessing the currently authenticated actor context.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public interface CurrentActorProvider {
 

@@ -18,7 +18,7 @@ import io.github.edmaputra.iam.domain.model.ScopeNode;
  * @param path     the materialized hierarchy path
  * @param children list of child tree nodes
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record ScopeTreeNode(
 		UUID id,

@@ -11,7 +11,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * Commands for administrative user group management and group role assignments.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public final class GroupCommands {
 
@@ -26,7 +26,7 @@ public final class GroupCommands {
 	 * @param description          group description
 	 * @param externalIdpGroupName optional mapping to external IdP group claim
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	public record CreateGroupCommand(
 			TenantId tenantId,
@@ -56,7 +56,7 @@ public final class GroupCommands {
 	 * @param description          updated description
 	 * @param externalIdpGroupName updated external IdP group mapping
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	public record UpdateGroupCommand(
 			GroupId groupId,
@@ -81,7 +81,7 @@ public final class GroupCommands {
 	 * @param tenantId    the tenant context
 	 * @param scopeNodeId optional organizational scope boundary
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	public record AssignGroupRoleCommand(
 			GroupId groupId,

@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Unit test verifying User entity lifecycle, statuses, and validation invariants.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class UserTest {
 

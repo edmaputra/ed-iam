@@ -21,7 +21,7 @@ import static org.mockito.Mockito.when;
  * Unit test verifying pure scope tree and subtree resolution algorithms.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class ScopeSubtreeResolverTest {
 

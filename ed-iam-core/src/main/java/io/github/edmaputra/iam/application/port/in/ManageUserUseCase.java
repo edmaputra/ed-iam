@@ -17,7 +17,7 @@ import io.github.edmaputra.iam.domain.model.UserRoleAssignment;
  * Inbound port for managing user lifecycles, account statuses, role assignments, and group memberships.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public interface ManageUserUseCase {
 

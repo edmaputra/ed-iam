@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Unit test verifying user and group role assignment invariants and scope constraints.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class RoleAssignmentTest {
 

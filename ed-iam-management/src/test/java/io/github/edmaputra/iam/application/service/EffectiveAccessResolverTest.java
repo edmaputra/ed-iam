@@ -36,7 +36,7 @@ import static org.mockito.Mockito.when;
  * Unit tests for {@link EffectiveAccessResolver}.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class EffectiveAccessResolverTest {
 

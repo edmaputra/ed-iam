@@ -18,7 +18,7 @@ import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
  * Persistence adapter implementing {@link UserIdentityRepository} backed by Spring Data JPA.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RequiredArgsConstructor
 public class UserIdentityRepositoryAdapter implements UserIdentityRepository {

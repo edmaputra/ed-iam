@@ -16,7 +16,7 @@ import lombok.Setter;
  * JPA entity representing a federated identity link in the {@code iam_user_identity} table.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @Entity
 @Table(name = "iam_user_identity")

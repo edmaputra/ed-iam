@@ -12,7 +12,7 @@ import java.util.UUID;
  * providing natural time-sorting and index locality in B-Tree databases.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public final class UuidV7 {
 

@@ -13,7 +13,7 @@ import io.github.edmaputra.iam.domain.model.GroupRoleAssignment;
  * Request and response DTOs for user group administrative management endpoints.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public final class GroupManagementDtos {
 

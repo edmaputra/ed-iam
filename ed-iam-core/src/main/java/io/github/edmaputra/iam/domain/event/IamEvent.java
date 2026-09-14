@@ -11,7 +11,7 @@ import io.github.edmaputra.iam.domain.context.OperationContext;
  * Universal domain event envelope for all Identity and Access Management mutations.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record IamEvent(
 		String eventType,
