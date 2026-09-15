@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Aligned Javadoc `@since` tags across all core, management, and resource server classes to `0.0.1` to match the initial release baseline ([#9](https://github.com/edmaputra/ed-iam/pull/9)).
 - Upgraded GitHub Actions workflow dependencies across `ci.yml`, `deploy-sample.yml`, and `release.yml` (`actions/checkout@v7`, `actions/upload-artifact@v7`, `crazy-max/ghaction-import-gpg@v7`) to run natively on Node.js 24 runtime, resolving runner deprecation warnings.
+- Configured JaCoCo multi-module report aggregation in `ed-iam-starter` and added unified coverage reporting directly in GitHub Actions Job Summary and pull request comments.
 
 ---
 
