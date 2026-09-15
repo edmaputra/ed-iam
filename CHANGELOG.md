@@ -7,8 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.2.0] - 2026-09-15
+
 ### Added
-- Standardized `CHANGELOG.md` adhering to Keep a Changelog 1.1.0 and Semantic Versioning 2.0.0 specifications.
+- **Multi-Tenant Audit Context & Actor Categorization**:
+  - Introduced `ActorType` enum (`USER`, `SYSTEM`, `MACHINE`) in domain context to distinguish caller identity types across audit and domain layers ([#9](https://github.com/edmaputra/ed-iam/pull/9)).
+  - Enhanced `OperationContext` with `actorType` and optional `TenantId` support for richer multi-tenant scoping and audit trail generation ([#9](https://github.com/edmaputra/ed-iam/pull/9)).
+  - Added ergonomic static factory methods `OperationContext.user(...)`, `OperationContext.system(...)`, and `OperationContext.machine(...)` with tenant ID and correlation ID overloads while maintaining backward compatibility for single-actor callers ([#9](https://github.com/edmaputra/ed-iam/pull/9)).
+  - Added accessor methods `actorType()`, `tenantId()`, `optionalTenantId()`, and `optionalTenantUuid()` to `OperationContext` ([#9](https://github.com/edmaputra/ed-iam/pull/9)).
+  - Added unit test coverage for `OperationContext` and `ActorType` invariants and validation rules ([#9](https://github.com/edmaputra/ed-iam/pull/9)).
+- **Documentation & Standards**:
+  - Standardized `CHANGELOG.md` adhering to Keep a Changelog 1.1.0 and Semantic Versioning 2.0.0 specifications ([#8](https://github.com/edmaputra/ed-iam/pull/8)).
+  - Enhanced project `README.md` with modular starter guides, declarative `@RequirePermission` examples, and SpEL `@iam` evaluator usage ([#8](https://github.com/edmaputra/ed-iam/pull/8)).
+
+### Changed
+- Aligned Javadoc `@since` tags across all core, management, and resource server classes to `0.0.1` to match the initial release baseline ([#9](https://github.com/edmaputra/ed-iam/pull/9)).
+- Upgraded GitHub Actions workflow dependencies across `ci.yml`, `deploy-sample.yml`, and `release.yml` (`actions/checkout@v7`, `actions/upload-artifact@v7`, `crazy-max/ghaction-import-gpg@v7`) to run natively on Node.js 24 runtime, resolving runner deprecation warnings.
 
 ---
 
@@ -84,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automated CI/CD**:
   - GitHub Actions automated release pipeline publishing signed artifacts to Maven Central via Sonatype Central Portal.
 
-[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/edmaputra/ed-iam/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/edmaputra/ed-iam/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/edmaputra/ed-iam/releases/tag/v0.0.1
