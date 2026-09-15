@@ -32,7 +32,7 @@ import org.springframework.context.annotation.Configuration;
  * </ul>
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @AutoConfiguration
 @ConditionalOnClass(SpringLiquibase.class)

@@ -19,6 +19,7 @@ import io.github.edmaputra.iam.domain.auth.ApiKeyAuthCredentials;
 import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
 import io.github.edmaputra.iam.domain.auth.OidcAuthCredentials;
 import io.github.edmaputra.iam.domain.auth.PasswordAuthCredentials;
+import io.github.edmaputra.iam.domain.context.ActorType;
 import io.github.edmaputra.iam.domain.context.OperationContext;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
@@ -179,11 +180,14 @@ class DomainAndModelInvariantsTest {
 				UUID.randomUUID(), "a@b.com", "Name", null, false, false, null, null, null, null, null));
 		assertThat(tokenResp.tokenType()).isEqualTo("Bearer");
 
-		assertThatThrownBy(() -> new OperationContext(null, "corr"))
+		assertThatThrownBy(() -> new OperationContext(null, ActorType.USER, null, "corr"))
 				.isInstanceOf(NullPointerException.class);
 
-		assertThatThrownBy(() -> new OperationContext("   ", "corr"))
+		assertThatThrownBy(() -> new OperationContext("   ", ActorType.USER, null, "corr"))
 				.isInstanceOf(IllegalArgumentException.class);
+
+		assertThatThrownBy(() -> new OperationContext("actor", null, null, "corr"))
+				.isInstanceOf(NullPointerException.class);
 	}
 
 	@Test

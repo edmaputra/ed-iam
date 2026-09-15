@@ -16,7 +16,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * Inbound port for managing user groups, group role assignments, and group membership listings.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public interface ManageGroupUseCase {
 

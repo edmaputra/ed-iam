@@ -19,7 +19,7 @@ import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
  * to verify machine-to-machine (M2M) API key authentication flows over HTTP.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RestController
 @RequestMapping("/api/test/api-key")
@@ -63,7 +63,7 @@ public class TestApiKeyController {
 	 *
 	 * @param apiKey the raw API key token string
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	public record ApiKeyAuthenticateRequest(String apiKey) {
 	}
@@ -77,7 +77,7 @@ public class TestApiKeyController {
 	 * @param providerType       the authentication provider type name
 	 * @param platformSuperAdmin whether the identity has platform super admin privileges
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	public record ApiKeyIdentityResponse(
 			UUID userId,

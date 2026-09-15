@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Unit test verifying value object factories, UuidV7 extraction, and CurrentActor defaults.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class DomainUtilityAndValueObjectsTest {
 

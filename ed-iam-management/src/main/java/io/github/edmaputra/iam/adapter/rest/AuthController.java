@@ -27,7 +27,7 @@ import io.github.edmaputra.iam.application.port.in.SwitchTenantCommand;
  * REST controller exposing authentication and identity endpoints under {@code /api/v1/auth}.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RestController
 @RequestMapping("/api/v1/auth")

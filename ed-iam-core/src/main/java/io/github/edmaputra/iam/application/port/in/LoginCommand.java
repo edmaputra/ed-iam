@@ -11,7 +11,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * @param password the user's raw password
  * @param tenantId optional tenant ID context for scoping permissions
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record LoginCommand(
 		String email,

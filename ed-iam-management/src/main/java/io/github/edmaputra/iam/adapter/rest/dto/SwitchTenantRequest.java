@@ -7,7 +7,7 @@ import java.util.UUID;
  *
  * @param tenantId target tenant UUID
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record SwitchTenantRequest(UUID tenantId) {
 }

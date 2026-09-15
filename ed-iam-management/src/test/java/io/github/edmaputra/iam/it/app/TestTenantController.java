@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Test REST controller verifying that the host tenant context was bridged during request execution.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RestController
 @RequestMapping("/api/test/tenant")

@@ -17,7 +17,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * @param externalGroups list of external group or role claim strings from the IdP
  * @param tenantId       the target tenant ID if authenticating into a specific tenant
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record OidcAuthCredentials(
 		String idToken,

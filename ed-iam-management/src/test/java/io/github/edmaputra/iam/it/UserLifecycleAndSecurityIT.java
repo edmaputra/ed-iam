@@ -21,7 +21,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * using {@link org.springframework.test.web.reactive.server.WebTestClient}.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class UserLifecycleAndSecurityIT extends AbstractIntegrationTest {
 

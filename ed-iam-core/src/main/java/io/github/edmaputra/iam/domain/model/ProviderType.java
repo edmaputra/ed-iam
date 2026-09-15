@@ -4,7 +4,7 @@ package io.github.edmaputra.iam.domain.model;
  * Supported identity and authentication provider types.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public enum ProviderType {
 	LOCAL,

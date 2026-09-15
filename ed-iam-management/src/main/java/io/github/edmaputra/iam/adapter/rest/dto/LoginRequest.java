@@ -15,7 +15,7 @@ import io.github.edmaputra.iam.application.port.in.LoginCommand;
  * @param password raw user password
  * @param tenantId optional tenant context UUID
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record LoginRequest(
 		@NotBlank(message = "Email must not be blank.")

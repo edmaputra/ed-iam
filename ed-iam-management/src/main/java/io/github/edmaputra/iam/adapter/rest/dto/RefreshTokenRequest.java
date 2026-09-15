@@ -10,7 +10,7 @@ import io.github.edmaputra.iam.application.port.in.RefreshTokenCommand;
  * @param refreshToken the signed JWT refresh token string
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record RefreshTokenRequest(
 		@NotBlank(message = "Refresh token must not be blank.")

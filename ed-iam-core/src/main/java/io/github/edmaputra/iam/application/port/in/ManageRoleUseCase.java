@@ -12,7 +12,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * Inbound port for managing custom roles, permissions, and tenant role catalogs.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public interface ManageRoleUseCase {
 

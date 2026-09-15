@@ -10,7 +10,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * Commands for administrative custom role creation, update, and deletion.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public final class RoleCommands {
 
@@ -25,7 +25,7 @@ public final class RoleCommands {
 	 * @param description role description
 	 * @param permissions set of granted permission keys
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	public record CreateRoleCommand(
 			TenantId tenantId,
@@ -56,7 +56,7 @@ public final class RoleCommands {
 	 * @param description updated description
 	 * @param permissions updated permission set
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	public record UpdateRoleCommand(
 			RoleId roleId,

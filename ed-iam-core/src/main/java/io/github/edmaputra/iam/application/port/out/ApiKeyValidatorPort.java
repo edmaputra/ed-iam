@@ -8,7 +8,7 @@ import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
  * Outbound port for verifying machine-to-machine (M2M) API keys.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public interface ApiKeyValidatorPort {
 

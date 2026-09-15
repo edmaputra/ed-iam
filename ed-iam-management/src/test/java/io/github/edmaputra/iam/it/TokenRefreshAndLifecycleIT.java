@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * invalid token handling, and mid-session account revocation using {@link org.springframework.test.web.reactive.server.WebTestClient}.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class TokenRefreshAndLifecycleIT extends AbstractIntegrationTest {
 

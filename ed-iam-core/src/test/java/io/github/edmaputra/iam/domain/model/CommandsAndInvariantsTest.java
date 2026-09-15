@@ -27,6 +27,7 @@ import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatus
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
 import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
+import io.github.edmaputra.iam.domain.context.ActorType;
 import io.github.edmaputra.iam.domain.context.OperationContext;
 import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
@@ -247,19 +248,79 @@ class CommandsAndInvariantsTest {
 		assertThat(uiNoIssuer.optionalIssuerUrl()).isEmpty();
 
 		// OperationContext
-		assertThatThrownBy(() -> new OperationContext(null, "corr")).isInstanceOf(NullPointerException.class);
-		assertThatThrownBy(() -> new OperationContext("  ", "corr")).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> new OperationContext(null, ActorType.USER, null, "corr")).isInstanceOf(NullPointerException.class);
+		assertThatThrownBy(() -> new OperationContext("  ", ActorType.USER, null, "corr")).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> new OperationContext("actor", null, null, "corr")).isInstanceOf(NullPointerException.class);
 		OperationContext sys = OperationContext.system();
 		assertThat(sys.actor()).isEqualTo("system");
+		assertThat(sys.actorType()).isEqualTo(ActorType.SYSTEM);
+		assertThat(sys.optionalTenantId()).isEmpty();
+		assertThat(sys.optionalTenantUuid()).isEmpty();
 		assertThat(sys.optionalCorrelationId()).isEmpty();
+
+		TenantId opTenantId = TenantId.generate();
+		OperationContext sysTenant = OperationContext.system(opTenantId);
+		assertThat(sysTenant.actorType()).isEqualTo(ActorType.SYSTEM);
+		assertThat(sysTenant.optionalTenantId()).contains(opTenantId);
+		assertThat(sysTenant.optionalTenantUuid()).contains(opTenantId.value());
+
+		OperationContext sysTenantUuid = OperationContext.system(opTenantId.value());
+		assertThat(sysTenantUuid.optionalTenantId()).contains(opTenantId);
 
 		OperationContext custom = OperationContext.of("custom-actor", "corr-99");
 		assertThat(custom.actor()).isEqualTo("custom-actor");
+		assertThat(custom.actorType()).isEqualTo(ActorType.USER);
 		assertThat(custom.optionalCorrelationId()).contains("corr-99");
 
 		OperationContext single = OperationContext.of("single-actor");
 		assertThat(single.actor()).isEqualTo("single-actor");
+		assertThat(single.actorType()).isEqualTo(ActorType.USER);
 		assertThat(single.optionalCorrelationId()).isEmpty();
+
+		OperationContext userCtx = OperationContext.user("john", opTenantId, "corr-1");
+		assertThat(userCtx.actor()).isEqualTo("john");
+		assertThat(userCtx.actorType()).isEqualTo(ActorType.USER);
+		assertThat(userCtx.optionalTenantId()).contains(opTenantId);
+		assertThat(userCtx.optionalCorrelationId()).contains("corr-1");
+
+		OperationContext userUuidCtx = OperationContext.user("john", opTenantId.value(), "corr-1");
+		assertThat(userUuidCtx.optionalTenantId()).contains(opTenantId);
+
+		OperationContext userNoCorr = OperationContext.user("john", opTenantId);
+		assertThat(userNoCorr.optionalCorrelationId()).isEmpty();
+
+		OperationContext userUuidNoCorr = OperationContext.user("john", opTenantId.value());
+		assertThat(userUuidNoCorr.optionalTenantId()).contains(opTenantId);
+
+		OperationContext machineCtx = OperationContext.machine("service-client", opTenantId, "corr-2");
+		assertThat(machineCtx.actor()).isEqualTo("service-client");
+		assertThat(machineCtx.actorType()).isEqualTo(ActorType.MACHINE);
+		assertThat(machineCtx.optionalTenantId()).contains(opTenantId);
+		assertThat(machineCtx.optionalCorrelationId()).contains("corr-2");
+
+		OperationContext machineUuidCtx = OperationContext.machine("service-client", opTenantId.value(), "corr-2");
+		assertThat(machineUuidCtx.optionalTenantId()).contains(opTenantId);
+
+		OperationContext machineNoCorr = OperationContext.machine("service-client", opTenantId);
+		assertThat(machineNoCorr.optionalCorrelationId()).isEmpty();
+
+		OperationContext machineUuidNoCorr = OperationContext.machine("service-client", opTenantId.value());
+		assertThat(machineUuidNoCorr.optionalTenantId()).contains(opTenantId);
+
+		OperationContext ofAll = OperationContext.of("caller", ActorType.MACHINE, opTenantId, "corr-3");
+		assertThat(ofAll.actorType()).isEqualTo(ActorType.MACHINE);
+
+		OperationContext ofUuid = OperationContext.of("caller", ActorType.MACHINE, opTenantId.value(), "corr-3");
+		assertThat(ofUuid.optionalTenantId()).contains(opTenantId);
+
+		OperationContext ofTypeTenant = OperationContext.of("caller", ActorType.MACHINE, opTenantId);
+		assertThat(ofTypeTenant.optionalCorrelationId()).isEmpty();
+
+		OperationContext ofTypeUuid = OperationContext.of("caller", ActorType.MACHINE, opTenantId.value());
+		assertThat(ofTypeUuid.optionalTenantId()).contains(opTenantId);
+
+		OperationContext ofType = OperationContext.of("caller", ActorType.MACHINE);
+		assertThat(ofType.optionalTenantId()).isEmpty();
 	}
 
 	@Test

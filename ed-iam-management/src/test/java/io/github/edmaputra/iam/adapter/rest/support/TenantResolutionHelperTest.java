@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Unit test for {@link TenantResolutionHelper}.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class TenantResolutionHelperTest {
 

@@ -21,7 +21,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantContextBridge;
  * Spring Boot auto-configuration for IAM Resource Server (JWT verification, ScopedValue security context, and TenantContextBridge).
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @AutoConfiguration
 @EnableConfigurationProperties(JwtProperties.class)

@@ -7,7 +7,7 @@ import java.util.UUID;
  * Domain representation of the currently authenticated actor.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public interface CurrentActor {
 

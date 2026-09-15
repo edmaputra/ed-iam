@@ -20,7 +20,7 @@ import java.util.UUID;
  * @param accessibleScopeNodeIds set of accessible scope node UUIDs
  * @param accessibleScopePaths   set of accessible materialized path prefixes
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record UserProfileResponse(
 		UUID id,

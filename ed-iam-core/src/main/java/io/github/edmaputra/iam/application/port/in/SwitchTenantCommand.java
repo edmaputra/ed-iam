@@ -11,7 +11,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * @param currentActor   the authenticated actor requesting the tenant switch
  * @param targetTenantId the target tenant ID to switch into
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record SwitchTenantCommand(CurrentActor currentActor, TenantId targetTenantId) {
 

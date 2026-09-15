@@ -28,7 +28,7 @@ import io.github.edmaputra.iam.it.app.TestIamApplication;
  * and the complete {@link TestIamApplication} host environment.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @SpringBootTest(classes = TestIamApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("it")

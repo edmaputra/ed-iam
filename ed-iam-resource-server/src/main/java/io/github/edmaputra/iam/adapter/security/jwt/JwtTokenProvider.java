@@ -31,7 +31,7 @@ import io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor;
  * Embeds tenant context, effective roles, permissions, and hierarchical scopes into access token claims.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public class JwtTokenProvider implements TokenProviderPort {
 

@@ -22,7 +22,7 @@ import lombok.Setter;
  * JPA entity representing a role catalog record in the {@code iam_role} table.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @Entity
 @Table(name = "iam_role")

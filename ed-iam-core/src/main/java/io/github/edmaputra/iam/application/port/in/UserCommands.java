@@ -12,7 +12,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * Commands for administrative user lifecycle, status changes, and role/group assignments.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public final class UserCommands {
 
@@ -26,7 +26,7 @@ public final class UserCommands {
 	 * @param fullName           user display name
 	 * @param platformSuperAdmin whether user has global superadmin privileges
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	public record CreateUserCommand(
 			String email,
@@ -52,7 +52,7 @@ public final class UserCommands {
 	 * @param userId   the user ID
 	 * @param fullName updated display name
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	public record UpdateUserCommand(UserId userId, String fullName) {
 		public UpdateUserCommand {
@@ -70,7 +70,7 @@ public final class UserCommands {
 	 * @param userId the user ID
 	 * @param status the target user status
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	public record ChangeUserStatusCommand(UserId userId, UserStatus status) {
 		public ChangeUserStatusCommand {
@@ -87,7 +87,7 @@ public final class UserCommands {
 	 * @param tenantId    the tenant context
 	 * @param scopeNodeId optional organizational scope boundary
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	public record AssignUserRoleCommand(
 			UserId userId,

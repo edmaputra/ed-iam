@@ -12,7 +12,7 @@ import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
  * Provides boundary-safe, thread-local-free scoping of the authenticated actor across virtual and platform threads.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public class SecurityContextAccessor implements CurrentActorProvider {
 

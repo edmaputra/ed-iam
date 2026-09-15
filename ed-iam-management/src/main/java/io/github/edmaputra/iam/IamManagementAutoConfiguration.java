@@ -30,7 +30,7 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
  * (Users, Roles, Groups, Scopes) and their toggleable REST endpoints.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @AutoConfiguration(after = {IamSecurityAutoConfiguration.class, IamScopeAutoConfiguration.class})
 public class IamManagementAutoConfiguration {
@@ -107,7 +107,7 @@ public class IamManagementAutoConfiguration {
 	 * and toggleable via {@code iam.management.endpoints.enabled=false}.
 	 *
 	 * @author edmaputra
-	 * @since 1.0.0
+	 * @since 0.0.1
 	 */
 	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnProperty(prefix = "iam.management.endpoints", name = "enabled", havingValue = "true", matchIfMissing = true)

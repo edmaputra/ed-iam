@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Unit test verifying provider credential type guards.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 class ProviderTypeGuardsTest {
 

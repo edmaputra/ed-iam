@@ -4,7 +4,7 @@ package io.github.edmaputra.iam.domain.auth;
  * Marker interface for strongly-typed authentication credentials accepted by {@link io.github.edmaputra.iam.application.port.out.AuthenticationProvider}s.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public interface AuthCredentials {
 

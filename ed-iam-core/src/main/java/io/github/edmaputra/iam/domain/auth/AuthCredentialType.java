@@ -4,7 +4,7 @@ package io.github.edmaputra.iam.domain.auth;
  * Enumeration of supported inbound authentication credential types in the Uwati IAM subsystem.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public enum AuthCredentialType {
 	/** Standard local username/email and password credentials. */

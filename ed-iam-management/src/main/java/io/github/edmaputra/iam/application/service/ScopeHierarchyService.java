@@ -28,7 +28,7 @@ import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
  * Manages scope tree hierarchy, path generation, cycle detection, re-parenting cascades, and audit events.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RequiredArgsConstructor
 public class ScopeHierarchyService implements ManageScopeUseCase {

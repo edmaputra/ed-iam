@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * with JSON request bodies and Lenient JSON response assertions.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @Import(ApiKeyAuthenticationIT.ApiKeyTestConfig.class)
 class ApiKeyAuthenticationIT extends AbstractIntegrationTest {

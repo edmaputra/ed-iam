@@ -43,7 +43,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * REST controller for managing users, lifecycles, role assignments, and group memberships.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @RestController
 @RequestMapping("/api/v1/users")

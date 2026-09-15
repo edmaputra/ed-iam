@@ -13,7 +13,7 @@ import io.github.edmaputra.iam.domain.model.ScopeNodeId;
  * @param id          the scope node ID to move
  * @param newParentId the new parent scope node ID (null to move to root)
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 public record MoveScopeNodeCommand(
 		TenantId tenantId,

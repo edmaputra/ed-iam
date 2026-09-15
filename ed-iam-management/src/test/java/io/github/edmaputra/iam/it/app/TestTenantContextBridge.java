@@ -13,7 +13,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantContextBridge;
  * using modern Java 25 {@link ScopedValue}.
  *
  * @author edmaputra
- * @since 1.0.0
+ * @since 0.0.1
  */
 @Component
 public class TestTenantContextBridge implements TenantContextBridge {
