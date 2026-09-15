@@ -12,7 +12,7 @@
 
 	<groupId>io.github.edmaputra</groupId>
 	<artifactId>ed-iam</artifactId>
-	<version>0.2.0-SNAPSHOT</version>
+	<version>0.3.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>ed-iam</name>
 	<description>Pluggable Multi-tenant Identity and Access Management Spring Boot Starter Parent</description>
