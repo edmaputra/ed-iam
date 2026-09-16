@@ -33,3 +33,12 @@ build/
 
 ### Log files ###
 *.log
+
+### AI Agent runtime artifacts ###
+project-structure.json
+.project-structure.json
+.agents/project-structure.json
+
+### OS Metadata ###
+.DS_Store
+Thumbs.db
