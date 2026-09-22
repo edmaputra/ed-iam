@@ -28,6 +28,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for {@link RequirePermissionInterceptor}.
+ *
+ * @author edmaputra
+ * @since 0.1.0
+ */
 @ExtendWith(MockitoExtension.class)
 class RequirePermissionInterceptorTest {
 

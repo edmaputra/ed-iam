@@ -7,6 +7,8 @@ import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.persistence.entity.ScopeNodeJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.ScopeNodeJpaRepository;
@@ -21,11 +23,13 @@ import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
  * @since 0.0.1
  */
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ScopeNodeRepositoryAdapter implements ScopeNodeRepository {
 
 	private final ScopeNodeJpaRepository repository;
 
 	@Override
+	@Transactional
 	public ScopeNode save(ScopeNode node) {
 		Objects.requireNonNull(node, "ScopeNode must not be null.");
 		ScopeNodeJpaEntity entity = toEntity(node);
@@ -71,6 +75,7 @@ public class ScopeNodeRepositoryAdapter implements ScopeNodeRepository {
 	}
 
 	@Override
+	@Transactional
 	public void updatePathPrefix(String oldPrefix, String newPrefix) {
 		Objects.requireNonNull(oldPrefix, "OldPrefix must not be null.");
 		Objects.requireNonNull(newPrefix, "NewPrefix must not be null.");
@@ -91,6 +96,7 @@ public class ScopeNodeRepositoryAdapter implements ScopeNodeRepository {
 	}
 
 	@Override
+	@Transactional
 	public void delete(ScopeNodeId id) {
 		Objects.requireNonNull(id, "ScopeNodeId must not be null.");
 		repository.deleteById(id.value());

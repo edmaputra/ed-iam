@@ -3,7 +3,6 @@ package io.github.edmaputra.iam.adapter.rest;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -137,7 +136,7 @@ public class UserController {
 		List<UserRoleAssignmentResponse> responses = manageUserUseCase.getRoleAssignments(new UserId(id))
 				.stream()
 				.map(UserRoleAssignmentResponse::fromDomain)
-				.collect(Collectors.toList());
+				.toList();
 		return ResponseEntity.ok(responses);
 	}
 
@@ -165,7 +164,7 @@ public class UserController {
 		List<GroupResponse> responses = manageUserUseCase.getUserGroups(new UserId(id))
 				.stream()
 				.map(GroupResponse::fromDomain)
-				.collect(Collectors.toList());
+				.toList();
 		return ResponseEntity.ok(responses);
 	}
 }

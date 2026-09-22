@@ -4,8 +4,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
+import io.github.edmaputra.iam.domain.security.TestCurrentActor;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -204,7 +204,7 @@ class CommandsAndInvariantsTest {
 		UserId userId = UserId.generate();
 
 		// SwitchTenantCommand
-		io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor actor = new io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor(
+		TestCurrentActor actor = new TestCurrentActor(
 				userId.value(), "a@b.com", null, false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
 		assertThatThrownBy(() -> new SwitchTenantCommand(null, tenantId)).isInstanceOf(NullPointerException.class);
 		assertThatThrownBy(() -> new SwitchTenantCommand(actor, null)).isInstanceOf(NullPointerException.class);
@@ -356,21 +356,21 @@ class CommandsAndInvariantsTest {
 		UUID otherScope = UUID.randomUUID();
 
 		// Superadmin
-		CurrentActor superAdmin = new io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor(
+		CurrentActor superAdmin = new TestCurrentActor(
 				UUID.randomUUID(), "sa@test.org", null, true, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
 		assertThat(superAdmin.hasPermission("ANY_PERM")).isTrue();
 		assertThat(superAdmin.canAccessScope(targetScope)).isTrue();
 		assertThat(superAdmin.canAccessScope(null)).isTrue();
 
 		// Tenant-wide user
-		CurrentActor tenantWide = new io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor(
+		CurrentActor tenantWide = new TestCurrentActor(
 				UUID.randomUUID(), "tw@test.org", UUID.randomUUID(), false, true, Set.of(), Set.of(), Set.of("READ"), Set.of(), Set.of());
 		assertThat(tenantWide.hasPermission("READ")).isTrue();
 		assertThat(tenantWide.hasPermission("WRITE")).isFalse();
 		assertThat(tenantWide.canAccessScope(targetScope)).isTrue();
 
 		// Scoped user
-		CurrentActor scopedUser = new io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor(
+		CurrentActor scopedUser = new TestCurrentActor(
 				UUID.randomUUID(), "sc@test.org", UUID.randomUUID(), false, false, Set.of(), Set.of(), Set.of("READ"), Set.of(targetScope), Set.of("/path/"));
 		assertThat(scopedUser.canAccessScope(targetScope)).isTrue();
 		assertThat(scopedUser.canAccessScope(otherScope)).isFalse();

@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 
@@ -123,6 +122,6 @@ public class GroupManagementService implements ManageGroupUseCase {
 		return memberships.stream()
 				.map(m -> userRepository.findById(m.userId()).orElse(null))
 				.filter(Objects::nonNull)
-				.collect(Collectors.toList());
+				.toList();
 	}
 }

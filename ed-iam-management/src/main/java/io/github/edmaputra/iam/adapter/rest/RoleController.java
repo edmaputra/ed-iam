@@ -3,7 +3,6 @@ package io.github.edmaputra.iam.adapter.rest;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -81,7 +80,7 @@ public class RoleController {
 		List<RoleResponse> responses = manageRoleUseCase.getRolesByTenant(new TenantId(tenantUuid))
 				.stream()
 				.map(RoleResponse::fromDomain)
-				.collect(Collectors.toList());
+				.toList();
 
 		return ResponseEntity.ok(responses);
 	}

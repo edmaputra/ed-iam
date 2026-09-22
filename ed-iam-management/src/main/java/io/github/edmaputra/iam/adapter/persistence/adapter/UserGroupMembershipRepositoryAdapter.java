@@ -5,6 +5,8 @@ import java.util.Objects;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import io.github.edmaputra.iam.adapter.persistence.entity.UserGroupMembershipJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.entity.UserGroupMembershipJpaId;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserGroupMembershipJpaRepository;
@@ -20,6 +22,7 @@ import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
  * @since 0.0.1
  */
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserGroupMembershipRepositoryAdapter implements UserGroupMembershipRepository {
 
 	private final UserGroupMembershipJpaRepository repository;
@@ -48,6 +51,7 @@ public class UserGroupMembershipRepositoryAdapter implements UserGroupMembership
 	}
 
 	@Override
+	@Transactional
 	public UserGroupMembership save(UserGroupMembership membership) {
 		Objects.requireNonNull(membership, "UserGroupMembership must not be null.");
 		UserGroupMembershipJpaEntity entity = toEntity(membership);
@@ -56,6 +60,7 @@ public class UserGroupMembershipRepositoryAdapter implements UserGroupMembership
 	}
 
 	@Override
+	@Transactional
 	public void delete(GroupId groupId, UserId userId) {
 		Objects.requireNonNull(groupId, "GroupId must not be null.");
 		Objects.requireNonNull(userId, "UserId must not be null.");

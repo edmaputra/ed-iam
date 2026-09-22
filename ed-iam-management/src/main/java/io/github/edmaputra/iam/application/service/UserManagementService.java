@@ -3,7 +3,6 @@ package io.github.edmaputra.iam.application.service;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 
@@ -166,6 +165,6 @@ public class UserManagementService implements ManageUserUseCase {
 		return memberships.stream()
 				.map(m -> groupRepository.findById(m.groupId()).orElse(null))
 				.filter(Objects::nonNull)
-				.collect(Collectors.toList());
+				.toList();
 	}
 }
