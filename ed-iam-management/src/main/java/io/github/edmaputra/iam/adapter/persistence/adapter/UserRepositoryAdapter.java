@@ -5,6 +5,8 @@ import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import io.github.edmaputra.iam.adapter.persistence.entity.UserJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserJpaRepository;
 import io.github.edmaputra.iam.domain.model.User;
@@ -19,6 +21,7 @@ import io.github.edmaputra.iam.domain.repository.UserRepository;
  * @since 0.0.1
  */
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserRepositoryAdapter implements UserRepository {
 
 	private final UserJpaRepository repository;
@@ -42,6 +45,7 @@ public class UserRepositoryAdapter implements UserRepository {
 	}
 
 	@Override
+	@Transactional
 	public User save(User user) {
 		Objects.requireNonNull(user, "User must not be null.");
 		UserJpaEntity entity = toEntity(user);
@@ -50,6 +54,7 @@ public class UserRepositoryAdapter implements UserRepository {
 	}
 
 	@Override
+	@Transactional
 	public void delete(UserId id) {
 		Objects.requireNonNull(id, "UserId must not be null.");
 		repository.deleteById(id.value());

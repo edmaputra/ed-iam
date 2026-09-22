@@ -46,6 +46,33 @@ class TenantResolutionHelperTest {
 	}
 
 	@Test
+	@DisplayName("Should parse tenant header correctly or throw IllegalArgumentException on invalid UUID")
+	void shouldParseTenantHeader() {
+		UUID expected = UUID.randomUUID();
+
+		assertThat(TenantResolutionHelper.parseTenantHeader(expected.toString())).isEqualTo(expected);
+		assertThat(TenantResolutionHelper.parseTenantHeader(null)).isNull();
+		assertThat(TenantResolutionHelper.parseTenantHeader("   ")).isNull();
+
+		assertThatThrownBy(() -> TenantResolutionHelper.parseTenantHeader("invalid-uuid"))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("Invalid UUID string for X-Tenant-ID header: invalid-uuid");
+	}
+
+	@Test
+	@DisplayName("Should resolve optional tenant ID when present or return null when missing")
+	void shouldResolveOptionalTenantId() {
+		UUID expected = UUID.randomUUID();
+		UUID fallback = UUID.randomUUID();
+
+		assertThat(TenantResolutionHelper.resolveOptionalTenantId(expected.toString(), fallback)).isEqualTo(expected);
+		assertThat(TenantResolutionHelper.resolveOptionalTenantId(null, fallback)).isEqualTo(fallback);
+		assertThat(TenantResolutionHelper.resolveOptionalTenantId("   ", fallback)).isEqualTo(fallback);
+		assertThat(TenantResolutionHelper.resolveOptionalTenantId(null, null)).isNull();
+		assertThat(TenantResolutionHelper.resolveOptionalTenantId("   ", null)).isNull();
+	}
+
+	@Test
 	@DisplayName("Should cover private constructor")
 	void shouldCoverPrivateConstructor() throws Exception {
 		Constructor<TenantResolutionHelper> constructor = TenantResolutionHelper.class.getDeclaredConstructor();

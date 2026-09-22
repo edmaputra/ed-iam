@@ -2,18 +2,13 @@ package io.github.edmaputra.iam;
 
 import java.util.List;
 
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-
-import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
-import io.github.edmaputra.iam.domain.tenancy.TenantContextBridge;
 import io.github.edmaputra.iam.adapter.persistence.adapter.GroupRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.GroupRoleAssignmentRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.RoleRepositoryAdapter;
@@ -31,10 +26,7 @@ import io.github.edmaputra.iam.adapter.persistence.repository.UserRoleAssignment
 import io.github.edmaputra.iam.adapter.rest.AuthController;
 import io.github.edmaputra.iam.adapter.rest.IamExceptionHandler;
 import io.github.edmaputra.iam.adapter.security.BCryptPasswordEncoderAdapter;
-import io.github.edmaputra.iam.adapter.security.SecurityContextAccessor;
-import io.github.edmaputra.iam.adapter.security.jwt.JwtAuthenticationFilter;
-import io.github.edmaputra.iam.adapter.security.jwt.JwtProperties;
-import io.github.edmaputra.iam.adapter.security.jwt.JwtTokenProvider;
+import io.github.edmaputra.iam.adapter.security.IamResourceServerAutoConfiguration;
 import io.github.edmaputra.iam.adapter.security.provider.ApiKeyAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.LocalPasswordAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.OidcAuthProvider;
@@ -59,13 +51,12 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
 
 /**
  * Spring Boot auto-configuration for IAM security, authentication SPI providers,
- * JWT token engine, persistence adapters, and security context bridges.
+ * persistence adapters, and authentication use cases.
  *
  * @author edmaputra
  * @since 0.0.1
  */
-@AutoConfiguration
-@EnableConfigurationProperties(JwtProperties.class)
+@AutoConfiguration(after = IamResourceServerAutoConfiguration.class)
 @EntityScan(basePackages = "io.github.edmaputra.iam.adapter.persistence.entity")
 @EnableJpaRepositories(basePackages = "io.github.edmaputra.iam.adapter.persistence.repository")
 @Import({AuthController.class, IamExceptionHandler.class})
@@ -184,32 +175,11 @@ public class IamSecurityAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	public JwtTokenProvider jwtTokenProvider(JwtProperties properties) {
-		return new JwtTokenProvider(properties);
-	}
-
-	@Bean
-	@ConditionalOnMissingBean(CurrentActorProvider.class)
-	public SecurityContextAccessor securityContextAccessor() {
-		return new SecurityContextAccessor();
-	}
-
-	@Bean
-	@ConditionalOnMissingBean
 	public AuthenticateUserUseCase authenticateUserUseCase(
 			AuthenticationProviderRouter authRouter,
 			UserRepository userRepository,
 			EffectiveAccessResolver effectiveAccessResolver,
 			TokenProviderPort tokenProvider) {
 		return new AuthenticationService(authRouter, userRepository, effectiveAccessResolver, tokenProvider);
-	}
-
-	@Bean
-	@ConditionalOnMissingBean
-	public JwtAuthenticationFilter jwtAuthenticationFilter(
-			JwtTokenProvider jwtTokenProvider,
-			SecurityContextAccessor securityContextAccessor,
-			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider) {
-		return new JwtAuthenticationFilter(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider);
 	}
 }

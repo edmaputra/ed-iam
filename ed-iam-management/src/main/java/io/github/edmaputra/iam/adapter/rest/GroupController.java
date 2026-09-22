@@ -3,7 +3,6 @@ package io.github.edmaputra.iam.adapter.rest;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -88,7 +87,7 @@ public class GroupController {
 		List<GroupResponse> responses = manageGroupUseCase.getGroupsByTenant(new TenantId(tenantUuid))
 				.stream()
 				.map(GroupResponse::fromDomain)
-				.collect(Collectors.toList());
+				.toList();
 
 		return ResponseEntity.ok(responses);
 	}
@@ -147,7 +146,7 @@ public class GroupController {
 		List<GroupRoleAssignmentResponse> responses = manageGroupUseCase.getRoleAssignments(new GroupId(id))
 				.stream()
 				.map(GroupRoleAssignmentResponse::fromDomain)
-				.collect(Collectors.toList());
+				.toList();
 		return ResponseEntity.ok(responses);
 	}
 
@@ -157,7 +156,7 @@ public class GroupController {
 		List<UserResponse> responses = manageGroupUseCase.getGroupMembers(new GroupId(id))
 				.stream()
 				.map(UserResponse::fromDomain)
-				.collect(Collectors.toList());
+				.toList();
 		return ResponseEntity.ok(responses);
 	}
 }

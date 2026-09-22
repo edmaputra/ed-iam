@@ -8,6 +8,8 @@ import java.util.stream.StreamSupport;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.persistence.entity.GroupRoleAssignmentJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.GroupRoleAssignmentJpaRepository;
@@ -25,6 +27,7 @@ import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
  * @since 0.0.1
  */
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class GroupRoleAssignmentRepositoryAdapter implements GroupRoleAssignmentRepository {
 
 	private final GroupRoleAssignmentJpaRepository repository;
@@ -63,6 +66,7 @@ public class GroupRoleAssignmentRepositoryAdapter implements GroupRoleAssignment
 	}
 
 	@Override
+	@Transactional
 	public GroupRoleAssignment save(GroupRoleAssignment assignment) {
 		Objects.requireNonNull(assignment, "GroupRoleAssignment must not be null.");
 		GroupRoleAssignmentJpaEntity entity = toEntity(assignment);
@@ -71,6 +75,7 @@ public class GroupRoleAssignmentRepositoryAdapter implements GroupRoleAssignment
 	}
 
 	@Override
+	@Transactional
 	public void delete(GroupRoleAssignmentId id) {
 		Objects.requireNonNull(id, "GroupRoleAssignmentId must not be null.");
 		repository.deleteById(id.value());

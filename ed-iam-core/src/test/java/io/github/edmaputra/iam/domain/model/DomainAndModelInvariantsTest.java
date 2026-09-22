@@ -8,7 +8,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor;
 import io.github.edmaputra.iam.application.model.EffectiveAccess;
 import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.model.UserProfileResponse;
@@ -33,28 +32,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * @since 1.0.0
  */
 class DomainAndModelInvariantsTest {
-
-	@Test
-	@DisplayName("Should enforce non-null invariants and default collections on SecurityContextCurrentActor")
-	void shouldVerifySecurityContextCurrentActorInvariants() {
-		UUID userId = UUID.randomUUID();
-
-		assertThatThrownBy(() -> new SecurityContextCurrentActor(null, "test@org", null, false, false, null, null, null, null, null))
-				.isInstanceOf(NullPointerException.class);
-
-		assertThatThrownBy(() -> new SecurityContextCurrentActor(userId, null, null, false, false, null, null, null, null, null))
-				.isInstanceOf(NullPointerException.class);
-
-		// Passing null collections should safely default to empty immutable sets
-		SecurityContextCurrentActor actor = new SecurityContextCurrentActor(
-				userId, "test@org", null, false, false, null, null, null, null, null);
-
-		assertThat(actor.groups()).isEmpty();
-		assertThat(actor.roles()).isEmpty();
-		assertThat(actor.permissions()).isEmpty();
-		assertThat(actor.accessibleScopeNodeIds()).isEmpty();
-		assertThat(actor.accessibleScopePaths()).isEmpty();
-	}
 
 	@Test
 	@DisplayName("Should enforce non-null invariants and default collections on EffectiveAccess")

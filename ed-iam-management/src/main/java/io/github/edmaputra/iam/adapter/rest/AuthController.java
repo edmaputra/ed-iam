@@ -18,6 +18,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.rest.dto.LoginRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.RefreshTokenRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.SwitchTenantRequest;
+import io.github.edmaputra.iam.adapter.rest.support.TenantResolutionHelper;
 import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.model.UserProfileResponse;
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
@@ -49,21 +50,9 @@ public class AuthController {
 	public ResponseEntity<TokenResponse> login(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@Valid @RequestBody LoginRequest request) {
-		UUID tenantUuid = parseTenantHeader(headerTenantId);
+		UUID tenantUuid = TenantResolutionHelper.resolveOptionalTenantId(headerTenantId, request.tenantId());
 		TokenResponse response = authenticateUserUseCase.login(request.toCommand(tenantUuid));
 		return ResponseEntity.ok(response);
-	}
-
-	private UUID parseTenantHeader(String headerTenantId) {
-		if (headerTenantId == null || headerTenantId.isBlank()) {
-			return null;
-		}
-		try {
-			return UUID.fromString(headerTenantId.trim());
-		}
-		catch (IllegalArgumentException ex) {
-			throw new IllegalArgumentException("Invalid UUID string for X-Tenant-ID header: " + headerTenantId);
-		}
 	}
 
 	/**
@@ -103,7 +92,7 @@ public class AuthController {
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@Valid @RequestBody(required = false) SwitchTenantRequest request) {
 
-		UUID tenantUuid = parseTenantHeader(headerTenantId);
+		UUID tenantUuid = TenantResolutionHelper.parseTenantHeader(headerTenantId);
 		if (tenantUuid == null && request != null) {
 			tenantUuid = request.tenantId();
 		}
