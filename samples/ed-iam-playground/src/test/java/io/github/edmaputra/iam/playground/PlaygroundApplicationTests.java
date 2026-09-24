@@ -272,9 +272,9 @@ class PlaygroundApplicationTests {
 				.expectBody()
 				.jsonPath("$.code").isEqualTo("TEST_ROLE");
 
-		// 3. Lookup suspended user ID via GET /api/v1/users?email=...
+		// 3. Lookup suspended user ID via GET /api/v1/users/lookup?email=...
 		byte[] userResponseBody = webTestClient.get()
-				.uri("/api/v1/users?email=" + PlaygroundDataSeeder.SUSPENDED_EMAIL)
+				.uri("/api/v1/users/lookup?email=" + PlaygroundDataSeeder.SUSPENDED_EMAIL)
 				.headers(headers -> headers.setBearerAuth(adminToken))
 				.exchange()
 				.expectStatus().isOk()

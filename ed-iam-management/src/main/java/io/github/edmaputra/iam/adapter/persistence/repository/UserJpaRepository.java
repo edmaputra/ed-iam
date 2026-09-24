@@ -4,6 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import io.github.edmaputra.iam.adapter.persistence.entity.UserJpaEntity;
@@ -15,7 +16,7 @@ import io.github.edmaputra.iam.adapter.persistence.entity.UserJpaEntity;
  * @since 0.0.1
  */
 @Repository
-public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID> {
+public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID>, JpaSpecificationExecutor<UserJpaEntity> {
 
 	/**
 	 * Finds a user entity by case-insensitive email.

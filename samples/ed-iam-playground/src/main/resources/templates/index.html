@@ -1296,7 +1296,7 @@
     async function lookupUser(email) {
       if (!email) return;
       document.getElementById('userLookupEmail').value = email;
-      const res = await executeApiCall('GET', `/api/v1/users?email=${encodeURIComponent(email)}`);
+      const res = await executeApiCall('GET', `/api/v1/users/lookup?email=${encodeURIComponent(email)}`);
       if (res.ok && res.data) {
         selectedUser = res.data;
         renderSelectedUser(selectedUser);

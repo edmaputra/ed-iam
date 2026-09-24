@@ -17,8 +17,11 @@ import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupId;
+import io.github.edmaputra.iam.domain.model.PageQuery;
+import io.github.edmaputra.iam.domain.model.PagedResult;
 import io.github.edmaputra.iam.domain.model.Role;
 import io.github.edmaputra.iam.domain.model.User;
+import io.github.edmaputra.iam.domain.model.UserFilter;
 import io.github.edmaputra.iam.domain.model.UserGroupMembership;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserRoleAssignment;
@@ -166,5 +169,12 @@ public class UserManagementService implements ManageUserUseCase {
 				.map(m -> groupRepository.findById(m.groupId()).orElse(null))
 				.filter(Objects::nonNull)
 				.toList();
+	}
+
+	@Override
+	public PagedResult<User> getUsers(UserFilter filter, PageQuery pageQuery) {
+		Objects.requireNonNull(pageQuery, "PageQuery must not be null.");
+		UserFilter resolvedFilter = filter != null ? filter : UserFilter.empty();
+		return userRepository.findAll(resolvedFilter, pageQuery);
 	}
 }
