@@ -8,7 +8,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.test.json.JsonCompareMode;
 
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupRoleAssignment;
@@ -30,8 +29,10 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration test verifying database constraint cascades (PostgreSQL foreign keys)
- * and cross-tenant duplicate code isolation using production REST endpoints via {@link org.springframework.test.web.reactive.server.WebTestClient}.
+ * Integration test verifying database constraint cascades (PostgreSQL foreign
+ * keys)
+ * and cross-tenant duplicate code isolation using production REST endpoints via
+ * {@link org.springframework.test.web.reactive.server.WebTestClient}.
  *
  * @author edmaputra
  * @since 0.0.1
@@ -126,7 +127,8 @@ class CascadeAndCrossTenantIsolationIT extends AbstractIntegrationTest {
 				.exchange()
 				.expectStatus().isBadRequest()
 				.expectBody()
-				.jsonPath("$.detail").value(String.class, detail -> assertThat(detail).contains("already exists for this tenant"));
+				.jsonPath("$.detail")
+				.value(String.class, detail -> assertThat(detail).contains("already exists for this tenant"));
 
 		// 2. Group: Can exist in both tenants
 		String groupJsonA = """
@@ -182,7 +184,8 @@ class CascadeAndCrossTenantIsolationIT extends AbstractIntegrationTest {
 				.exchange()
 				.expectStatus().isBadRequest()
 				.expectBody()
-				.jsonPath("$.detail").value(String.class, detail -> assertThat(detail).contains("Group code already exists for tenant"));
+				.jsonPath("$.detail")
+				.value(String.class, detail -> assertThat(detail).contains("Group code already exists for tenant"));
 
 		// 3. Role: Can exist in both tenants
 		String roleJsonA = """
@@ -241,7 +244,8 @@ class CascadeAndCrossTenantIsolationIT extends AbstractIntegrationTest {
 				.exchange()
 				.expectStatus().isBadRequest()
 				.expectBody()
-				.jsonPath("$.detail").value(String.class, detail -> assertThat(detail).contains("Role code already exists for tenant"));
+				.jsonPath("$.detail")
+				.value(String.class, detail -> assertThat(detail).contains("Role code already exists for tenant"));
 	}
 
 	@Test
@@ -260,7 +264,8 @@ class CascadeAndCrossTenantIsolationIT extends AbstractIntegrationTest {
 		group = groupRepository.save(group);
 
 		// 2. Add identity, membership, and role assignment
-		UserIdentity identity = UserIdentity.create(user.getId(), ProviderType.OIDC_GENERIC, "sub-" + UUID.randomUUID(), "https://idp.com");
+		UserIdentity identity = UserIdentity.create(user.getId(), ProviderType.OIDC_GENERIC, "sub-" + UUID.randomUUID(),
+				"https://idp.com");
 		userIdentityRepository.save(identity);
 
 		userGroupMembershipRepository.save(UserGroupMembership.of(group.getId(), user.getId()));
@@ -288,7 +293,8 @@ class CascadeAndCrossTenantIsolationIT extends AbstractIntegrationTest {
 
 		// 5. Verify cascading deletions in child tables
 		assertThat(userRepository.findById(user.getId())).isEmpty();
-		assertThat(userIdentityRepository.findByProviderTypeAndExternalSubjectId(identity.getProviderType(), identity.getExternalSubjectId())).isEmpty();
+		assertThat(userIdentityRepository.findByProviderTypeAndExternalSubjectId(identity.getProviderType(),
+				identity.getExternalSubjectId())).isEmpty();
 		assertThat(userGroupMembershipRepository.existsByGroupIdAndUserId(group.getId(), user.getId())).isFalse();
 		assertThat(userRoleAssignmentRepository.findAllByUserId(user.getId())).isEmpty();
 	}

@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.AssignGroupRoleCommand;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.CreateGroupCommand;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.UpdateGroupCommand;
-import io.github.edmaputra.iam.domain.exception.GroupNotFoundException;
 import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupId;
@@ -77,11 +76,13 @@ class GroupManagementServiceTest {
 		when(groupRepository.existsByTenantIdAndCode(tenantId, "SURGERY")).thenReturn(false);
 		when(groupRepository.save(any(Group.class))).thenAnswer(i -> i.getArgument(0));
 
-		Group group = service.createGroup(new CreateGroupCommand(tenantId, "SURGERY", "Surgery", "Desc", "idp-surgery"));
+		Group group = service
+				.createGroup(new CreateGroupCommand(tenantId, "SURGERY", "Surgery", "Desc", "idp-surgery"));
 		assertThat(group.getCode()).isEqualTo("SURGERY");
 
 		when(groupRepository.existsByTenantIdAndCode(tenantId, "SURGERY")).thenReturn(true);
-		assertThatThrownBy(() -> service.createGroup(new CreateGroupCommand(tenantId, "SURGERY", "Surgery", "Desc", "idp-surgery")))
+		assertThatThrownBy(() -> service
+				.createGroup(new CreateGroupCommand(tenantId, "SURGERY", "Surgery", "Desc", "idp-surgery")))
 				.isInstanceOf(IllegalArgumentException.class);
 	}
 

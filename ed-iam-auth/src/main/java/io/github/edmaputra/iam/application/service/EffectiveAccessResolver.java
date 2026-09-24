@@ -44,7 +44,6 @@ public class EffectiveAccessResolver {
 	private final GroupRoleAssignmentRepository groupRoleAssignmentRepository;
 	private final RoleRepository roleRepository;
 	private final ScopeNodeRepository scopeNodeRepository;
-	private final ScopeSubtreeResolver scopeSubtreeResolver;
 
 	/**
 	 * Computes the complete {@link EffectiveAccess} for a given user within a tenant context.

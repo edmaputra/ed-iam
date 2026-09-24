@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import io.github.edmaputra.iam.adapter.persistence.entity.UserGroupMembershipJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.entity.UserGroupMembershipJpaId;
@@ -15,8 +14,8 @@ import io.github.edmaputra.iam.adapter.persistence.entity.UserGroupMembershipJpa
  * @author edmaputra
  * @since 0.0.1
  */
-@Repository
-public interface UserGroupMembershipJpaRepository extends JpaRepository<UserGroupMembershipJpaEntity, UserGroupMembershipJpaId> {
+public interface UserGroupMembershipJpaRepository
+		extends JpaRepository<UserGroupMembershipJpaEntity, UserGroupMembershipJpaId> {
 
 	/**
 	 * Finds all memberships for a user.

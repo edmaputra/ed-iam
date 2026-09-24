@@ -28,7 +28,6 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -46,7 +45,6 @@ class EffectiveAccessResolverTest {
 	private GroupRoleAssignmentRepository groupRoleAssignmentRepository;
 	private RoleRepository roleRepository;
 	private ScopeNodeRepository scopeNodeRepository;
-	private ScopeSubtreeResolver scopeSubtreeResolver;
 
 	private EffectiveAccessResolver resolver;
 
@@ -58,7 +56,6 @@ class EffectiveAccessResolverTest {
 		groupRoleAssignmentRepository = mock(GroupRoleAssignmentRepository.class);
 		roleRepository = mock(RoleRepository.class);
 		scopeNodeRepository = mock(ScopeNodeRepository.class);
-		scopeSubtreeResolver = mock(ScopeSubtreeResolver.class);
 
 		resolver = new EffectiveAccessResolver(
 				userGroupMembershipRepository,
@@ -66,8 +63,7 @@ class EffectiveAccessResolverTest {
 				userRoleAssignmentRepository,
 				groupRoleAssignmentRepository,
 				roleRepository,
-				scopeNodeRepository,
-				scopeSubtreeResolver);
+				scopeNodeRepository);
 	}
 
 	@Test
@@ -172,7 +168,8 @@ class EffectiveAccessResolverTest {
 		EffectiveAccess access = resolver.resolve(user, tenantId);
 
 		assertThat(access.tenantWide()).isFalse();
-		assertThat(access.accessibleScopeNodeIds()).containsExactlyInAnyOrder(parentNode.getId().value(), childNode.getId().value());
+		assertThat(access.accessibleScopeNodeIds()).containsExactlyInAnyOrder(parentNode.getId().value(),
+				childNode.getId().value());
 		assertThat(access.accessibleScopePaths()).containsExactlyInAnyOrder(parentNode.getPath(), childNode.getPath());
 	}
 }
