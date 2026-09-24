@@ -35,6 +35,24 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
 @AutoConfiguration(after = {IamSecurityAutoConfiguration.class, IamScopeAutoConfiguration.class})
 public class IamManagementAutoConfiguration {
 
+	@Bean
+	@ConditionalOnMissingBean
+	public PasswordEncoderPort passwordEncoderPort() {
+		org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder =
+				new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+		return new PasswordEncoderPort() {
+			@Override
+			public String encode(CharSequence rawPassword) {
+				return encoder.encode(rawPassword);
+			}
+
+			@Override
+			public boolean matches(CharSequence rawPassword, String encodedPassword) {
+				return encoder.matches(rawPassword, encodedPassword);
+			}
+		};
+	}
+
 	/**
 	 * Registers the {@link ManageUserUseCase} bean.
 	 *

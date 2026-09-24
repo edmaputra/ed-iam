@@ -5,8 +5,8 @@ import java.util.UUID;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
-import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.application.port.in.LoginCommand;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 /**
  * REST request body for user authentication.

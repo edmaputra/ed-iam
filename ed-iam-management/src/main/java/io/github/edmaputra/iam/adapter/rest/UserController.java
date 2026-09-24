@@ -2,6 +2,7 @@ package io.github.edmaputra.iam.adapter.rest;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
@@ -30,11 +31,15 @@ import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatus
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
 import io.github.edmaputra.iam.domain.model.GroupId;
+import io.github.edmaputra.iam.domain.model.PageQuery;
+import io.github.edmaputra.iam.domain.model.PagedResult;
 import io.github.edmaputra.iam.domain.model.RoleId;
 import io.github.edmaputra.iam.domain.model.ScopeNodeId;
 import io.github.edmaputra.iam.domain.model.User;
+import io.github.edmaputra.iam.domain.model.UserFilter;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserRoleAssignment;
+import io.github.edmaputra.iam.domain.model.UserStatus;
 import io.github.edmaputra.iam.domain.security.annotation.RequirePermission;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
@@ -72,11 +77,28 @@ public class UserController {
 		return ResponseEntity.ok(UserResponse.fromDomain(user));
 	}
 
-	@GetMapping
+	@GetMapping("/lookup")
 	@RequirePermission("iam:user:read")
 	public ResponseEntity<UserResponse> getUserByEmail(@RequestParam("email") String email) {
 		User user = manageUserUseCase.getUserByEmail(email);
 		return ResponseEntity.ok(UserResponse.fromDomain(user));
+	}
+
+	@GetMapping
+	@RequirePermission("iam:user:read")
+	public ResponseEntity<PagedResult<UserResponse>> getUsers(
+			@RequestParam(value = "search", required = false) String search,
+			@RequestParam(value = "username", required = false) Set<String> usernames,
+			@RequestParam(value = "name", required = false) Set<String> names,
+			@RequestParam(value = "status", required = false) Set<UserStatus> statuses,
+			@RequestParam(value = "role", required = false) Set<String> roles,
+			@RequestParam(value = "group", required = false) Set<String> groups,
+			@RequestParam(value = "page", defaultValue = "0") int page,
+			@RequestParam(value = "size", defaultValue = "20") int size) {
+		UserFilter filter = new UserFilter(search, usernames, names, statuses, roles, groups);
+		PageQuery pageQuery = PageQuery.of(page, size);
+		PagedResult<User> users = manageUserUseCase.getUsers(filter, pageQuery);
+		return ResponseEntity.ok(users.map(UserResponse::fromDomain));
 	}
 
 	@PutMapping("/{id}")

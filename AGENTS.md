@@ -30,9 +30,13 @@ Dependencies flow strictly inward: `adapter` -> `application` -> `domain`.
   - `application/service/`: Pure orchestration services (`ScopeSubtreeResolver`).
 - **`ed-iam-resource-server`**: Spring Security resource server integration.
   - `adapter/security/`: Stateless JWT validation filter, `ScopedValue` context accessor, SpEL evaluator (`@iam`), `@RequirePermission` handler interceptor.
+- **`ed-iam-auth`**: Authentication and token issuance module.
+  - `adapter/rest/`: `AuthController` (`/api/v1/auth/*`) and auth request DTOs (`LoginRequest`, `RefreshTokenRequest`, `SwitchTenantRequest`).
+  - `adapter/security/`: `BCryptPasswordEncoderAdapter`, authentication providers (`LocalPasswordAuthProvider`, `ApiKeyAuthProvider`, `OidcAuthProvider`).
+  - `application/service/`: `AuthenticationService`, `EffectiveAccessResolver`, `FederatedIdentityService`.
 - **`ed-iam-management`**: Management domain implementations & web adapters.
-  - `application/service/`: Use case implementations (`AuthenticationService`, `UserManagementService`, etc.).
-  - `adapter/rest/`: `@RestController` classes and request/response DTOs under `/api/v1/`.
+  - `application/service/`: Use case implementations (`UserManagementService`, `RoleManagementService`, etc.).
+  - `adapter/rest/`: `@RestController` classes and request/response DTOs under `/api/v1/` (`UserController`, `RoleController`, `GroupController`, `ScopeController`).
   - `adapter/persistence/`: Spring Data JPA entities, repositories, and persistence adapters.
 - **`ed-iam-starter`**: Aggregated Spring Boot AutoConfiguration for zero-configuration consumers.
 - **`samples/ed-iam-playground`**: Interactive sample application demonstrating multi-tenant clinical scenarios.

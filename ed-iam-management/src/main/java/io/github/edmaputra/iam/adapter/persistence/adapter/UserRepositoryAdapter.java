@@ -1,18 +1,27 @@
 package io.github.edmaputra.iam.adapter.persistence.adapter;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.edmaputra.iam.adapter.persistence.entity.UserJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserJpaRepository;
+import io.github.edmaputra.iam.adapter.persistence.specification.UserSpecifications;
+import io.github.edmaputra.iam.domain.model.PageQuery;
+import io.github.edmaputra.iam.domain.model.PagedResult;
 import io.github.edmaputra.iam.domain.model.User;
+import io.github.edmaputra.iam.domain.model.UserFilter;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserStatus;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
+import org.springframework.data.jpa.domain.Specification;
 
 /**
  * Persistence adapter implementing {@link UserRepository} backed by Spring Data JPA.
@@ -58,6 +67,23 @@ public class UserRepositoryAdapter implements UserRepository {
 	public void delete(UserId id) {
 		Objects.requireNonNull(id, "UserId must not be null.");
 		repository.deleteById(id.value());
+	}
+
+	@Override
+	public PagedResult<User> findAll(UserFilter filter, PageQuery pageQuery) {
+		Objects.requireNonNull(pageQuery, "PageQuery must not be null.");
+		Pageable pageable = PageRequest.of(pageQuery.page(), pageQuery.size());
+		Specification<UserJpaEntity> spec = UserSpecifications.withFilter(filter);
+		Page<UserJpaEntity> page = repository.findAll(spec, pageable);
+		List<User> content = page.getContent().stream()
+				.map(this::toDomain)
+				.toList();
+		return new PagedResult<>(
+				content,
+				page.getNumber(),
+				page.getSize(),
+				page.getTotalElements(),
+				page.getTotalPages());
 	}
 
 	private User toDomain(UserJpaEntity entity) {

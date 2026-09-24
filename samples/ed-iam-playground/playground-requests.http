@@ -120,12 +120,20 @@ Content-Type: application/json
 
 ### 2.1 Lookup User by Email
 # @name lookupUser
-GET {{baseUrl}}/api/v1/users?email=suspended@metro.org
+GET {{baseUrl}}/api/v1/users/lookup?email=suspended@metro.org
 Authorization: Bearer {{adminToken}}
 
 > {%
   client.global.set("targetUserId", response.body.id);
 %}
+
+### 2.1b List Users (Paginated & Filtered)
+GET {{baseUrl}}/api/v1/users?page=0&size=20&status=ACTIVE,SUSPENDED
+Authorization: Bearer {{adminToken}}
+
+### 2.1c Global Search Users (across email, name, status, role, group)
+GET {{baseUrl}}/api/v1/users?search=metro&page=0&size=20
+Authorization: Bearer {{adminToken}}
 
 ### 2.2 Get User by ID
 GET {{baseUrl}}/api/v1/users/{{targetUserId}}

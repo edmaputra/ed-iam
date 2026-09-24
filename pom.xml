@@ -43,6 +43,7 @@
 	<modules>
 		<module>ed-iam-core</module>
 		<module>ed-iam-resource-server</module>
+		<module>ed-iam-auth</module>
 		<module>ed-iam-management</module>
 		<module>ed-iam-starter</module>
 		<module>samples/ed-iam-playground</module>
@@ -67,6 +68,11 @@
 			<dependency>
 				<groupId>io.github.edmaputra</groupId>
 				<artifactId>ed-iam-resource-server</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.github.edmaputra</groupId>
+				<artifactId>ed-iam-auth</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>

@@ -35,8 +35,7 @@ import io.github.edmaputra.iam.domain.model.RoleId;
 import io.github.edmaputra.iam.domain.model.ScopeNodeId;
 import io.github.edmaputra.iam.domain.security.annotation.RequirePermission;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
-
-import io.github.edmaputra.iam.adapter.rest.support.TenantResolutionHelper;
+import io.github.edmaputra.iam.domain.tenancy.TenantResolutionHelper;
 
 /**
  * REST controller for managing user groups, memberships, and group role assignments.

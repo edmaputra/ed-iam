@@ -18,10 +18,13 @@ import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupId;
+import io.github.edmaputra.iam.domain.model.PageQuery;
+import io.github.edmaputra.iam.domain.model.PagedResult;
 import io.github.edmaputra.iam.domain.model.Role;
 import io.github.edmaputra.iam.domain.model.RoleId;
 import io.github.edmaputra.iam.domain.model.ScopeNodeId;
 import io.github.edmaputra.iam.domain.model.User;
+import io.github.edmaputra.iam.domain.model.UserFilter;
 import io.github.edmaputra.iam.domain.model.UserGroupMembership;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserRoleAssignment;
@@ -220,5 +223,33 @@ class UserManagementServiceTest {
 		// Delete user
 		service.deleteUser(userId);
 		verify(userRepository).delete(userId);
+	}
+
+	@Test
+	@DisplayName("Should retrieve paginated users from repository")
+	void shouldGetUsersWithPagination() {
+		PageQuery query = PageQuery.of(0, 10);
+		User user1 = User.create("u1@test.org", "hash", "User 1", false);
+		User user2 = User.create("u2@test.org", "hash", "User 2", false);
+		PagedResult<User> expected = new PagedResult<>(List.of(user1, user2), 0, 10, 2L, 1);
+
+		when(userRepository.findAll(UserFilter.empty(), query)).thenReturn(expected);
+
+		PagedResult<User> actual = service.getUsers(null, query);
+		assertThat(actual.content()).containsExactly(user1, user2);
+		assertThat(actual.totalElements()).isEqualTo(2L);
+		assertThat(actual.totalPages()).isEqualTo(1);
+		assertThat(actual.page()).isZero();
+		assertThat(actual.size()).isEqualTo(10);
+		verify(userRepository).findAll(UserFilter.empty(), query);
+
+		// With filter
+		UserFilter filter = new UserFilter("u1", null, null, null, null);
+		PagedResult<User> filteredExpected = new PagedResult<>(List.of(user1), 0, 10, 1L, 1);
+		when(userRepository.findAll(filter, query)).thenReturn(filteredExpected);
+
+		PagedResult<User> filteredActual = service.getUsers(filter, query);
+		assertThat(filteredActual.content()).containsExactly(user1);
+		verify(userRepository).findAll(filter, query);
 	}
 }

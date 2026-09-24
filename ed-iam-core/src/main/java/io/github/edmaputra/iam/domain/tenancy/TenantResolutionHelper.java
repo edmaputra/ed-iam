@@ -1,4 +1,4 @@
-package io.github.edmaputra.iam.adapter.rest.support;
+package io.github.edmaputra.iam.domain.tenancy;
 
 import java.util.UUID;
 
