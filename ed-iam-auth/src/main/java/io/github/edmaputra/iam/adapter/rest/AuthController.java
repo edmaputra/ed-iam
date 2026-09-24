@@ -12,17 +12,17 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import io.github.edmaputra.iam.domain.security.CurrentActor;
-import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
-import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.rest.dto.LoginRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.RefreshTokenRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.SwitchTenantRequest;
-import io.github.edmaputra.iam.adapter.rest.support.TenantResolutionHelper;
 import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.model.UserProfileResponse;
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
 import io.github.edmaputra.iam.application.port.in.SwitchTenantCommand;
+import io.github.edmaputra.iam.domain.security.CurrentActor;
+import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
+import io.github.edmaputra.iam.domain.tenancy.TenantResolutionHelper;
 
 /**
  * REST controller exposing authentication and identity endpoints under {@code /api/v1/auth}.

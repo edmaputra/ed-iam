@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 
-import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.application.model.EffectiveAccess;
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupId;
@@ -27,6 +26,7 @@ import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 /**
  * Access resolution engine that computes the composite effective permissions, roles, and scope boundaries for a user.
@@ -148,7 +148,6 @@ public class EffectiveAccessResolver {
 				}
 			}
 			else {
-				// Resolve scopes with subtree inheritance or single node
 				for (UserRoleAssignment ua : userAssignments) {
 					if (ua.getScopeNodeId() != null) {
 						addScopesForNode(effectiveTenantId, ua.getScopeNodeId(), ua.isInheritChildren(), accessibleScopeNodeIds, accessibleScopePaths);

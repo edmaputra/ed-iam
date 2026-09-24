@@ -25,6 +25,10 @@
 		</dependency>
 		<dependency>
 			<groupId>io.github.edmaputra</groupId>
+			<artifactId>ed-iam-auth</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.github.edmaputra</groupId>
 			<artifactId>ed-iam-management</artifactId>
 		</dependency>
 	</dependencies>

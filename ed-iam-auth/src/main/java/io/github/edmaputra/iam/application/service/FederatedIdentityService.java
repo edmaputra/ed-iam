@@ -6,7 +6,6 @@ import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
 
-import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 import io.github.edmaputra.iam.domain.model.ProviderType;
@@ -17,6 +16,7 @@ import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 /**
  * Domain service managing federated identity linkages, Just-In-Time (JIT) user provisioning, and external group claim synchronization.
