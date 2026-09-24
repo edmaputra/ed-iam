@@ -1,7 +1,6 @@
 package io.github.edmaputra.iam.domain.tenancy;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;

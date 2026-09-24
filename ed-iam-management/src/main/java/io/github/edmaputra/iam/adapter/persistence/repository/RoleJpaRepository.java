@@ -7,7 +7,6 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import io.github.edmaputra.iam.adapter.persistence.entity.RoleJpaEntity;
 
@@ -17,7 +16,6 @@ import io.github.edmaputra.iam.adapter.persistence.entity.RoleJpaEntity;
  * @author edmaputra
  * @since 0.0.1
  */
-@Repository
 public interface RoleJpaRepository extends JpaRepository<RoleJpaEntity, UUID> {
 
 	/**

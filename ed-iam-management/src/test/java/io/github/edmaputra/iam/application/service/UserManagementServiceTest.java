@@ -41,7 +41,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -216,7 +215,8 @@ class UserManagementServiceTest {
 		verify(userGroupMembershipRepository).delete(groupId, userId);
 
 		// Get user groups
-		when(userGroupMembershipRepository.findAllByUserId(userId)).thenReturn(List.of(UserGroupMembership.of(groupId, userId)));
+		when(userGroupMembershipRepository.findAllByUserId(userId))
+				.thenReturn(List.of(UserGroupMembership.of(groupId, userId)));
 		List<Group> groups = service.getUserGroups(userId);
 		assertThat(groups).containsExactly(group);
 

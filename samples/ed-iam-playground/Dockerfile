@@ -12,6 +12,7 @@ RUN chmod +x mvnw
 # Copy module POMs for dependency caching
 COPY ed-iam-core/pom.xml ed-iam-core/
 COPY ed-iam-resource-server/pom.xml ed-iam-resource-server/
+COPY ed-iam-auth/pom.xml ed-iam-auth/
 COPY ed-iam-management/pom.xml ed-iam-management/
 COPY ed-iam-starter/pom.xml ed-iam-starter/
 COPY samples/ed-iam-playground/pom.xml samples/ed-iam-playground/
@@ -19,6 +20,7 @@ COPY samples/ed-iam-playground/pom.xml samples/ed-iam-playground/
 # Copy all module sources
 COPY ed-iam-core/src/ ed-iam-core/src/
 COPY ed-iam-resource-server/src/ ed-iam-resource-server/src/
+COPY ed-iam-auth/src/ ed-iam-auth/src/
 COPY ed-iam-management/src/ ed-iam-management/src/
 COPY ed-iam-starter/src/ ed-iam-starter/src/
 COPY samples/ed-iam-playground/src/ samples/ed-iam-playground/src/

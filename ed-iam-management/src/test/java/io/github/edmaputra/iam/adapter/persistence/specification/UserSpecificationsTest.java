@@ -1,8 +1,6 @@
 package io.github.edmaputra.iam.adapter.persistence.specification;
 
 import java.util.Collection;
-import java.util.List;
-import java.util.Set;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;

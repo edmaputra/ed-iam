@@ -23,7 +23,6 @@ import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
 import io.github.edmaputra.iam.application.service.AuthenticationService;
 import io.github.edmaputra.iam.application.service.EffectiveAccessResolver;
 import io.github.edmaputra.iam.application.service.FederatedIdentityService;
-import io.github.edmaputra.iam.application.service.ScopeSubtreeResolver;
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
@@ -95,16 +94,14 @@ public class IamAuthAutoConfiguration {
 			UserRoleAssignmentRepository userRoleAssignmentRepository,
 			GroupRoleAssignmentRepository groupRoleAssignmentRepository,
 			RoleRepository roleRepository,
-			ScopeNodeRepository scopeNodeRepository,
-			ScopeSubtreeResolver scopeSubtreeResolver) {
+			ScopeNodeRepository scopeNodeRepository) {
 		return new EffectiveAccessResolver(
 				userGroupMembershipRepository,
 				groupRepository,
 				userRoleAssignmentRepository,
 				groupRoleAssignmentRepository,
 				roleRepository,
-				scopeNodeRepository,
-				scopeSubtreeResolver);
+				scopeNodeRepository);
 	}
 
 	@Bean

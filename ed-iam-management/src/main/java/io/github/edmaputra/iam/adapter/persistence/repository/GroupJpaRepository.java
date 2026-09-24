@@ -5,7 +5,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import io.github.edmaputra.iam.adapter.persistence.entity.GroupJpaEntity;
 
@@ -15,7 +14,6 @@ import io.github.edmaputra.iam.adapter.persistence.entity.GroupJpaEntity;
  * @author edmaputra
  * @since 0.0.1
  */
-@Repository
 public interface GroupJpaRepository extends JpaRepository<GroupJpaEntity, UUID> {
 
 	/**
@@ -47,9 +45,10 @@ public interface GroupJpaRepository extends JpaRepository<GroupJpaEntity, UUID> 
 	/**
 	 * Finds a group mapped to an external IdP group claim name.
 	 *
-	 * @param tenantId              the tenant UUID
-	 * @param externalIdpGroupName  the external group name
+	 * @param tenantId             the tenant UUID
+	 * @param externalIdpGroupName the external group name
 	 * @return optional entity
 	 */
-	Optional<GroupJpaEntity> findByTenantIdAndExternalIdpGroupNameIgnoreCase(UUID tenantId, String externalIdpGroupName);
+	Optional<GroupJpaEntity> findByTenantIdAndExternalIdpGroupNameIgnoreCase(UUID tenantId,
+			String externalIdpGroupName);
 }

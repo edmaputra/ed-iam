@@ -111,7 +111,9 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			EffectiveAccess access = effectiveAccessResolver.resolve(
 					user,
 					actor.tenantId() == null ? null : new TenantId(actor.tenantId()));
-			availableTenantIds = access.availableTenants().stream().map(TenantId::value).collect(Collectors.toSet());
+			availableTenantIds = access.availableTenants().stream()
+					.map(tenantId -> tenantId.value())
+					.collect(Collectors.toSet());
 		}
 
 		return new UserProfileResponse(
@@ -164,7 +166,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 
 	private UserProfileResponse toUserProfileResponse(User user, EffectiveAccess access) {
 		Set<UUID> availableTenantIds = access.availableTenants().stream()
-				.map(TenantId::value)
+				.map(tenantId -> tenantId.value())
 				.collect(Collectors.toSet());
 
 		return new UserProfileResponse(
