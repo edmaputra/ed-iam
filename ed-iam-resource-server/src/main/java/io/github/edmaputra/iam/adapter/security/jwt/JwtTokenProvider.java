@@ -71,16 +71,34 @@ public class JwtTokenProvider implements TokenProviderPort {
 	 * @param access the resolved effective access model
 	 * @return compact signed JWT string
 	 */
+	@Override
 	public String createAccessToken(EffectiveAccess access) {
+		return createAccessToken(access, io.github.edmaputra.iam.domain.util.UuidV7.generate().toString());
+	}
+
+	/**
+	 * Issues a signed access token with a specific token identifier.
+	 *
+	 * @param access  the resolved effective access model
+	 * @param tokenId specific token identifier (jti)
+	 * @return compact signed JWT string
+	 */
+	@Override
+	public String createAccessToken(EffectiveAccess access, String tokenId) {
 		Objects.requireNonNull(access, "EffectiveAccess must not be null.");
 		Instant now = Instant.now();
 		Instant expiry = now.plusSeconds(accessTokenExpirationSeconds);
+
+		String effectiveTokenId = (tokenId != null && !tokenId.isBlank())
+				? tokenId
+				: io.github.edmaputra.iam.domain.util.UuidV7.generate().toString();
 
 		List<String> scopeNodeIdStrings = access.accessibleScopeNodeIds().stream()
 				.map(UUID::toString)
 				.toList();
 
 		return Jwts.builder()
+				.id(effectiveTokenId)
 				.subject(access.userId().value().toString())
 				.claim(CLAIM_EMAIL, access.email())
 				.claim(CLAIM_TENANT_ID, access.tenantId() == null ? null : access.tenantId().value().toString())
@@ -97,6 +115,7 @@ public class JwtTokenProvider implements TokenProviderPort {
 				.signWith(secretKey)
 				.compact();
 	}
+
 
 	/**
 	 * Issues a signed refresh token.
@@ -168,6 +187,7 @@ public class JwtTokenProvider implements TokenProviderPort {
 		Set<String> scopePaths = extractStringSet(claims, CLAIM_SCOPE_PATHS);
 
 		Set<UUID> scopeNodeIds = extractUuidSet(claims, CLAIM_SCOPE_NODE_IDS);
+		String tokenId = claims.getId();
 
 		return new SecurityContextCurrentActor(
 				userId,
@@ -179,8 +199,10 @@ public class JwtTokenProvider implements TokenProviderPort {
 				roles,
 				permissions,
 				scopeNodeIds,
-				scopePaths);
+				scopePaths,
+				tokenId);
 	}
+
 
 	/**
 	 * Parses a refresh token and extracts its payload claims.

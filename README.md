@@ -72,7 +72,7 @@ Add `ed-iam-starter` to your `pom.xml`:
 <dependency>
     <groupId>io.github.edmaputra</groupId>
     <artifactId>ed-iam-starter</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 
@@ -84,7 +84,7 @@ If your microservice only needs to validate JWTs, enforce `@RequirePermission`, 
 <dependency>
     <groupId>io.github.edmaputra</groupId>
     <artifactId>ed-iam-resource-server</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 

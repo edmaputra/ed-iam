@@ -53,9 +53,10 @@ public class IamResourceServerAutoConfiguration {
 	/**
 	 * Registers the {@link JwtAuthenticationFilter} bean.
 	 *
-	 * @param jwtTokenProvider           the JWT token provider
-	 * @param securityContextAccessor    the security context accessor
-	 * @param tenantContextBridgeProvider the optional host tenant bridge provider
+	 * @param jwtTokenProvider             the JWT token provider
+	 * @param securityContextAccessor      the security context accessor
+	 * @param tenantContextBridgeProvider  the optional host tenant bridge provider
+	 * @param tokenRevocationPortProvider  the optional token revocation port provider
 	 * @return new {@link JwtAuthenticationFilter}
 	 */
 	@Bean
@@ -63,9 +64,11 @@ public class IamResourceServerAutoConfiguration {
 	public JwtAuthenticationFilter jwtAuthenticationFilter(
 			JwtTokenProvider jwtTokenProvider,
 			SecurityContextAccessor securityContextAccessor,
-			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider) {
-		return new JwtAuthenticationFilter(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider);
+			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider,
+			ObjectProvider<io.github.edmaputra.iam.application.port.out.TokenRevocationPort> tokenRevocationPortProvider) {
+		return new JwtAuthenticationFilter(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider, tokenRevocationPortProvider);
 	}
+
 
 	/**
 	 * Registers the {@link RequirePermissionInterceptor} bean.

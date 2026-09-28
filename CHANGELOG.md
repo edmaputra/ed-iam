@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-09-28
+
+### Added
+- **Token Revocation & Session Management (Phase 3)**:
+  - Real-time token revocation via `TokenRevocationPort` with cluster-wide Redis (`RedisTokenRevocationStore`) and fallback in-memory (`InMemoryTokenRevocationStore`) stores.
+  - Active session tracking and concurrency limiting via `SessionRegistryPort` with configurable eviction (`TERMINATE_OLDEST`) or rejection (`REJECT_NEW`) policies (`SessionProperties`).
+  - Brute-force account lockout tracking via `LoginAttemptTrackerPort` with Redis and in-memory stores.
+  - Token revocation validation hook in `JwtAuthenticationFilter` with immediate 401 Unauthorized rejection for revoked tokens.
+  - Self-service authentication REST endpoints: `POST /api/v1/auth/logout`, `POST /api/v1/auth/logout-all`, and `GET /api/v1/auth/sessions`.
+  - Administrative oversight REST endpoints: `GET /api/v1/users/{id}/sessions`, `DELETE /api/v1/users/{id}/sessions/{sessionId}`, `DELETE /api/v1/users/{id}/sessions`, `GET /api/v1/users/{id}/lockout`, and `POST /api/v1/users/{id}/unlock`.
+  - User lifecycle synchronization terminating active sessions upon user suspension (`SUSPENDED`/`DEACTIVATED`) or account deletion.
+
+---
+
 ## [0.3.0] - 2026-09-24
 
 ### Added

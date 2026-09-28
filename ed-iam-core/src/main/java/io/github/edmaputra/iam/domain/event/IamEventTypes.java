@@ -38,4 +38,12 @@ public final class IamEventTypes {
 	// Assignment Events
 	public static final String ROLE_ASSIGNMENT_CREATED = "ROLE_ASSIGNMENT_CREATED";
 	public static final String ROLE_ASSIGNMENT_REVOKED = "ROLE_ASSIGNMENT_REVOKED";
+
+	// Session & Security Events
+	public static final String SESSION_CREATED = "SESSION_CREATED";
+	public static final String SESSION_REVOKED = "SESSION_REVOKED";
+	public static final String SESSIONS_REVOKED_ALL = "SESSIONS_REVOKED_ALL";
+	public static final String ACCOUNT_LOCKED = "ACCOUNT_LOCKED";
+	public static final String ACCOUNT_UNLOCKED = "ACCOUNT_UNLOCKED";
 }
+

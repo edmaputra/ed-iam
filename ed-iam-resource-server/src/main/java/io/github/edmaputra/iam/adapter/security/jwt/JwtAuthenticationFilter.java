@@ -13,15 +13,16 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import io.github.edmaputra.iam.adapter.security.SecurityContextAccessor;
+import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
+import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.tenancy.TenantContextBridge;
-import io.github.edmaputra.iam.adapter.security.SecurityContextAccessor;
-import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 
 /**
  * HTTP filter that extracts the Bearer token from the {@code Authorization} header,
- * verifies it via {@link JwtTokenProvider}, and establishes the request-scoped {@link CurrentActor}
- * and {@link TenantContextBridge}.
+ * verifies it via {@link JwtTokenProvider}, checks token revocation status if configured,
+ * and establishes the request-scoped {@link CurrentActor} and {@link TenantContextBridge}.
  *
  * @author edmaputra
  * @since 0.0.1
@@ -35,6 +36,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	private final JwtTokenProvider jwtTokenProvider;
 	private final SecurityContextAccessor securityContextAccessor;
 	private final ObjectProvider<TenantContextBridge> tenantContextBridgeProvider;
+	private final ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider;
+
+	/**
+	 * Backward-compatible constructor without token revocation provider.
+	 */
+	public JwtAuthenticationFilter(
+			JwtTokenProvider jwtTokenProvider,
+			SecurityContextAccessor securityContextAccessor,
+			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider) {
+		this(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider, null);
+	}
 
 	@Override
 	protected void doFilterInternal(
@@ -66,6 +78,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		catch (Exception ex) {
 			writeUnauthorized(response, "Invalid or expired authorization token.");
 			return;
+		}
+
+		if (tokenRevocationPortProvider != null) {
+			TokenRevocationPort revocationPort = tokenRevocationPortProvider.getIfAvailable();
+			if (revocationPort != null && actor.tokenId() != null && revocationPort.isTokenRevoked(actor.tokenId())) {
+				writeUnauthorized(response, "Token has been revoked.");
+				return;
+			}
 		}
 
 		try {
@@ -100,20 +120,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		}
 	}
 
-	private void writeUnauthorized(HttpServletResponse response, String detail) throws IOException {
+	private void writeUnauthorized(HttpServletResponse response, String message) throws IOException {
 		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-		response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-		String json = "{\"type\":\"about:blank\",\"title\":\"Unauthorized\",\"status\":401,\"detail\":\""
-				+ escapeJson(detail) + "\"}";
-		response.getWriter().write(json);
-	}
-
-	private String escapeJson(String input) {
-		if (input == null) return "";
-		return input.replace("\\", "\\\\")
-				.replace("\"", "\\\"")
-				.replace("\n", "\\n")
-				.replace("\r", "\\r")
-				.replace("\t", "\\t");
+		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+		response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"" + message + "\"}");
 	}
 }

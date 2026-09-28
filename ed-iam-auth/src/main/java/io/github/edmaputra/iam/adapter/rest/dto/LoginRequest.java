@@ -53,7 +53,25 @@ public record LoginRequest(
 	 * @return new {@link LoginCommand}
 	 */
 	public LoginCommand toCommand(UUID headerTenantId) {
+		return toCommand(headerTenantId, null, null);
+	}
+
+	/**
+	 * Maps this REST request to the inbound {@link LoginCommand} with client metadata.
+	 *
+	 * @param headerTenantId optional tenant ID from request header
+	 * @param ipAddress      client IP address
+	 * @param userAgent      client User-Agent string
+	 * @return new {@link LoginCommand}
+	 */
+	public LoginCommand toCommand(UUID headerTenantId, String ipAddress, String userAgent) {
 		UUID effectiveTenantId = headerTenantId != null ? headerTenantId : tenantId;
-		return new LoginCommand(email, password, effectiveTenantId == null ? null : new TenantId(effectiveTenantId));
+		return new LoginCommand(
+				email,
+				password,
+				effectiveTenantId == null ? null : new TenantId(effectiveTenantId),
+				ipAddress,
+				userAgent);
 	}
 }
+

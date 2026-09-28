@@ -9,14 +9,22 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import io.github.edmaputra.iam.adapter.rest.dto.SessionManagementDtos.UserLockoutResponse;
+import io.github.edmaputra.iam.adapter.rest.dto.SessionManagementDtos.UserSessionDetailResponse;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.UserResponse;
+import io.github.edmaputra.iam.application.port.in.ManageLockoutUseCase;
+import io.github.edmaputra.iam.application.port.in.ManageSessionUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
+import io.github.edmaputra.iam.domain.model.LockoutStatus;
 import io.github.edmaputra.iam.domain.model.PageQuery;
 import io.github.edmaputra.iam.domain.model.PagedResult;
+import io.github.edmaputra.iam.domain.model.SessionId;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserFilter;
 import io.github.edmaputra.iam.domain.model.UserId;
+import io.github.edmaputra.iam.domain.model.UserSession;
 import io.github.edmaputra.iam.domain.model.UserStatus;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,12 +41,25 @@ import static org.mockito.Mockito.when;
 class UserControllerTest {
 
 	private ManageUserUseCase manageUserUseCase;
+	private ManageSessionUseCase manageSessionUseCase;
+	private ManageLockoutUseCase manageLockoutUseCase;
 	private UserController userController;
 
 	@BeforeEach
 	void setUp() {
 		manageUserUseCase = mock(ManageUserUseCase.class);
-		userController = new UserController(manageUserUseCase);
+		manageSessionUseCase = mock(ManageSessionUseCase.class);
+		manageLockoutUseCase = mock(ManageLockoutUseCase.class);
+
+		org.springframework.beans.factory.ObjectProvider<ManageSessionUseCase> sessionProvider =
+				mock(org.springframework.beans.factory.ObjectProvider.class);
+		when(sessionProvider.getIfAvailable()).thenReturn(manageSessionUseCase);
+
+		org.springframework.beans.factory.ObjectProvider<ManageLockoutUseCase> lockoutProvider =
+				mock(org.springframework.beans.factory.ObjectProvider.class);
+		when(lockoutProvider.getIfAvailable()).thenReturn(manageLockoutUseCase);
+
+		userController = new UserController(manageUserUseCase, sessionProvider, lockoutProvider);
 	}
 
 	@Test
@@ -111,5 +132,74 @@ class UserControllerTest {
 		assertThat(response.getBody()).isNotNull();
 		assertThat(response.getBody().email()).isEqualTo("alice@test.org");
 		verify(manageUserUseCase).getUserById(new UserId(uuid));
+	}
+
+	@Test
+	@DisplayName("Should get user sessions")
+	void shouldGetUserSessions() {
+		UUID uuid = UUID.randomUUID();
+		UUID tenantUuid = UUID.randomUUID();
+		UserSession s1 = UserSession.create(new UserId(uuid), new TenantId(tenantUuid),
+				"tok-1", 3600, "127.0.0.1", "Chrome");
+
+		when(manageSessionUseCase.listUserSessions(new UserId(uuid), new TenantId(tenantUuid)))
+				.thenReturn(List.of(s1));
+
+		ResponseEntity<List<UserSessionDetailResponse>> response = userController.getUserSessions(uuid, tenantUuid.toString());
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody()).hasSize(1);
+		assertThat(response.getBody().getFirst().ipAddress()).isEqualTo("127.0.0.1");
+	}
+
+	@Test
+	@DisplayName("Should terminate specific session")
+	void shouldTerminateSession() {
+		UUID uuid = UUID.randomUUID();
+		UUID sessionUuid = UUID.randomUUID();
+
+		ResponseEntity<Void> response = userController.terminateSession(uuid, sessionUuid);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		verify(manageSessionUseCase).terminateSession(new UserId(uuid), new SessionId(sessionUuid));
+	}
+
+	@Test
+	@DisplayName("Should terminate all sessions for user")
+	void shouldTerminateAllSessions() {
+		UUID uuid = UUID.randomUUID();
+		UUID tenantUuid = UUID.randomUUID();
+
+		ResponseEntity<Void> response = userController.terminateAllSessions(uuid, tenantUuid.toString());
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		verify(manageSessionUseCase).terminateAllUserSessions(new UserId(uuid), new TenantId(tenantUuid));
+	}
+
+	@Test
+	@DisplayName("Should get lockout status")
+	void shouldGetLockoutStatus() {
+		UUID uuid = UUID.randomUUID();
+		when(manageLockoutUseCase.getLockoutStatus(new UserId(uuid)))
+				.thenReturn(LockoutStatus.unlocked(2));
+
+		ResponseEntity<UserLockoutResponse> response = userController.getLockoutStatus(uuid);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().locked()).isFalse();
+		assertThat(response.getBody().failedAttempts()).isEqualTo(2);
+	}
+
+	@Test
+	@DisplayName("Should unlock user")
+	void shouldUnlockUser() {
+		UUID uuid = UUID.randomUUID();
+
+		ResponseEntity<Void> response = userController.unlockUser(uuid);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		verify(manageLockoutUseCase).unlockUser(new UserId(uuid));
 	}
 }

@@ -17,7 +17,9 @@ import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.service.GroupManagementService;
 import io.github.edmaputra.iam.application.service.RoleManagementService;
+import io.github.edmaputra.iam.application.service.SessionManagementService;
 import io.github.edmaputra.iam.application.service.UserManagementService;
+
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
@@ -72,15 +74,37 @@ public class IamManagementAutoConfiguration {
 			UserRoleAssignmentRepository userRoleAssignmentRepository,
 			UserGroupMembershipRepository userGroupMembershipRepository,
 			RoleRepository roleRepository,
-			GroupRepository groupRepository) {
+			GroupRepository groupRepository,
+			org.springframework.beans.factory.ObjectProvider<io.github.edmaputra.iam.application.port.out.SessionRegistryPort> sessionRegistryProvider,
+			org.springframework.beans.factory.ObjectProvider<io.github.edmaputra.iam.application.port.out.TokenRevocationPort> tokenRevocationPortProvider) {
 		return new UserManagementService(
 				userRepository,
 				passwordEncoder,
 				userRoleAssignmentRepository,
 				userGroupMembershipRepository,
 				roleRepository,
-				groupRepository);
+				groupRepository,
+				sessionRegistryProvider.getIfAvailable(),
+				tokenRevocationPortProvider.getIfAvailable());
 	}
+
+	/**
+	 * Registers the {@link SessionManagementService} implementing session and lockout management use cases.
+	 */
+	@Bean
+	@ConditionalOnMissingBean
+	public SessionManagementService sessionManagementService(
+			UserRepository userRepository,
+			org.springframework.beans.factory.ObjectProvider<io.github.edmaputra.iam.application.port.out.SessionRegistryPort> sessionRegistryProvider,
+			org.springframework.beans.factory.ObjectProvider<io.github.edmaputra.iam.application.port.out.TokenRevocationPort> tokenRevocationPortProvider,
+			org.springframework.beans.factory.ObjectProvider<io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort> loginAttemptTrackerProvider) {
+		return new SessionManagementService(
+				userRepository,
+				sessionRegistryProvider.getIfAvailable(),
+				tokenRevocationPortProvider.getIfAvailable(),
+				loginAttemptTrackerProvider.getIfAvailable());
+	}
+
 
 	/**
 	 * Registers the {@link ManageRoleUseCase} bean.

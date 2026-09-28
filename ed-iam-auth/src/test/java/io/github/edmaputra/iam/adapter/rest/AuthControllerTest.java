@@ -123,4 +123,65 @@ class AuthControllerTest {
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("Target tenant ID must be provided");
 	}
+
+	@Test
+	@DisplayName("Should successfully logout and terminate session")
+	void shouldLogout() {
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.tokenId()).thenReturn("token-xyz");
+		when(currentActorProvider.requireCurrentActor()).thenReturn(actor);
+
+		ResponseEntity<Void> response = controller.logout();
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		verify(authenticateUserUseCase).logout("token-xyz");
+	}
+
+	@Test
+	@DisplayName("Should successfully logout-all sessions")
+	void shouldLogoutAll() {
+		UUID actorId = UUID.randomUUID();
+		UUID tenantId = UUID.randomUUID();
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.userId()).thenReturn(actorId);
+		when(actor.tenantId()).thenReturn(tenantId);
+		when(currentActorProvider.requireCurrentActor()).thenReturn(actor);
+
+		ResponseEntity<Void> response = controller.logoutAll();
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		verify(authenticateUserUseCase).logoutAll(
+				new io.github.edmaputra.iam.domain.model.UserId(actorId),
+				new io.github.edmaputra.iam.domain.tenancy.TenantId(tenantId));
+	}
+
+	@Test
+	@DisplayName("Should retrieve active sessions for calling actor")
+	void shouldGetSessions() {
+		UUID actorId = UUID.randomUUID();
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.userId()).thenReturn(actorId);
+		when(actor.tenantId()).thenReturn(null);
+		when(actor.tokenId()).thenReturn("token-current");
+		when(currentActorProvider.requireCurrentActor()).thenReturn(actor);
+
+		io.github.edmaputra.iam.domain.model.UserSession session = io.github.edmaputra.iam.domain.model.UserSession.create(
+				new io.github.edmaputra.iam.domain.model.UserId(actorId),
+				null,
+				"token-current",
+				3600,
+				"127.0.0.1",
+				"Test-Agent");
+
+		when(authenticateUserUseCase.getActiveSessions(new io.github.edmaputra.iam.domain.model.UserId(actorId), null))
+				.thenReturn(java.util.List.of(session));
+
+		ResponseEntity<java.util.List<io.github.edmaputra.iam.adapter.rest.dto.UserSessionResponse>> response = controller.getSessions();
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).hasSize(1);
+		assertThat(response.getBody().get(0).current()).isTrue();
+		assertThat(response.getBody().get(0).tokenIdentifier()).isEqualTo("token-current");
+	}
 }
+
