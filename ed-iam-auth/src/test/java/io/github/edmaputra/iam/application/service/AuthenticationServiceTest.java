@@ -32,7 +32,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
 
 /**
  * Unit tests for {@link AuthenticationService}.
@@ -197,4 +199,90 @@ class AuthenticationServiceTest {
 		assertThat(profile.fullName()).isEqualTo("Dr. Me");
 		assertThat(profile.roles()).containsExactly("DOC");
 	}
+
+	@Test
+	@DisplayName("Should block login if account is locked by brute-force tracker")
+	void shouldBlockLoginWhenLocked() {
+		io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort tracker =
+				mock(io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort.class);
+		java.time.Instant lockedUntil = java.time.Instant.now().plusSeconds(600);
+		when(tracker.getLockoutStatus("locked@clinic.org"))
+				.thenReturn(io.github.edmaputra.iam.domain.model.LockoutStatus.locked(5, lockedUntil));
+
+		AuthenticationService serviceWithTracker = new AuthenticationService(
+				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
+				tracker, null, null, io.github.edmaputra.iam.adapter.security.session.SessionProperties.defaultProperties());
+
+		LoginCommand command = new LoginCommand("locked@clinic.org", "Pass123!", null);
+
+		assertThatThrownBy(() -> serviceWithTracker.login(command))
+				.isInstanceOf(io.github.edmaputra.iam.domain.exception.AccountLockedException.class)
+				.hasMessageContaining("temporarily locked");
+	}
+
+	@Test
+	@DisplayName("Should enforce concurrent session limit and terminate oldest session")
+	void shouldTerminateOldestSessionOnLimit() {
+		io.github.edmaputra.iam.application.port.out.SessionRegistryPort registry =
+				mock(io.github.edmaputra.iam.application.port.out.SessionRegistryPort.class);
+		io.github.edmaputra.iam.application.port.out.TokenRevocationPort revocation =
+				mock(io.github.edmaputra.iam.application.port.out.TokenRevocationPort.class);
+
+		io.github.edmaputra.iam.adapter.security.session.SessionProperties props =
+				new io.github.edmaputra.iam.adapter.security.session.SessionProperties(
+						1, io.github.edmaputra.iam.adapter.security.session.SessionProperties.SessionLimitStrategy.TERMINATE_OLDEST, 5, 900);
+
+		AuthenticationService serviceWithSession = new AuthenticationService(
+				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
+				null, registry, revocation, props);
+
+		UserId userId = UserId.generate();
+		User user = new User(userId, "test@clinic.org", "hash", "Test User", io.github.edmaputra.iam.domain.model.UserStatus.ACTIVE, false, java.time.Instant.now(), java.time.Instant.now());
+		AuthenticatedIdentity identity = new AuthenticatedIdentity(userId, "test@clinic.org", "Test User", false, ProviderType.LOCAL);
+		EffectiveAccess access = new EffectiveAccess(userId, "test@clinic.org", null, false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+
+		when(authRouter.authenticate(any(PasswordAuthCredentials.class))).thenReturn(identity);
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(effectiveAccessResolver.resolve(user, null)).thenReturn(access);
+		when(tokenProvider.createAccessToken(access)).thenReturn("new-token");
+		when(tokenProvider.createRefreshToken(user.getId(), null)).thenReturn("new-refresh-token");
+
+		io.github.edmaputra.iam.domain.model.UserSession existingSession = io.github.edmaputra.iam.domain.model.UserSession.create(
+				userId, null, "old-token-jti", 3600, "127.0.0.1", "Old-Agent");
+		when(registry.findActiveSessions(userId, null)).thenReturn(java.util.List.of(existingSession));
+
+		TokenResponse response = serviceWithSession.login(new LoginCommand("test@clinic.org", "Pass123!", null));
+
+		assertThat(response.accessToken()).isNotNull();
+		verify(registry).revokeSession(existingSession.id());
+		verify(revocation).revokeToken(org.mockito.ArgumentMatchers.eq("old-token-jti"), any());
+		verify(registry).registerSession(any(io.github.edmaputra.iam.domain.model.UserSession.class));
+	}
+
+	@Test
+	@DisplayName("Should handle logout and logout-all")
+	void shouldHandleLogoutAndLogoutAll() {
+		io.github.edmaputra.iam.application.port.out.SessionRegistryPort registry =
+				mock(io.github.edmaputra.iam.application.port.out.SessionRegistryPort.class);
+		io.github.edmaputra.iam.application.port.out.TokenRevocationPort revocation =
+				mock(io.github.edmaputra.iam.application.port.out.TokenRevocationPort.class);
+
+		AuthenticationService serviceWithSession = new AuthenticationService(
+				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
+				null, registry, revocation, io.github.edmaputra.iam.adapter.security.session.SessionProperties.defaultProperties());
+
+		UserId userId = UserId.generate();
+		io.github.edmaputra.iam.domain.model.UserSession session = io.github.edmaputra.iam.domain.model.UserSession.create(
+				userId, null, "logout-jti", 3600, null, null);
+		when(registry.findByTokenIdentifier("logout-jti")).thenReturn(Optional.of(session));
+
+		serviceWithSession.logout("logout-jti");
+		verify(revocation).revokeToken(org.mockito.ArgumentMatchers.eq("logout-jti"), any());
+		verify(registry).revokeSession(session.id());
+
+		when(registry.findActiveSessions(userId, null)).thenReturn(java.util.List.of(session));
+		serviceWithSession.logoutAll(userId, null);
+		verify(revocation).revokeAllForUser(org.mockito.ArgumentMatchers.eq(userId), any());
+	}
 }
+

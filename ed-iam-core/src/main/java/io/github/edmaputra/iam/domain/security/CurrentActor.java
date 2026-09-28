@@ -67,4 +67,14 @@ public interface CurrentActor {
 	default Set<String> accessibleScopePaths() {
 		return Set.of();
 	}
+
+	/**
+	 * Returns the unique token identifier (JWT ID / jti) bound to this authenticated actor session, if present.
+	 *
+	 * @return token identifier string, or null if not applicable
+	 */
+	default String tokenId() {
+		return null;
+	}
 }
+

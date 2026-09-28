@@ -349,3 +349,44 @@ Content-Type: application/json
 {
   "refreshToken": "{{adminRefreshToken}}"
 }
+
+# =============================================================================
+# 7. TOKEN REVOCATION & SESSION MANAGEMENT (PHASE 3)
+# =============================================================================
+
+### 7.1 List Active Sessions for Current Actor (GET /api/v1/auth/sessions)
+# @name listMySessions
+GET {{baseUrl}}/api/v1/auth/sessions
+Authorization: Bearer {{doctorToken}}
+
+### 7.2 Self-Service Single-Device Logout / Revocation (POST /api/v1/auth/logout)
+POST {{baseUrl}}/api/v1/auth/logout
+Authorization: Bearer {{doctorToken}}
+
+### 7.3 Verify Revoked Token Rejected (Expected: 401 Unauthorized)
+GET {{baseUrl}}/api/v1/playground/actor-context
+Authorization: Bearer {{doctorToken}}
+
+### 7.4 Terminate All User Sessions (POST /api/v1/auth/logout-all)
+POST {{baseUrl}}/api/v1/auth/logout-all
+Authorization: Bearer {{consultantToken}}
+
+### 7.5 Admin: List Active Sessions for User (GET /api/v1/users/{id}/sessions)
+GET {{baseUrl}}/api/v1/users/{{newUserId}}/sessions
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+### 7.6 Admin: Terminate Specific User Session (DELETE /api/v1/users/{id}/sessions/{sessionId})
+DELETE {{baseUrl}}/api/v1/users/{{newUserId}}/sessions/{{targetSessionId}}
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+### 7.7 Admin: Query User Lockout Status (GET /api/v1/users/{id}/lockout)
+GET {{baseUrl}}/api/v1/users/{{newUserId}}/lockout
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+### 7.8 Admin: Remediate / Unlock User Account (POST /api/v1/users/{id}/unlock)
+POST {{baseUrl}}/api/v1/users/{{newUserId}}/unlock
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}

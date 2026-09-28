@@ -485,4 +485,154 @@ class PlaygroundApplicationTests {
 				.exchange()
 				.expectStatus().isForbidden();
 	}
+
+	@Test
+	@DisplayName("Should list active sessions and revoke JWT access token upon logout")
+	void shouldSupportSessionListingAndRevocationOnLogout() {
+		// 1. Zero-config login as Dr. Gregory House
+		byte[] loginResponseBody = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s"
+						}
+						""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String token = JsonPath.read(new String(loginResponseBody), "$.accessToken");
+		assertThat(token).isNotBlank();
+
+		// 2. Query active sessions (GET /api/v1/auth/sessions) -> returns active session matching current token
+		webTestClient.get()
+				.uri("/api/v1/auth/sessions")
+				.headers(headers -> headers.setBearerAuth(token))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.length()").value(len -> assertThat((Integer) len).isGreaterThanOrEqualTo(1))
+				.jsonPath("$[?(@.current == true)]").value(list -> assertThat((List<?>) list).hasSize(1));
+
+		// 3. Confirm token is valid by querying actor context
+		webTestClient.get()
+				.uri("/api/v1/playground/actor-context")
+				.headers(headers -> headers.setBearerAuth(token))
+				.exchange()
+				.expectStatus().isOk();
+
+		// 4. Logout (POST /api/v1/auth/logout) -> 204 No Content
+		webTestClient.post()
+				.uri("/api/v1/auth/logout")
+				.headers(headers -> headers.setBearerAuth(token))
+				.exchange()
+				.expectStatus().isNoContent();
+
+		// 5. Query actor context again with the revoked token -> 401 Unauthorized
+		webTestClient.get()
+				.uri("/api/v1/playground/actor-context")
+				.headers(headers -> headers.setBearerAuth(token))
+				.exchange()
+				.expectStatus().isUnauthorized();
+	}
+
+	@Test
+	@DisplayName("Should support administrative session listing, termination, and lockout remediation")
+	void shouldSupportAdministrativeSessionAndLockoutOversight() {
+		// 1. Login as Admin Dr. Lisa Cuddy
+		byte[] adminLoginResponse = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s"
+						}
+						""".formatted(PlaygroundDataSeeder.ADMIN_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.returnResult().getResponseBody();
+
+		String adminToken = JsonPath.read(new String(adminLoginResponse), "$.accessToken");
+		assertThat(adminToken).isNotBlank();
+
+		// 2. Login as Dr. Gregory House to create an active session
+		byte[] doctorLoginResponse = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s"
+						}
+						""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.returnResult().getResponseBody();
+
+		String doctorToken = JsonPath.read(new String(doctorLoginResponse), "$.accessToken");
+		String doctorUserId = JsonPath.read(new String(doctorLoginResponse), "$.user.id");
+		assertThat(doctorToken).isNotBlank();
+
+		// 3. Admin lists Dr. House's sessions (GET /api/v1/users/{id}/sessions)
+		byte[] sessionsResponse = webTestClient.get()
+				.uri("/api/v1/users/" + doctorUserId + "/sessions")
+				.headers(headers -> {
+					headers.setBearerAuth(adminToken);
+					headers.add("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString());
+				})
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.length()").value(len -> assertThat((Integer) len).isGreaterThanOrEqualTo(1))
+				.returnResult().getResponseBody();
+
+		String sessionId = JsonPath.read(new String(sessionsResponse), "$[0].sessionId");
+		assertThat(sessionId).isNotBlank();
+
+		// 4. Admin terminates Dr. House's session (DELETE /api/v1/users/{id}/sessions/{sessionId})
+		webTestClient.delete()
+				.uri("/api/v1/users/" + doctorUserId + "/sessions/" + sessionId)
+				.headers(headers -> {
+					headers.setBearerAuth(adminToken);
+					headers.add("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString());
+				})
+				.exchange()
+				.expectStatus().isNoContent();
+
+		// 5. Doctor tries to access Cardiology with the terminated session token -> 401 Unauthorized
+		webTestClient.get()
+				.uri("/api/v1/playground/patients?departmentId=" + PlaygroundDataSeeder.CARDIOLOGY_SCOPE_ID)
+				.headers(headers -> headers.setBearerAuth(doctorToken))
+				.exchange()
+				.expectStatus().isUnauthorized();
+
+		// 6. Admin checks lockout status for Dr. House (GET /api/v1/users/{id}/lockout)
+		webTestClient.get()
+				.uri("/api/v1/users/" + doctorUserId + "/lockout")
+				.headers(headers -> {
+					headers.setBearerAuth(adminToken);
+					headers.add("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString());
+				})
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.locked").isEqualTo(false);
+
+		// 7. Admin unlocks Dr. House (POST /api/v1/users/{id}/unlock)
+		webTestClient.post()
+				.uri("/api/v1/users/" + doctorUserId + "/unlock")
+				.headers(headers -> {
+					headers.setBearerAuth(adminToken);
+					headers.add("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString());
+				})
+				.exchange()
+				.expectStatus().isNoContent();
+	}
 }

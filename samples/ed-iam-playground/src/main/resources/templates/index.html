@@ -35,7 +35,7 @@
         <img th:src="@{/ed-iam-icon-transparent.png}" src="/ed-iam-icon-transparent.png" alt="ed-iam logo" class="w-9 h-9 object-contain drop-shadow-md" />
         <div>
           <span class="font-bold text-lg text-white">ed-iam</span>
-          <span class="ml-2 text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">Playground v0.0.1</span>
+          <span class="ml-2 text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">Playground v0.4.0</span>
         </div>
       </div>
       <div class="flex items-center space-x-4 text-sm">
@@ -79,6 +79,10 @@
           <div id="activeTenantDisplay" class="hidden text-xs bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded-lg text-slate-300">
             <span class="text-slate-500">Tenant:</span> <span id="activeTenantName" class="font-mono text-indigo-400 font-medium">Metro General Hospital</span>
           </div>
+
+          <button id="sessionsBtn" onclick="openSessionsModal()" class="hidden text-xs px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/20 transition">
+            <i class="fa-solid fa-shield-halved mr-1"></i> Active Sessions
+          </button>
 
           <button id="logoutBtn" onclick="logout()" class="hidden text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition">
             <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Logout
@@ -462,6 +466,9 @@
         <button id="tabBtnAuth" onclick="switchMgmtTab('auth')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
           <i class="fa-solid fa-key"></i> Auth &amp; Tokens
         </button>
+        <button id="tabBtnSessions" onclick="switchMgmtTab('sessions')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-shield-halved"></i> Sessions &amp; Lockout
+        </button>
       </div>
 
       <!-- TAB 1: USERS & LIFECYCLE -->
@@ -727,7 +734,7 @@
           <span class="text-xs text-slate-400">Test authentication endpoints, claims validation, and JWT token rotation.</span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 text-xs">
             <h3 class="font-bold text-white text-sm flex items-center gap-2">
               <i class="fa-solid fa-id-card text-indigo-400"></i> Identity &amp; Profile (/api/v1/auth/me)
@@ -751,6 +758,80 @@
             </button>
             <div id="refreshResult" class="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto">
               // Click above to rotate tokens
+            </div>
+          </div>
+
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 text-xs">
+            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+              <i class="fa-solid fa-shield-halved text-emerald-400"></i> Active Sessions (/api/v1/auth/sessions)
+            </h3>
+            <p class="text-slate-400">View and revoke active sessions associated with the current user account.</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="fetchMySessions()" class="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-list"></i> List Sessions
+              </button>
+              <button onclick="logoutAll()" class="py-2 px-3 bg-red-600/80 hover:bg-red-500 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-power-off"></i> Revoke All
+              </button>
+            </div>
+            <div id="mySessionsResult" class="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto">
+              // Click above to list sessions
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 6: SESSIONS & LOCKOUT -->
+      <div id="panelSessions" class="hidden space-y-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-400">Administrative oversight for user sessions and brute-force account lockout remediation.</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Card 1: User Session Oversight -->
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 text-xs">
+            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+              <i class="fa-solid fa-laptop text-indigo-400"></i> User Sessions Oversight
+            </h3>
+            <p class="text-slate-400">Inspect and terminate active sessions for any user in the tenant.</p>
+            <div class="space-y-2">
+              <label class="block text-slate-400">Target User ID</label>
+              <div class="flex gap-2">
+                <input id="adminSessionUserId" type="text" placeholder="User UUID..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1 text-slate-200 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <button onclick="fillAdminSessionUserWithCurrent()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 text-[11px]">Current</button>
+              </div>
+            </div>
+            <button onclick="fetchAdminUserSessions()" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-list-check"></i> List User Sessions
+            </button>
+            <div id="adminSessionsList" class="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto">
+              // Click above to list sessions
+            </div>
+          </div>
+
+          <!-- Card 2: Brute-Force Lockout & Remediation -->
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 text-xs">
+            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+              <i class="fa-solid fa-user-lock text-rose-400"></i> Account Lockout &amp; Remediation
+            </h3>
+            <p class="text-slate-400">Query brute-force lockout status and immediately unlock an account.</p>
+            <div class="space-y-2">
+              <label class="block text-slate-400">Target User ID</label>
+              <div class="flex gap-2">
+                <input id="adminLockoutUserId" type="text" placeholder="User UUID..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1 text-slate-200 font-mono text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                <button onclick="fillAdminLockoutUserWithCurrent()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 text-[11px]">Current</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="checkAdminUserLockout()" class="py-2 px-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-magnifying-glass"></i> Check Status
+              </button>
+              <button onclick="unlockAdminUser()" class="py-2 px-3 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-lock-open"></i> Unlock User
+              </button>
+            </div>
+            <div id="adminLockoutResult" class="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto">
+              // Click above to check status or unlock
             </div>
           </div>
         </div>
@@ -1131,6 +1212,7 @@
 
       document.getElementById('sessionAvatar').innerHTML = '<i class="fa-solid fa-user-doctor text-indigo-400"></i>';
       document.getElementById('logoutBtn').classList.remove('hidden');
+      document.getElementById('sessionsBtn').classList.remove('hidden');
       document.getElementById('permissionsBar').classList.remove('hidden');
 
       // Tenant selector setup in top bar
@@ -1227,7 +1309,7 @@
 
     function switchMgmtTab(tab) {
       activeMgmtTab = tab;
-      const tabs = ['users', 'roles', 'groups', 'scopes', 'auth'];
+      const tabs = ['users', 'roles', 'groups', 'scopes', 'auth', 'sessions'];
       tabs.forEach(t => {
         const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
         const panel = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
@@ -1912,12 +1994,165 @@
       permsDiv.innerHTML = (permissions || []).map(p => `<span class="px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-mono">${p}</span>`).join('');
     }
 
-    function logout() {
+    async function logout() {
+      if (currentToken) {
+        try {
+          await fetch('/api/v1/auth/logout', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${currentToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+        } catch (e) {
+          console.warn('Backend logout revocation error:', e);
+        }
+      }
       currentToken = null;
       currentUser = null;
       currentTenantId = null;
       localStorage.clear();
       location.reload();
+    }
+
+    async function logoutAll() {
+      if (currentToken) {
+        try {
+          await fetch('/api/v1/auth/logout-all', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${currentToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+        } catch (e) {
+          console.warn('Backend logout-all revocation error:', e);
+        }
+      }
+      currentToken = null;
+      currentUser = null;
+      currentTenantId = null;
+      localStorage.clear();
+      location.reload();
+    }
+
+    async function fetchMySessions() {
+      const res = await executeApiCall('GET', '/api/v1/auth/sessions');
+      document.getElementById('mySessionsResult').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    async function openSessionsModal() {
+      document.getElementById('sessionsModal').classList.remove('hidden');
+      await renderModalSessions();
+    }
+
+    function closeSessionsModal() {
+      document.getElementById('sessionsModal').classList.add('hidden');
+    }
+
+    async function renderModalSessions() {
+      const container = document.getElementById('modalSessionsContainer');
+      if (!currentToken) {
+        container.innerHTML = '<div class="text-amber-400 text-xs py-4 text-center">Please log in to view active sessions.</div>';
+        return;
+      }
+      container.innerHTML = '<div class="text-slate-400 text-xs font-mono py-4 text-center">Loading active sessions...</div>';
+      try {
+        const res = await executeApiCall('GET', '/api/v1/auth/sessions');
+        if (res.ok && Array.isArray(res.data)) {
+          if (res.data.length === 0) {
+            container.innerHTML = '<div class="text-slate-400 text-xs py-4 text-center">No active sessions found.</div>';
+            return;
+          }
+          container.innerHTML = res.data.map(s => `
+            <div class="bg-slate-950/80 border ${s.current ? 'border-indigo-500/60 bg-indigo-950/20' : 'border-slate-800'} rounded-xl p-3.5 text-xs space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-indigo-300 font-medium">${s.sessionId.substring(0, 13)}...</span>
+                  ${s.current ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-medium">Current Session</span>' : ''}
+                </div>
+                <span class="text-[10px] text-slate-500 font-mono">${new Date(s.createdAt).toLocaleTimeString()}</span>
+              </div>
+              <div class="text-slate-400 text-[11px] grid grid-cols-2 gap-1.5 font-mono">
+                <div><span class="text-slate-500">IP:</span> ${s.ipAddress || 'unknown'}</div>
+                <div><span class="text-slate-500">Agent:</span> ${(s.userAgent || 'unknown').substring(0, 30)}</div>
+                <div class="col-span-2 text-[10px] text-slate-500 truncate"><span class="text-slate-500">JTI:</span> ${s.tokenIdentifier || 'n/a'}</div>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          container.innerHTML = `<div class="text-red-400 text-xs font-mono p-3 bg-red-950/30 rounded">${JSON.stringify(res.data)}</div>`;
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="text-red-400 text-xs py-4 text-center">Failed to load sessions: ${err.message}</div>`;
+      }
+    }
+
+    function fillAdminSessionUserWithCurrent() {
+      if (currentUser && currentUser.id) {
+        document.getElementById('adminSessionUserId').value = currentUser.id;
+      }
+    }
+
+    function fillAdminLockoutUserWithCurrent() {
+      if (currentUser && currentUser.id) {
+        document.getElementById('adminLockoutUserId').value = currentUser.id;
+      }
+    }
+
+    async function fetchAdminUserSessions() {
+      const userId = document.getElementById('adminSessionUserId').value.trim();
+      if (!userId) {
+        alert('Please enter a target User UUID');
+        return;
+      }
+      const res = await executeApiCall('GET', `/api/v1/users/${userId}/sessions`);
+      const container = document.getElementById('adminSessionsList');
+      if (res.ok && Array.isArray(res.data)) {
+        if (res.data.length === 0) {
+          container.innerHTML = '// No active sessions found for this user';
+          return;
+        }
+        container.innerHTML = res.data.map(s => `
+          <div class="pb-2.5 mb-2.5 border-b border-slate-800 last:border-0 last:pb-0 last:mb-0 flex items-center justify-between">
+            <div>
+              <div class="text-indigo-300 font-medium font-mono text-[11px]">${s.sessionId}</div>
+              <div class="text-slate-500 text-[10px]">Created: ${new Date(s.createdAt).toLocaleTimeString()} | IP: ${s.ipAddress || 'n/a'}</div>
+            </div>
+            <button onclick="terminateAdminSession('${userId}', '${s.sessionId}')" class="px-2 py-1 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded text-[10px] transition font-medium">
+              Terminate
+            </button>
+          </div>
+        `).join('');
+      } else {
+        container.textContent = JSON.stringify(res.data, null, 2);
+      }
+    }
+
+    async function terminateAdminSession(userId, sessionId) {
+      if (!confirm(`Terminate session ${sessionId}?`)) return;
+      await executeApiCall('DELETE', `/api/v1/users/${userId}/sessions/${sessionId}`);
+      await fetchAdminUserSessions();
+    }
+
+    async function checkAdminUserLockout() {
+      const userId = document.getElementById('adminLockoutUserId').value.trim();
+      if (!userId) {
+        alert('Please enter a target User UUID');
+        return;
+      }
+      const res = await executeApiCall('GET', `/api/v1/users/${userId}/lockout`);
+      document.getElementById('adminLockoutResult').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    async function unlockAdminUser() {
+      const userId = document.getElementById('adminLockoutUserId').value.trim();
+      if (!userId) {
+        alert('Please enter a target User UUID');
+        return;
+      }
+      await executeApiCall('POST', `/api/v1/users/${userId}/unlock`);
+      await checkAdminUserLockout();
     }
 
     function logRequest(method, url, details) {
@@ -1939,5 +2174,35 @@
       document.getElementById('responseInspector').textContent = JSON.stringify(data, null, 2);
     }
   </script>
+
+  <!-- Active Sessions Modal -->
+  <div id="sessionsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved text-indigo-400 text-lg"></i>
+          <h3 class="font-bold text-white text-base">Your Active Sessions</h3>
+        </div>
+        <button onclick="closeSessionsModal()" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-400">Sessions established across your devices. You can inspect token metadata or terminate all sessions.</p>
+
+      <div id="modalSessionsContainer" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+        <div class="text-slate-400 text-xs font-mono py-4 text-center">Loading active sessions...</div>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+        <button onclick="logoutAll()" class="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 text-xs font-medium transition flex items-center gap-1.5">
+          <i class="fa-solid fa-power-off"></i> Terminate All Sessions
+        </button>
+        <button onclick="closeSessionsModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-medium transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

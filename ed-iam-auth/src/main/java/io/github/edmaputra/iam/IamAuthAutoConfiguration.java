@@ -1,11 +1,25 @@
 package io.github.edmaputra.iam;
 
+import io.github.edmaputra.iam.adapter.security.session.InMemoryLoginAttemptTracker;
+import io.github.edmaputra.iam.adapter.security.session.InMemorySessionRegistry;
+import io.github.edmaputra.iam.adapter.security.session.InMemoryTokenRevocationStore;
+import io.github.edmaputra.iam.adapter.security.session.RedisLoginAttemptTracker;
+import io.github.edmaputra.iam.adapter.security.session.RedisSessionRegistry;
+import io.github.edmaputra.iam.adapter.security.session.RedisTokenRevocationStore;
+import io.github.edmaputra.iam.adapter.security.session.SessionProperties;
+import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
+import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
+import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
 import java.util.List;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 import io.github.edmaputra.iam.adapter.rest.AuthController;
@@ -31,6 +45,8 @@ import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
+import org.springframework.core.annotation.Order;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
  * Spring Boot auto-configuration for IAM authentication, credential providers,
@@ -40,8 +56,10 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
  * @since 0.3.0
  */
 @AutoConfiguration(after = IamResourceServerAutoConfiguration.class)
+@EnableConfigurationProperties(SessionProperties.class)
 @Import(AuthController.class)
 public class IamAuthAutoConfiguration {
+
 
 	@Bean
 	@ConditionalOnMissingBean
@@ -110,7 +128,73 @@ public class IamAuthAutoConfiguration {
 			AuthenticationProviderRouter authRouter,
 			UserRepository userRepository,
 			EffectiveAccessResolver effectiveAccessResolver,
-			TokenProviderPort tokenProvider) {
-		return new AuthenticationService(authRouter, userRepository, effectiveAccessResolver, tokenProvider);
+			TokenProviderPort tokenProvider,
+			ObjectProvider<LoginAttemptTrackerPort> loginAttemptTrackerProvider,
+			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
+			ObjectProvider<SessionProperties> sessionPropertiesProvider) {
+
+		return new AuthenticationService(
+				authRouter,
+				userRepository,
+				effectiveAccessResolver,
+				tokenProvider,
+				loginAttemptTrackerProvider.getIfAvailable(),
+				sessionRegistryProvider.getIfAvailable(),
+				tokenRevocationPortProvider.getIfAvailable(),
+				sessionPropertiesProvider.getIfAvailable(SessionProperties::defaultProperties));
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	@Order(1)
+	@ConditionalOnClass(StringRedisTemplate.class)
+	@ConditionalOnBean(StringRedisTemplate.class)
+	static class RedisSessionConfiguration {
+
+		@Bean
+		@ConditionalOnMissingBean(TokenRevocationPort.class)
+		public TokenRevocationPort redisTokenRevocationStore(StringRedisTemplate redisTemplate) {
+			return new RedisTokenRevocationStore(redisTemplate);
+		}
+
+		@Bean
+		@ConditionalOnMissingBean(SessionRegistryPort.class)
+		public SessionRegistryPort redisSessionRegistry(
+				StringRedisTemplate redisTemplate) {
+			return new RedisSessionRegistry(redisTemplate);
+		}
+
+		@Bean
+		@ConditionalOnMissingBean(LoginAttemptTrackerPort.class)
+		public LoginAttemptTrackerPort redisLoginAttemptTracker(
+				StringRedisTemplate redisTemplate,
+				SessionProperties sessionProperties) {
+			return new RedisLoginAttemptTracker(redisTemplate, sessionProperties);
+		}
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	@Order(2)
+	static class InMemorySessionConfiguration {
+
+		@Bean
+		@ConditionalOnMissingBean(TokenRevocationPort.class)
+		public TokenRevocationPort inMemoryTokenRevocationStore() {
+			return new InMemoryTokenRevocationStore();
+		}
+
+		@Bean
+		@ConditionalOnMissingBean(SessionRegistryPort.class)
+		public SessionRegistryPort inMemorySessionRegistry() {
+			return new InMemorySessionRegistry();
+		}
+
+		@Bean
+		@ConditionalOnMissingBean(LoginAttemptTrackerPort.class)
+		public LoginAttemptTrackerPort inMemoryLoginAttemptTracker(
+				SessionProperties sessionProperties) {
+			return new InMemoryLoginAttemptTracker(sessionProperties);
+		}
 	}
 }
+

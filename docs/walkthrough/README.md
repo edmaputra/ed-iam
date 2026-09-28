@@ -59,7 +59,7 @@ We recommend reading through the documentation in the following order:
    Setting up your Java 25 environment, Maven build lifecycle, running tests, code style, and ArchUnit architecture verification.
 
 3. [**Current Features & Product Roadmap**](03-features-and-roadmap.md)  
-   Full matrix of operational capabilities (v0.3.0) and the phased roadmap for future enterprise features (SAML 2.0, MFA/TOTP, ABAC, Redis token blacklisting, and OpenTelemetry).
+   Full matrix of operational capabilities (v0.4.0) and the phased roadmap for future enterprise features (SAML 2.0, MFA/TOTP, ABAC, Redis token blacklisting, and OpenTelemetry).
 
 4. [**Module 1: ed-iam-core**](modules/01-core.md)  
    The pure domain kernel. Zero framework dependencies, immutable record invariants, use-case driving ports, and driven SPI repository contracts. Includes a complete class catalog.

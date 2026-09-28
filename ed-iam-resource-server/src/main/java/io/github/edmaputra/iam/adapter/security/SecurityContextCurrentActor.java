@@ -19,6 +19,7 @@ import io.github.edmaputra.iam.domain.security.CurrentActor;
  * @param permissions            set of distinct permission strings
  * @param accessibleScopeNodeIds set of accessible scope node UUIDs
  * @param accessibleScopePaths   set of accessible materialized path prefixes
+ * @param tokenId                the unique JWT ID (jti)
  * @author edmaputra
  * @since 0.0.1
  */
@@ -32,7 +33,8 @@ public record SecurityContextCurrentActor(
 		Set<String> roles,
 		Set<String> permissions,
 		Set<UUID> accessibleScopeNodeIds,
-		Set<String> accessibleScopePaths) implements CurrentActor {
+		Set<String> accessibleScopePaths,
+		String tokenId) implements CurrentActor {
 
 	public SecurityContextCurrentActor {
 		Objects.requireNonNull(userId, "UserId must not be null.");
@@ -42,6 +44,23 @@ public record SecurityContextCurrentActor(
 		permissions = permissions == null ? Set.of() : Set.copyOf(permissions);
 		accessibleScopeNodeIds = accessibleScopeNodeIds == null ? Set.of() : Set.copyOf(accessibleScopeNodeIds);
 		accessibleScopePaths = accessibleScopePaths == null ? Set.of() : Set.copyOf(accessibleScopePaths);
+	}
+
+	/**
+	 * Backward-compatible constructor without token identifier.
+	 */
+	public SecurityContextCurrentActor(
+			UUID userId,
+			String email,
+			UUID tenantId,
+			boolean platformSuperAdmin,
+			boolean tenantWide,
+			Set<String> groups,
+			Set<String> roles,
+			Set<String> permissions,
+			Set<UUID> accessibleScopeNodeIds,
+			Set<String> accessibleScopePaths) {
+		this(userId, email, tenantId, platformSuperAdmin, tenantWide, groups, roles, permissions, accessibleScopeNodeIds, accessibleScopePaths, null);
 	}
 
 	@Override
@@ -72,5 +91,15 @@ public record SecurityContextCurrentActor(
 	@Override
 	public Set<UUID> accessibleScopeNodeIds() {
 		return accessibleScopeNodeIds;
+	}
+
+	@Override
+	public Set<String> accessibleScopePaths() {
+		return accessibleScopePaths;
+	}
+
+	@Override
+	public String tokenId() {
+		return tokenId;
 	}
 }

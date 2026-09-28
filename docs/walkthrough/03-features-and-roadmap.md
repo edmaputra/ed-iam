@@ -1,10 +1,10 @@
 # 03. Current Features & Product Roadmap
 
-This document outlines the operational capabilities available in the current release (**v0.3.0**) and defines the forward-looking roadmap for future iterations of `ed-iam`.
+This document outlines the operational capabilities available in the current release (**v0.4.0**) and defines the forward-looking roadmap for future iterations of `ed-iam`.
 
 ---
 
-## 1. Current Capabilities Matrix (v0.3.0)
+## 1. Current Capabilities Matrix (v0.4.0)
 
 `ed-iam` delivers multi-tenant identity and access management across a decoupled suite of modules:
 
@@ -83,6 +83,22 @@ This document outlines the operational capabilities available in the current rel
 * **Group Management (`/api/v1/groups`)**: CRUD for user groups, external IdP group mapping synchronization, and group-level role assignments.
 * **Scope Management (`/api/v1/scopes`)**: Tree node creation, subtree traversal, and cyclical move prevention.
 
+### 2.6 Token Revocation & Session Management (Phase 3 Accelerated)
+* **Real-time Token Revocation (`TokenRevocationPort`)**: Immediate token invalidation via JWT ID (`jti`) denylisting checked at `JwtAuthenticationFilter`. Supports Redis cluster stores (`RedisTokenRevocationStore`) and zero-dependency in-memory stores (`InMemoryTokenRevocationStore`).
+* **Concurrent Session Limits (`SessionRegistryPort`)**: Tracks active user sessions with IP addresses, user agents, creation, and last-access timestamps. Configurable policies enforce concurrent session thresholds using eviction (`TERMINATE_OLDEST`) or rejection (`REJECT_NEW`).
+* **Brute-Force & Lockout Remediation (`LoginAttemptTrackerPort`)**: Tracks failed authentication attempts across identities and IP addresses, locking out brute-force attacks for configurable durations (`iam.security.session.lockout-duration-seconds`).
+* **Self-Service Auth Endpoints (`/api/v1/auth/*`)**:
+  * `POST /api/v1/auth/logout`: Revokes the calling actor's current session and token.
+  * `POST /api/v1/auth/logout-all`: Invalidator terminating all concurrent sessions for the user.
+  * `GET /api/v1/auth/sessions`: Inspects all currently active sessions belonging to the caller, highlighting the active token.
+* **Administrative Management Endpoints (`/api/v1/users/*`)**:
+  * `GET /api/v1/users/{id}/sessions` (`iam:session:read`): Administrative oversight of all sessions for a target user.
+  * `DELETE /api/v1/users/{id}/sessions/{sessionId}` (`iam:session:delete`): Terminate a specific user session.
+  * `DELETE /api/v1/users/{id}/sessions` (`iam:session:delete`): Bulk termination of all sessions for a user.
+  * `GET /api/v1/users/{id}/lockout` (`iam:user:read`): Check failed login attempt count and lockout status.
+  * `POST /api/v1/users/{id}/unlock` (`iam:user:update`): Instantly unlock an account and reset failed attempts.
+* **Lifecycle Synchronization**: Automatic session termination and token revocation upon user account suspension (`SUSPENDED`/`DEACTIVATED`) or account deletion.
+
 ---
 
 ## 3. Product Roadmap
@@ -96,6 +112,7 @@ This document outlines the operational capabilities available in the current rel
   │  ✓ JPA & Liquibase Schema Migrations (management)      │
   │  ✓ User Dynamic Filtering & Pagination                 │
   │  ✓ Interactive Multi-Tenant Clinical Playground        │
+  │  ✓ Token Revocation & Session Management (Phase 3)     │
   └───────────────────────────┬────────────────────────────┘
                               │
                               ▼
@@ -111,13 +128,6 @@ This document outlines the operational capabilities available in the current rel
   │                 PHASE 2: ATTRIBUTE-BASED ACCESS (ABAC) │
   │  - Dynamic Policy Evaluator                            │
   │  - Contextual Constraints (time-of-day, network CIDR)  │
-  └───────────────────────────┬────────────────────────────┘
-                              │
-                              ▼
-  ┌────────────────────────────────────────────────────────┐
-  │                 PHASE 3: TOKEN REVOCATION & SESSIONS   │
-  │  - Distributed Redis-backed Token Revocation           │
-  │  - Concurrent Session Limits & Brute-Force Protection  │
   └───────────────────────────┬────────────────────────────┘
                               │
                               ▼
@@ -157,10 +167,13 @@ This document outlines the operational capabilities available in the current rel
 - [ ] **Dynamic Policy Evaluator**: Flexible rule engine evaluating subject, resource, and contextual attributes.
 - [ ] **Contextual Policy Constraints**: Access policies constrained by time-of-day, network CIDR subnets, and device posture.
 
-#### Phase 3: Token Revocation & Session Management
-- [ ] **Distributed Token Revocation**: Redis-backed token revocation list for immediate session termination on logout or credential change.
-- [ ] **Concurrent Session Limits**: Configurable policies enforcing max concurrent active sessions per user account.
-- [ ] **Brute-Force & Rate Limiting**: Built-in IP and account lockout mechanisms with pluggable rate-limiting stores.
+#### Phase 3: Token Revocation & Session Management (Accelerated & Delivered)
+- [x] **Distributed & In-Memory Token Revocation**: Cluster-wide Redis token denylist (`RedisTokenRevocationStore`) and fallback in-memory store (`InMemoryTokenRevocationStore`) with token validation hook in `JwtAuthenticationFilter`.
+- [x] **Concurrent Session Limits**: Configurable policies enforcing max concurrent active sessions per user account (`TERMINATE_OLDEST` eviction or `REJECT_NEW`), tracking client IP, user-agent, creation, and last access timestamps (`SessionProperties`, `SessionRegistryPort`).
+- [x] **Brute-Force & Account Lockout**: Built-in IP and identity lockout mechanisms with pluggable rate-limiting stores (`InMemoryLoginAttemptTracker` and `RedisLoginAttemptTracker`).
+- [x] **Self-Service REST Endpoints**: `/api/v1/auth/logout`, `/api/v1/auth/logout-all`, and `/api/v1/auth/sessions`.
+- [x] **Administrative Management Endpoints**: `/api/v1/users/{id}/sessions`, `/api/v1/users/{id}/sessions/{sessionId}`, `/api/v1/users/{id}/sessions`, `/api/v1/users/{id}/lockout`, and `/api/v1/users/{id}/unlock`.
+- [x] **Lifecycle Synchronization**: Automatic session termination and token revocation upon user account suspension (`SUSPENDED`/`DEACTIVATED`) or account deletion.
 
 #### Phase 4: Observability & Security Auditing
 - [ ] **OpenTelemetry Metrics & Tracing**: Native metrics for authentication latency, token validation times, and access denial counters.

@@ -22,6 +22,17 @@ public interface TokenProviderPort {
 	String createAccessToken(EffectiveAccess access);
 
 	/**
+	 * Creates a signed access token encapsulating the specified actor effective access and token identifier.
+	 *
+	 * @param access  the resolved effective access model
+	 * @param tokenId specific token identifier (jti)
+	 * @return signed access token string
+	 */
+	default String createAccessToken(EffectiveAccess access, String tokenId) {
+		return createAccessToken(access);
+	}
+
+	/**
 	 * Creates a signed refresh token bound to the specified user and optional tenant scope.
 	 *
 	 * @param userId   the user ID

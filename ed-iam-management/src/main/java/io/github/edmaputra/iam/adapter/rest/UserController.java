@@ -2,11 +2,14 @@ package io.github.edmaputra.iam.adapter.rest;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,47 +17,70 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.github.edmaputra.iam.adapter.rest.dto.GroupManagementDtos.GroupResponse;
+import io.github.edmaputra.iam.adapter.rest.dto.SessionManagementDtos.UserLockoutResponse;
+import io.github.edmaputra.iam.adapter.rest.dto.SessionManagementDtos.UserSessionDetailResponse;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.AssignUserRoleRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.ChangeUserStatusRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.CreateUserRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.UpdateUserRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.UserResponse;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.UserRoleAssignmentResponse;
+import io.github.edmaputra.iam.application.port.in.ManageLockoutUseCase;
+import io.github.edmaputra.iam.application.port.in.ManageSessionUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatusCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
 import io.github.edmaputra.iam.domain.model.GroupId;
+import io.github.edmaputra.iam.domain.model.LockoutStatus;
 import io.github.edmaputra.iam.domain.model.PageQuery;
 import io.github.edmaputra.iam.domain.model.PagedResult;
 import io.github.edmaputra.iam.domain.model.RoleId;
-import io.github.edmaputra.iam.domain.model.ScopeNodeId;
+import io.github.edmaputra.iam.domain.model.SessionId;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserFilter;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserRoleAssignment;
+import io.github.edmaputra.iam.domain.model.UserSession;
 import io.github.edmaputra.iam.domain.model.UserStatus;
 import io.github.edmaputra.iam.domain.security.annotation.RequirePermission;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 /**
- * REST controller for managing users, lifecycles, role assignments, and group memberships.
+ * REST controller for managing users, lifecycles, role assignments, group memberships,
+ * active session oversight, and brute-force lockout remediation.
  *
  * @author edmaputra
  * @since 0.0.1
  */
 @RestController
 @RequestMapping("/api/v1/users")
-@RequiredArgsConstructor
 public class UserController {
 
 	private final ManageUserUseCase manageUserUseCase;
+	private final ObjectProvider<ManageSessionUseCase> manageSessionUseCaseProvider;
+	private final ObjectProvider<ManageLockoutUseCase> manageLockoutUseCaseProvider;
+
+	@Autowired
+	public UserController(
+			ManageUserUseCase manageUserUseCase,
+			ObjectProvider<ManageSessionUseCase> manageSessionUseCaseProvider,
+			ObjectProvider<ManageLockoutUseCase> manageLockoutUseCaseProvider) {
+		this.manageUserUseCase = Objects.requireNonNull(manageUserUseCase, "ManageUserUseCase must not be null.");
+		this.manageSessionUseCaseProvider = manageSessionUseCaseProvider;
+		this.manageLockoutUseCaseProvider = manageLockoutUseCaseProvider;
+	}
+
+	public UserController(ManageUserUseCase manageUserUseCase) {
+		this(manageUserUseCase, null, null);
+	}
 
 	@PostMapping
 	@RequirePermission("iam:user:create")
@@ -106,16 +132,18 @@ public class UserController {
 	public ResponseEntity<UserResponse> updateUser(
 			@PathVariable UUID id,
 			@Valid @RequestBody UpdateUserRequest request) {
-		User updated = manageUserUseCase.updateUser(new UpdateUserCommand(new UserId(id), request.fullName()));
+		UpdateUserCommand command = new UpdateUserCommand(new UserId(id), request.fullName());
+		User updated = manageUserUseCase.updateUser(command);
 		return ResponseEntity.ok(UserResponse.fromDomain(updated));
 	}
 
 	@PutMapping("/{id}/status")
-	@RequirePermission("iam:user:status")
+	@RequirePermission("iam:user:update-status")
 	public ResponseEntity<UserResponse> changeUserStatus(
 			@PathVariable UUID id,
 			@Valid @RequestBody ChangeUserStatusRequest request) {
-		User updated = manageUserUseCase.changeUserStatus(new ChangeUserStatusCommand(new UserId(id), request.status()));
+		ChangeUserStatusCommand command = new ChangeUserStatusCommand(new UserId(id), request.status());
+		User updated = manageUserUseCase.changeUserStatus(command);
 		return ResponseEntity.ok(UserResponse.fromDomain(updated));
 	}
 
@@ -131,15 +159,14 @@ public class UserController {
 	public ResponseEntity<UserRoleAssignmentResponse> assignRole(
 			@PathVariable UUID id,
 			@Valid @RequestBody AssignUserRoleRequest request) {
-		ScopeNodeId scopeId = request.scopeNodeId() != null ? new ScopeNodeId(request.scopeNodeId()) : null;
 		AssignUserRoleCommand command = new AssignUserRoleCommand(
 				new UserId(id),
 				new RoleId(request.roleId()),
 				new TenantId(request.tenantId()),
-				scopeId);
+				request.scopeNodeId() != null ? new io.github.edmaputra.iam.domain.model.ScopeNodeId(request.scopeNodeId()) : null);
 
 		UserRoleAssignment assignment = manageUserUseCase.assignRole(command);
-		return ResponseEntity.created(URI.create("/api/v1/users/" + id + "/roles/" + assignment.getId().value()))
+		return ResponseEntity.status(HttpStatus.CREATED)
 				.body(UserRoleAssignmentResponse.fromDomain(assignment));
 	}
 
@@ -188,5 +215,72 @@ public class UserController {
 				.map(GroupResponse::fromDomain)
 				.toList();
 		return ResponseEntity.ok(responses);
+	}
+
+	@GetMapping("/{id}/sessions")
+	@RequirePermission("iam:session:read")
+	public ResponseEntity<List<UserSessionDetailResponse>> getUserSessions(
+			@PathVariable UUID id,
+			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId) {
+		ManageSessionUseCase sessionUseCase = manageSessionUseCaseProvider != null ? manageSessionUseCaseProvider.getIfAvailable() : null;
+		if (sessionUseCase == null) {
+			return ResponseEntity.ok(List.of());
+		}
+		TenantId tenantId = headerTenantId != null && !headerTenantId.isBlank()
+				? new TenantId(UUID.fromString(headerTenantId.trim()))
+				: null;
+		List<UserSession> sessions = sessionUseCase.listUserSessions(new UserId(id), tenantId);
+		List<UserSessionDetailResponse> responses = sessions.stream()
+				.map(UserSessionDetailResponse::from)
+				.toList();
+		return ResponseEntity.ok(responses);
+	}
+
+	@DeleteMapping("/{id}/sessions/{sessionId}")
+	@RequirePermission("iam:session:delete")
+	public ResponseEntity<Void> terminateSession(
+			@PathVariable UUID id,
+			@PathVariable UUID sessionId) {
+		ManageSessionUseCase sessionUseCase = manageSessionUseCaseProvider != null ? manageSessionUseCaseProvider.getIfAvailable() : null;
+		if (sessionUseCase != null) {
+			sessionUseCase.terminateSession(new UserId(id), new SessionId(sessionId));
+		}
+		return ResponseEntity.noContent().build();
+	}
+
+	@DeleteMapping("/{id}/sessions")
+	@RequirePermission("iam:session:delete")
+	public ResponseEntity<Void> terminateAllSessions(
+			@PathVariable UUID id,
+			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId) {
+		ManageSessionUseCase sessionUseCase = manageSessionUseCaseProvider != null ? manageSessionUseCaseProvider.getIfAvailable() : null;
+		if (sessionUseCase != null) {
+			TenantId tenantId = headerTenantId != null && !headerTenantId.isBlank()
+					? new TenantId(UUID.fromString(headerTenantId.trim()))
+					: null;
+			sessionUseCase.terminateAllUserSessions(new UserId(id), tenantId);
+		}
+		return ResponseEntity.noContent().build();
+	}
+
+	@GetMapping("/{id}/lockout")
+	@RequirePermission("iam:user:read")
+	public ResponseEntity<UserLockoutResponse> getLockoutStatus(@PathVariable UUID id) {
+		ManageLockoutUseCase lockoutUseCase = manageLockoutUseCaseProvider != null ? manageLockoutUseCaseProvider.getIfAvailable() : null;
+		if (lockoutUseCase == null) {
+			return ResponseEntity.ok(UserLockoutResponse.from(LockoutStatus.unlocked(0)));
+		}
+		LockoutStatus status = lockoutUseCase.getLockoutStatus(new UserId(id));
+		return ResponseEntity.ok(UserLockoutResponse.from(status));
+	}
+
+	@PostMapping("/{id}/unlock")
+	@RequirePermission("iam:user:update")
+	public ResponseEntity<Void> unlockUser(@PathVariable UUID id) {
+		ManageLockoutUseCase lockoutUseCase = manageLockoutUseCaseProvider != null ? manageLockoutUseCaseProvider.getIfAvailable() : null;
+		if (lockoutUseCase != null) {
+			lockoutUseCase.unlockUser(new UserId(id));
+		}
+		return ResponseEntity.noContent().build();
 	}
 }
