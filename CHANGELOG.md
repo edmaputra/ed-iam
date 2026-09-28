@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-09-24
+
+### Added
+- **Decoupled Authentication Module (`ed-iam-auth`)**:
+  - Extracted authentication workflows, credential provider router, and JWT issuance into dedicated `ed-iam-auth` module ([#14](https://github.com/edmaputra/ed-iam/pull/14), [#13](https://github.com/edmaputra/ed-iam/pull/13)).
+  - Relocated `AuthController` (`/api/v1/auth/*`), `AuthenticationService`, and `EffectiveAccessResolver` to `ed-iam-auth`.
+  - Added `ed-iam-auth` to aggregator `ed-iam-starter` and Dockerfile build stages.
+- **User Pagination & Filtering Endpoint**:
+  - Added paginated user lookup with dynamic criteria filtering (`page`, `size`, `sort`, `email`, `status`) in `ManageUserUseCase` and `UserController` (`GET /api/v1/users`) ([#13](https://github.com/edmaputra/ed-iam/pull/13)).
+
+### Changed
+- Hardened hexagonal architecture boundaries, security adapters, and persistence models ([#12](https://github.com/edmaputra/ed-iam/pull/12)).
+- Cleaned up unused dependencies, annotations, and null-safety warnings across all modules ([#14](https://github.com/edmaputra/ed-iam/pull/14)).
+
+---
+
 ## [0.2.0] - 2026-09-15
 
 ### Added
