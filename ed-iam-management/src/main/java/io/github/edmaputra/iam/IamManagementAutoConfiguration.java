@@ -1,11 +1,13 @@
 package io.github.edmaputra.iam;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import io.github.edmaputra.iam.adapter.rest.GroupController;
 import io.github.edmaputra.iam.adapter.rest.RoleController;
@@ -14,7 +16,10 @@ import io.github.edmaputra.iam.adapter.rest.UserController;
 import io.github.edmaputra.iam.application.port.in.ManageGroupUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageRoleUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
+import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
+import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
+import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
 import io.github.edmaputra.iam.application.service.GroupManagementService;
 import io.github.edmaputra.iam.application.service.RoleManagementService;
 import io.github.edmaputra.iam.application.service.SessionManagementService;
@@ -24,6 +29,7 @@ import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
+import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
 
@@ -40,8 +46,7 @@ public class IamManagementAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	public PasswordEncoderPort passwordEncoderPort() {
-		org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder =
-				new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+		BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 		return new PasswordEncoderPort() {
 			@Override
 			public String encode(CharSequence rawPassword) {
@@ -75,8 +80,9 @@ public class IamManagementAutoConfiguration {
 			UserGroupMembershipRepository userGroupMembershipRepository,
 			RoleRepository roleRepository,
 			GroupRepository groupRepository,
-			org.springframework.beans.factory.ObjectProvider<io.github.edmaputra.iam.application.port.out.SessionRegistryPort> sessionRegistryProvider,
-			org.springframework.beans.factory.ObjectProvider<io.github.edmaputra.iam.application.port.out.TokenRevocationPort> tokenRevocationPortProvider) {
+			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
+			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider) {
 		return new UserManagementService(
 				userRepository,
 				passwordEncoder,
@@ -85,7 +91,8 @@ public class IamManagementAutoConfiguration {
 				roleRepository,
 				groupRepository,
 				sessionRegistryProvider.getIfAvailable(),
-				tokenRevocationPortProvider.getIfAvailable());
+				tokenRevocationPortProvider.getIfAvailable(),
+				userMfaRepositoryProvider.getIfAvailable());
 	}
 
 	/**
@@ -95,9 +102,9 @@ public class IamManagementAutoConfiguration {
 	@ConditionalOnMissingBean
 	public SessionManagementService sessionManagementService(
 			UserRepository userRepository,
-			org.springframework.beans.factory.ObjectProvider<io.github.edmaputra.iam.application.port.out.SessionRegistryPort> sessionRegistryProvider,
-			org.springframework.beans.factory.ObjectProvider<io.github.edmaputra.iam.application.port.out.TokenRevocationPort> tokenRevocationPortProvider,
-			org.springframework.beans.factory.ObjectProvider<io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort> loginAttemptTrackerProvider) {
+			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
+			ObjectProvider<LoginAttemptTrackerPort> loginAttemptTrackerProvider) {
 		return new SessionManagementService(
 				userRepository,
 				sessionRegistryProvider.getIfAvailable(),

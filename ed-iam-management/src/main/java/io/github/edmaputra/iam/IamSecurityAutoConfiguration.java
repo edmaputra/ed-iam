@@ -12,6 +12,7 @@ import io.github.edmaputra.iam.adapter.persistence.adapter.GroupRoleAssignmentRe
 import io.github.edmaputra.iam.adapter.persistence.adapter.RoleRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.UserGroupMembershipRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.UserIdentityRepositoryAdapter;
+import io.github.edmaputra.iam.adapter.persistence.adapter.UserMfaRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.UserRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.UserRoleAssignmentRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.repository.GroupJpaRepository;
@@ -20,6 +21,7 @@ import io.github.edmaputra.iam.adapter.persistence.repository.RoleJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserGroupMembershipJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserIdentityJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserJpaRepository;
+import io.github.edmaputra.iam.adapter.persistence.repository.UserMfaJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserRoleAssignmentJpaRepository;
 import io.github.edmaputra.iam.adapter.rest.IamExceptionHandler;
 import io.github.edmaputra.iam.adapter.security.IamResourceServerAutoConfiguration;
@@ -28,6 +30,7 @@ import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
+import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
 
@@ -83,5 +86,11 @@ public class IamSecurityAutoConfiguration {
 	@ConditionalOnMissingBean
 	public UserIdentityRepository userIdentityRepository(UserIdentityJpaRepository repository) {
 		return new UserIdentityRepositoryAdapter(repository);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public UserMfaRepository userMfaRepository(UserMfaJpaRepository repository) {
+		return new UserMfaRepositoryAdapter(repository);
 	}
 }

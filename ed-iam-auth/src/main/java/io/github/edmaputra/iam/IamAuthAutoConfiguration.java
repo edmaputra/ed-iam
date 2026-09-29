@@ -29,6 +29,7 @@ import io.github.edmaputra.iam.adapter.security.provider.ApiKeyAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.LocalPasswordAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.OidcAuthProvider;
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
+import io.github.edmaputra.iam.application.port.in.ManageMfaUseCase;
 import io.github.edmaputra.iam.application.port.out.ApiKeyValidatorPort;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProvider;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProviderRouter;
@@ -37,12 +38,14 @@ import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
 import io.github.edmaputra.iam.application.service.AuthenticationService;
 import io.github.edmaputra.iam.application.service.EffectiveAccessResolver;
 import io.github.edmaputra.iam.application.service.FederatedIdentityService;
+import io.github.edmaputra.iam.application.service.MfaService;
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
+import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
 import org.springframework.core.annotation.Order;
@@ -132,7 +135,8 @@ public class IamAuthAutoConfiguration {
 			ObjectProvider<LoginAttemptTrackerPort> loginAttemptTrackerProvider,
 			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
 			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
-			ObjectProvider<SessionProperties> sessionPropertiesProvider) {
+			ObjectProvider<SessionProperties> sessionPropertiesProvider,
+			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider) {
 
 		return new AuthenticationService(
 				authRouter,
@@ -140,6 +144,30 @@ public class IamAuthAutoConfiguration {
 				effectiveAccessResolver,
 				tokenProvider,
 				loginAttemptTrackerProvider.getIfAvailable(),
+				sessionRegistryProvider.getIfAvailable(),
+				tokenRevocationPortProvider.getIfAvailable(),
+				sessionPropertiesProvider.getIfAvailable(SessionProperties::defaultProperties),
+				userMfaRepositoryProvider.getIfAvailable());
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public ManageMfaUseCase manageMfaUseCase(
+			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			TokenProviderPort tokenProvider,
+			EffectiveAccessResolver effectiveAccessResolver,
+			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
+			ObjectProvider<SessionProperties> sessionPropertiesProvider) {
+
+		return new MfaService(
+				userMfaRepositoryProvider.getIfAvailable(),
+				userRepository,
+				passwordEncoder,
+				tokenProvider,
+				effectiveAccessResolver,
 				sessionRegistryProvider.getIfAvailable(),
 				tokenRevocationPortProvider.getIfAvailable(),
 				sessionPropertiesProvider.getIfAvailable(SessionProperties::defaultProperties));

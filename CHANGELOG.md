@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **RFC 6238 TOTP Multi-Factor Authentication (MFA) (Phase 1)**:
+  - Pure Java RFC 6238 TOTP engine (`TotpGenerator`) implementing HMAC-SHA1 (30s step, 6 digits), RFC 4648 Base32 encoding/decoding, drift window verification ($\pm 1$ time step), and standard `otpauth://` QR URI generation.
+  - Domain aggregate `UserMfa` maintaining Base32 secret, activation status, and single-use hashed recovery backup codes (`consumeBackupCode()`).
+  - Liquibase changelog migration creating `iam_user_mfa` table and JPA persistence adapter (`UserMfaRepositoryAdapter`, `UserMfaJpaEntity`, `UserMfaJpaRepository`).
+  - Two-step login challenge flow in `AuthenticationService` issuing transient cryptographically signed `mfaChallengeToken` (300s TTL) with `mfaRequired: true`.
+  - Self-service MFA REST endpoints in `AuthController` (`/api/v1/auth/mfa/*`):
+    - `GET /api/v1/auth/mfa/status`: Check MFA activation status.
+    - `POST /api/v1/auth/mfa/setup`: Generate Base32 secret, `otpauth://` QR URI, and 8 single-use backup recovery codes.
+    - `POST /api/v1/auth/mfa/activate`: Confirm and activate MFA with valid TOTP code.
+    - `POST /api/v1/auth/mfa/verify`: Complete login challenge with TOTP code or backup recovery code.
+    - `POST /api/v1/auth/mfa/disable`: Disable MFA with TOTP code or user account password.
+  - User lifecycle cleanup cascade deleting associated MFA configuration upon user deletion in `UserManagementService`.
+  - End-to-end integration test in `ed-iam-playground` verifying complete enrollment, login challenge, TOTP/backup code verification, backup code single-use consumption, replay prevention, and disabling.
+  - Sample HTTP requests added to `samples/ed-iam-playground/playground-requests.http`.
+
 ---
 
 ## [0.4.0] - 2026-09-28

@@ -1,5 +1,7 @@
 package io.github.edmaputra.iam.application.service;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -8,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import io.github.edmaputra.iam.adapter.security.session.SessionProperties;
 import io.github.edmaputra.iam.application.model.EffectiveAccess;
 import io.github.edmaputra.iam.application.model.RefreshTokenClaims;
 import io.github.edmaputra.iam.application.model.TokenResponse;
@@ -24,6 +27,9 @@ import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 import io.github.edmaputra.iam.domain.model.ProviderType;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserId;
+import io.github.edmaputra.iam.domain.model.UserMfa;
+import io.github.edmaputra.iam.domain.model.UserStatus;
+import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
@@ -280,9 +286,38 @@ class AuthenticationServiceTest {
 		verify(revocation).revokeToken(org.mockito.ArgumentMatchers.eq("logout-jti"), any());
 		verify(registry).revokeSession(session.id());
 
-		when(registry.findActiveSessions(userId, null)).thenReturn(java.util.List.of(session));
+		when(registry.findActiveSessions(userId, null)).thenReturn(List.of(session));
 		serviceWithSession.logoutAll(userId, null);
 		verify(revocation).revokeAllForUser(org.mockito.ArgumentMatchers.eq(userId), any());
+	}
+
+	@Test
+	@DisplayName("Should return MFA challenge token when user has MFA enabled")
+	void shouldIssueMfaChallengeWhenUserHasMfaEnabled() {
+		UserMfaRepository mfaRepository = mock(UserMfaRepository.class);
+
+		AuthenticationService mfaAuthService = new AuthenticationService(
+				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
+				null, null, null, SessionProperties.defaultProperties(),
+				mfaRepository);
+
+		UserId userId = UserId.generate();
+		User user = new User(userId, "mfa-user@clinic.org", "hash", "MFA User", UserStatus.ACTIVE, false, Instant.now(), Instant.now());
+		AuthenticatedIdentity identity = new AuthenticatedIdentity(userId, "mfa-user@clinic.org", "MFA User", false, ProviderType.LOCAL);
+
+		UserMfa mfa = UserMfa.create(userId, "SECRET", List.of());
+		mfa.activate();
+
+		when(authRouter.authenticate(any(PasswordAuthCredentials.class))).thenReturn(identity);
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(mfaRepository.findByUserId(userId)).thenReturn(Optional.of(mfa));
+		when(tokenProvider.createMfaChallengeToken(userId, null)).thenReturn("mfa-challenge-jwt");
+
+		TokenResponse response = mfaAuthService.login(LoginCommand.of("mfa-user@clinic.org", "Secret123!"));
+
+		assertThat(response.mfaRequired()).isTrue();
+		assertThat(response.mfaToken()).isEqualTo("mfa-challenge-jwt");
+		assertThat(response.accessToken()).isNull();
 	}
 }
 

@@ -8,6 +8,14 @@
   <link rel="alternate icon" type="image/x-icon" th:href="@{/favicon.ico}" href="/favicon.ico">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script th:src="@{/qrcode.min.js}" src="/qrcode.min.js"></script>
+  <script>
+    if (typeof QRCode === 'undefined') {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+      document.head.appendChild(s);
+    }
+  </script>
   <script>
     tailwind.config = {
       theme: {
@@ -35,7 +43,7 @@
         <img th:src="@{/ed-iam-icon-transparent.png}" src="/ed-iam-icon-transparent.png" alt="ed-iam logo" class="w-9 h-9 object-contain drop-shadow-md" />
         <div>
           <span class="font-bold text-lg text-white">ed-iam</span>
-          <span class="ml-2 text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">Playground v0.4.0</span>
+          <span class="ml-2 text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">Playground v0.5.0-SNAPSHOT</span>
         </div>
       </div>
       <div class="flex items-center space-x-4 text-sm">
@@ -82,6 +90,10 @@
 
           <button id="sessionsBtn" onclick="openSessionsModal()" class="hidden text-xs px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/20 transition">
             <i class="fa-solid fa-shield-halved mr-1"></i> Active Sessions
+          </button>
+
+          <button id="mfaBtn" onclick="openMfaModal()" class="hidden text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 transition">
+            <i class="fa-solid fa-key mr-1"></i> <span id="mfaBtnText">2FA / MFA</span>
           </button>
 
           <button id="logoutBtn" onclick="logout()" class="hidden text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition">
@@ -921,6 +933,11 @@
         logResponse(response.status, latency, data);
 
         if (response.ok) {
+          if (data && data.mfaRequired) {
+            promptMfaChallenge(data.mfaToken, email);
+            showCustomLoginFeedback(`Two-Factor Authentication required for ${email}`, false);
+            return true;
+          }
           currentToken = data.accessToken;
           currentRefreshToken = data.refreshToken;
           currentUser = data.user;
@@ -1213,7 +1230,9 @@
       document.getElementById('sessionAvatar').innerHTML = '<i class="fa-solid fa-user-doctor text-indigo-400"></i>';
       document.getElementById('logoutBtn').classList.remove('hidden');
       document.getElementById('sessionsBtn').classList.remove('hidden');
+      document.getElementById('mfaBtn').classList.remove('hidden');
       document.getElementById('permissionsBar').classList.remove('hidden');
+      refreshMfaStatus();
 
       // Tenant selector setup in top bar
       const availableTenants = user.availableTenantIds || [tenantId];
@@ -2173,6 +2192,285 @@
       document.getElementById('respLatency').textContent = `${latency}ms`;
       document.getElementById('responseInspector').textContent = JSON.stringify(data, null, 2);
     }
+
+    // =========================================================================
+    // Multi-Factor Authentication (MFA / TOTP) Handlers
+    // =========================================================================
+
+    let pendingMfaToken = null;
+    let currentMfaSetupData = null;
+
+    function promptMfaChallenge(mfaToken, email) {
+      pendingMfaToken = mfaToken;
+      document.getElementById('mfaChallengeEmail').textContent = email;
+      document.getElementById('mfaChallengeCodeInput').value = '';
+      const errEl = document.getElementById('mfaChallengeError');
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
+      document.getElementById('mfaChallengeModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('mfaChallengeCodeInput').focus(), 100);
+    }
+
+    function closeMfaChallengeModal() {
+      document.getElementById('mfaChallengeModal').classList.add('hidden');
+      pendingMfaToken = null;
+    }
+
+    async function submitMfaChallenge() {
+      const code = document.getElementById('mfaChallengeCodeInput').value.trim();
+      if (!code) return;
+      const feedback = document.getElementById('mfaChallengeError');
+      feedback.classList.add('hidden');
+
+      logRequest('POST', '/api/v1/auth/mfa/verify', {
+        headers: { 'Content-Type': 'application/json' },
+        body: { mfaToken: pendingMfaToken ? `${pendingMfaToken.substring(0, 15)}...` : null, code }
+      });
+
+      const startTime = performance.now();
+      try {
+        const res = await fetch('/api/v1/auth/mfa/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mfaToken: pendingMfaToken, code: code })
+        });
+        const latency = Math.round(performance.now() - startTime);
+        let data = null;
+        try { data = await res.json(); } catch(e) {}
+        logResponse(res.status, latency, data);
+
+        if (res.ok) {
+          currentToken = data.accessToken;
+          currentRefreshToken = data.refreshToken;
+          currentUser = data.user;
+          currentTenantId = data.user.tenantId;
+
+          localStorage.setItem('iam_token', currentToken);
+          localStorage.setItem('iam_refresh_token', currentRefreshToken);
+          localStorage.setItem('iam_user', JSON.stringify(currentUser));
+          localStorage.setItem('iam_tenant_id', currentTenantId);
+
+          closeMfaChallengeModal();
+          updateSessionUi(currentUser, currentTenantId);
+          await fetchActorContext();
+          showCustomLoginFeedback(`MFA Verified! Authenticated as ${currentUser.email}`, false);
+        } else {
+          const errMsg = data ? (data.detail || data.message || res.statusText) : res.statusText;
+          feedback.textContent = `Verification failed (${res.status}): ${errMsg}`;
+          feedback.classList.remove('hidden');
+        }
+      } catch (err) {
+        feedback.textContent = `Network error: ${err.message}`;
+        feedback.classList.remove('hidden');
+      }
+    }
+
+    async function openMfaModal() {
+      if (!currentToken) return;
+      document.getElementById('mfaModal').classList.remove('hidden');
+      await refreshMfaStatus();
+    }
+
+    function closeMfaModal() {
+      document.getElementById('mfaModal').classList.add('hidden');
+    }
+
+    async function refreshMfaStatus() {
+      if (!currentToken) return;
+      try {
+        const res = await fetch('/api/v1/auth/mfa/status', {
+          headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          renderMfaStatus(data.enabled);
+        }
+      } catch (e) {
+        console.error('Failed to query MFA status:', e);
+      }
+    }
+
+    function renderMfaStatus(enabled) {
+      const statusBadge = document.getElementById('mfaCurrentStatusBadge');
+      const disabledView = document.getElementById('mfaDisabledView');
+      const enabledView = document.getElementById('mfaEnabledView');
+      const setupStepView = document.getElementById('mfaSetupStepView');
+      const mfaBtnText = document.getElementById('mfaBtnText');
+
+      if (enabled) {
+        if (mfaBtnText) mfaBtnText.textContent = '2FA Active';
+        if (statusBadge) {
+          statusBadge.textContent = 'Active / Protected';
+          statusBadge.className = 'text-xs px-2.5 py-1 rounded-full font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        }
+        if (disabledView) disabledView.classList.add('hidden');
+        if (setupStepView) setupStepView.classList.add('hidden');
+        if (enabledView) enabledView.classList.remove('hidden');
+      } else {
+        if (mfaBtnText) mfaBtnText.textContent = '2FA Disabled';
+        if (statusBadge) {
+          statusBadge.textContent = 'Disabled';
+          statusBadge.className = 'text-xs px-2.5 py-1 rounded-full font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30';
+        }
+        if (enabledView) enabledView.classList.add('hidden');
+        if (setupStepView) setupStepView.classList.add('hidden');
+        if (disabledView) disabledView.classList.remove('hidden');
+      }
+    }
+
+    async function startMfaSetup() {
+      logRequest('POST', '/api/v1/auth/mfa/setup', {
+        headers: { 'Authorization': `Bearer ${currentToken.substring(0, 15)}...` }
+      });
+
+      const startTime = performance.now();
+      try {
+        const res = await fetch('/api/v1/auth/mfa/setup', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const latency = Math.round(performance.now() - startTime);
+        const data = await res.json();
+        logResponse(res.status, latency, data);
+
+        if (res.ok) {
+          currentMfaSetupData = data;
+          document.getElementById('mfaDisabledView').classList.add('hidden');
+          document.getElementById('mfaSetupStepView').classList.remove('hidden');
+
+          document.getElementById('mfaSecretDisplay').textContent = data.secret;
+          document.getElementById('mfaQrUriDisplay').textContent = data.qrCodeUri;
+
+          // Render QR Code
+          const qrCanvas = document.getElementById('mfaQrCodeCanvas');
+          if (qrCanvas) {
+            qrCanvas.innerHTML = '';
+            if (typeof QRCode !== 'undefined') {
+              try {
+                new QRCode(qrCanvas, {
+                  text: data.qrCodeUri,
+                  width: 140,
+                  height: 140,
+                  colorDark: '#0f172a',
+                  colorLight: '#ffffff',
+                  correctLevel: QRCode.CorrectLevel.M
+                });
+              } catch (qrErr) {
+                console.warn('QR code generation error:', qrErr);
+                qrCanvas.innerHTML = '<span class="text-[10px] text-slate-500 p-2 text-center">Scan error: use manual key</span>';
+              }
+            } else {
+              qrCanvas.innerHTML = '<span class="text-[10px] text-slate-500 p-2 text-center">QR unavailable: use manual key</span>';
+            }
+          }
+
+          const codesContainer = document.getElementById('mfaBackupCodesContainer');
+          codesContainer.innerHTML = (data.backupCodes || []).map(code =>
+            `<div class="p-1.5 rounded bg-slate-800 border border-slate-700 text-center font-mono text-emerald-300 font-semibold tracking-wider text-xs">${code}</div>`
+          ).join('');
+        } else {
+          alert('Failed to initiate MFA setup: ' + (data.detail || res.statusText));
+        }
+      } catch (err) {
+        alert('Network error initiating setup: ' + err.message);
+      }
+    }
+
+    async function activateMfa() {
+      const code = document.getElementById('mfaActivateCodeInput').value.trim();
+      if (!code) return;
+      const errorEl = document.getElementById('mfaActivateError');
+      errorEl.classList.add('hidden');
+
+      logRequest('POST', '/api/v1/auth/mfa/activate', {
+        headers: { 'Authorization': `Bearer ${currentToken.substring(0, 15)}...` },
+        body: { code: code }
+      });
+
+      const startTime = performance.now();
+      try {
+        const res = await fetch('/api/v1/auth/mfa/activate', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ code: code })
+        });
+        const latency = Math.round(performance.now() - startTime);
+        logResponse(res.status, latency, { status: res.status });
+
+        if (res.ok) {
+          document.getElementById('mfaActivateCodeInput').value = '';
+          await refreshMfaStatus();
+          alert('2FA successfully activated for your account!');
+        } else {
+          let data = null;
+          try { data = await res.json(); } catch(e) {}
+          const errMsg = data ? (data.detail || data.message || res.statusText) : res.statusText;
+          errorEl.textContent = `Activation failed (${res.status}): ${errMsg}`;
+          errorEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorEl.textContent = `Network error: ${err.message}`;
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    async function disableMfa() {
+      const codeOrPassword = document.getElementById('mfaDisableInput').value.trim();
+      if (!codeOrPassword) return;
+      const errorEl = document.getElementById('mfaDisableError');
+      errorEl.classList.add('hidden');
+
+      logRequest('POST', '/api/v1/auth/mfa/disable', {
+        headers: { 'Authorization': `Bearer ${currentToken.substring(0, 15)}...` },
+        body: { codeOrPassword: '***' }
+      });
+
+      const startTime = performance.now();
+      try {
+        const res = await fetch('/api/v1/auth/mfa/disable', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ codeOrPassword: codeOrPassword })
+        });
+        const latency = Math.round(performance.now() - startTime);
+        logResponse(res.status, latency, { status: res.status });
+
+        if (res.ok) {
+          document.getElementById('mfaDisableInput').value = '';
+          await refreshMfaStatus();
+          alert('2FA has been disabled.');
+        } else {
+          let data = null;
+          try { data = await res.json(); } catch(e) {}
+          const errMsg = data ? (data.detail || data.message || res.statusText) : res.statusText;
+          errorEl.textContent = `Disable failed (${res.status}): ${errMsg}`;
+          errorEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorEl.textContent = `Network error: ${err.message}`;
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    function copyToClipboard(elementId, btn) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const text = el.textContent.trim();
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-check mr-1 text-emerald-400"></i> Copied!';
+        setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+      });
+    }
   </script>
 
   <!-- Active Sessions Modal -->
@@ -2199,6 +2497,172 @@
           <i class="fa-solid fa-power-off"></i> Terminate All Sessions
         </button>
         <button onclick="closeSessionsModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-medium transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MFA Challenge Modal (During Login) -->
+  <div id="mfaChallengeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-key text-emerald-400 text-lg"></i>
+          <h3 class="font-bold text-white text-base">Two-Factor Authentication</h3>
+        </div>
+        <button onclick="closeMfaChallengeModal()" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        Account <strong id="mfaChallengeEmail" class="text-indigo-300 font-mono"></strong> requires a second factor. Enter the 6-digit TOTP code from your authenticator app (or an 8-character backup recovery code):
+      </p>
+
+      <form id="mfaChallengeForm" onsubmit="event.preventDefault(); submitMfaChallenge();" class="space-y-4">
+        <div>
+          <label for="mfaChallengeCodeInput" class="block text-xs font-medium text-slate-400 mb-1">Verification Code / Backup Code</label>
+          <input type="text" id="mfaChallengeCodeInput" required placeholder="e.g. 123456 or ABCD-EFGH" autofocus
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-center text-lg font-mono tracking-widest text-emerald-300 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase">
+        </div>
+
+        <div id="mfaChallengeError" class="hidden text-xs px-3 py-2 rounded-lg font-mono bg-red-500/10 text-red-300 border border-red-500/30"></div>
+
+        <div class="flex items-center justify-between pt-2">
+          <button type="button" onclick="closeMfaChallengeModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-medium transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/30 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-lock-open"></i> Verify & Sign In
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MFA Settings & Enrollment Modal -->
+  <div id="mfaModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-8">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved text-emerald-400 text-lg"></i>
+          <h3 class="font-bold text-white text-base">Two-Factor Authentication (MFA / TOTP)</h3>
+        </div>
+        <button onclick="closeMfaModal()" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between bg-slate-950/70 border border-slate-800 rounded-xl p-3.5">
+        <div>
+          <span class="text-xs text-slate-400 block">Current Status</span>
+          <span class="text-xs text-slate-200">RFC 6238 Time-Based One-Time Password</span>
+        </div>
+        <span id="mfaCurrentStatusBadge" class="text-xs px-2.5 py-1 rounded-full font-mono bg-slate-700 text-slate-300">Checking...</span>
+      </div>
+
+      <!-- State A: MFA is Disabled (Prompt to Enroll) -->
+      <div id="mfaDisabledView" class="hidden space-y-4">
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Enhance your account security with two-factor authentication. When enabled, signing in will require your account password and a 6-digit TOTP code generated by Google Authenticator, Microsoft Authenticator, or 1Password.
+        </p>
+        <button onclick="startMfaSetup()" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-qrcode"></i> Begin 2FA Setup
+        </button>
+      </div>
+
+      <!-- State B: MFA Setup in Progress (Secret, URI, Backup Codes & Activation) -->
+      <div id="mfaSetupStepView" class="hidden space-y-4">
+        <!-- QR Code & Key Container -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+          <div class="flex flex-col sm:flex-row items-center gap-5">
+            <!-- QR Code Card -->
+            <div class="flex flex-col items-center flex-shrink-0">
+              <div class="p-2.5 bg-white rounded-xl shadow-lg border border-slate-300">
+                <div id="mfaQrCodeCanvas" class="w-[140px] h-[140px] flex items-center justify-center"></div>
+              </div>
+              <span class="text-[11px] text-slate-400 mt-2 flex items-center gap-1.5 font-medium">
+                <i class="fa-solid fa-qrcode text-emerald-400"></i> Scan with Authenticator
+              </span>
+            </div>
+
+            <!-- Manual Entry / Provisioning Details -->
+            <div class="flex-1 space-y-3 w-full">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-xs font-semibold text-slate-300">1. Manual Secret Key</span>
+                  <button onclick="copyToClipboard('mfaSecretDisplay', this)" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-mono transition">
+                    <i class="fa-solid fa-copy mr-1"></i> Copy Secret
+                  </button>
+                </div>
+                <div id="mfaSecretDisplay" class="p-2 rounded-lg bg-slate-900 border border-slate-700/80 font-mono text-center text-xs text-emerald-300 tracking-widest break-all select-all font-semibold"></div>
+              </div>
+
+              <div class="pt-2 border-t border-slate-800/80">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-xs font-semibold text-slate-300">2. Provisioning URI (<code class="text-emerald-400">otpauth://</code>)</span>
+                  <button onclick="copyToClipboard('mfaQrUriDisplay', this)" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-mono transition">
+                    <i class="fa-solid fa-copy mr-1"></i> Copy URI
+                  </button>
+                </div>
+                <div id="mfaQrUriDisplay" class="p-2 rounded bg-slate-900 border border-slate-800 font-mono text-[10px] text-slate-400 break-all select-all max-h-14 overflow-y-auto"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Backup Recovery Codes -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300">3. Single-Use Backup Recovery Codes</span>
+            <span class="text-[10px] text-amber-400 font-mono">Save these safely!</span>
+          </div>
+          <p class="text-[11px] text-slate-400">Each code can be consumed once if you lose access to your authenticator app:</p>
+          <div id="mfaBackupCodesContainer" class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1"></div>
+        </div>
+
+        <!-- Step 4: Verification Code to Activate -->
+        <div class="bg-indigo-950/20 border border-indigo-500/30 rounded-xl p-4 space-y-3">
+          <span class="text-xs font-semibold text-white block">4. Confirm Code to Activate 2FA</span>
+          <p class="text-[11px] text-slate-300">Enter the 6-digit code currently displayed in your authenticator app to activate:</p>
+          <div class="flex gap-2">
+            <input type="text" id="mfaActivateCodeInput" maxlength="6" placeholder="000000"
+              class="w-36 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-center text-base font-mono tracking-widest text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <button onclick="activateMfa()" class="flex-1 py-2 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/30 transition flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-check"></i> Activate 2FA
+            </button>
+          </div>
+          <div id="mfaActivateError" class="hidden text-xs px-3 py-2 rounded-lg font-mono bg-red-500/10 text-red-300 border border-red-500/30"></div>
+        </div>
+      </div>
+
+      <!-- State C: MFA is Enabled (Active Protection & Disable Option) -->
+      <div id="mfaEnabledView" class="hidden space-y-4">
+        <div class="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-3">
+          <i class="fa-solid fa-circle-check text-emerald-400 text-2xl"></i>
+          <div>
+            <span class="text-xs font-semibold text-white block">Two-Factor Authentication is Active</span>
+            <span class="text-[11px] text-slate-300">Your account requires an authenticator TOTP code or backup recovery code on every login.</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+          <span class="text-xs font-semibold text-red-400 block">Disable Two-Factor Authentication</span>
+          <p class="text-[11px] text-slate-400">To disable 2FA, enter your current 6-digit TOTP code or your account password:</p>
+          <div class="flex gap-2">
+            <input type="password" id="mfaDisableInput" placeholder="TOTP code or Password"
+              class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500">
+            <button onclick="disableMfa()" class="py-2 px-4 rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 text-xs font-medium transition flex items-center gap-1.5">
+              <i class="fa-solid fa-ban"></i> Disable 2FA
+            </button>
+          </div>
+          <div id="mfaDisableError" class="hidden text-xs px-3 py-2 rounded-lg font-mono bg-red-500/10 text-red-300 border border-red-500/30"></div>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-3 border-t border-slate-800">
+        <button onclick="closeMfaModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-medium transition">
           Close
         </button>
       </div>
