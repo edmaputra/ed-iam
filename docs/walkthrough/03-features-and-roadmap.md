@@ -99,13 +99,24 @@ This document outlines the operational capabilities available in the current rel
   * `POST /api/v1/users/{id}/unlock` (`iam:user:update`): Instantly unlock an account and reset failed attempts.
 * **Lifecycle Synchronization**: Automatic session termination and token revocation upon user account suspension (`SUSPENDED`/`DEACTIVATED`) or account deletion.
 
+### 2.7 Multi-Factor Authentication (MFA / TOTP)
+* **RFC 6238 Domain Engine (`TotpGenerator`)**: 100% pure Java implementation of HMAC-SHA1 time-based one-time password algorithm (30s step, 6 digits) with RFC 4648 Base32 encoding/decoding and clock drift tolerance ($\pm 1$ time step).
+* **Two-Step Login Challenge Integration**: When MFA is activated for a user account, password authentication returns a transient, cryptographically signed `mfaChallengeToken` (300s TTL) with `mfaRequired: true`. Full access and refresh tokens are only granted upon successful TOTP verification at `/api/v1/auth/mfa/verify`.
+* **Single-Use Backup Recovery Codes**: Enrollment generates 8 alphanumeric recovery codes (`XXXX-XXXX`) stored as salted SHA-256 hashes in `iam_user_mfa`. Each code can be consumed exactly once for emergency recovery and cannot be replayed.
+* **MFA Self-Service REST Endpoints (`/api/v1/auth/mfa/*`)**:
+  * `GET /api/v1/auth/mfa/status`: Inspect whether MFA is currently enabled.
+  * `POST /api/v1/auth/mfa/setup`: Generates new Base32 secret, `otpauth://` QR URI, and backup recovery codes.
+  * `POST /api/v1/auth/mfa/activate`: Confirms code verification before permanently enabling MFA.
+  * `POST /api/v1/auth/mfa/verify`: Validates MFA challenge token using either TOTP code or backup code.
+  * `POST /api/v1/auth/mfa/disable`: Disables MFA verified by TOTP code or user account password.
+
 ---
 
 ## 3. Product Roadmap
 
 ```
   ┌────────────────────────────────────────────────────────┐
-  │                 COMPLETED (v0.1.0 - v0.3.0)            │
+  │                 COMPLETED (v0.1.0 - v0.5.0)            │
   │  ✓ Hexagonal Domain Kernel (ed-iam-core)               │
   │  ✓ ScopedValue & Declarative Security (resource-server)│
   │  ✓ Pluggable Auth Router & EffectiveAccess (auth)      │
@@ -113,13 +124,13 @@ This document outlines the operational capabilities available in the current rel
   │  ✓ User Dynamic Filtering & Pagination                 │
   │  ✓ Interactive Multi-Tenant Clinical Playground        │
   │  ✓ Token Revocation & Session Management (Phase 3)     │
+  │  ✓ RFC 6238 TOTP Multi-Factor Authentication (Phase 1) │
   └───────────────────────────┬────────────────────────────┘
                               │
                               ▼
   ┌────────────────────────────────────────────────────────┐
-  │                 PHASE 1: ENTERPRISE AUTH & MFA         │
+  │                 PHASE 1: ENTERPRISE AUTH (IN PROGRESS) │
   │  - SAML 2.0 Web SSO Provider                           │
-  │  - RFC 6238 TOTP Multi-Factor Authentication           │
   │  - Passwordless Magic Link Provider                    │
   └───────────────────────────┬────────────────────────────┘
                               │
@@ -160,7 +171,7 @@ This document outlines the operational capabilities available in the current rel
 
 #### Phase 1: Enterprise Authentication & MFA
 - [ ] **SAML 2.0 Web SSO Provider**: Enterprise SAML assertion consumer service (ACS) for enterprise hospital and university SSO.
-- [ ] **Multi-Factor Authentication (MFA / TOTP)**: RFC 6238 time-based one-time password verification (Google Authenticator, Microsoft Authenticator).
+- [x] **Multi-Factor Authentication (MFA / TOTP)**: RFC 6238 time-based one-time password verification (Google Authenticator, Microsoft Authenticator), RFC 4648 Base32 secret generation, `otpauth://` QR URI provisioning, SHA-256 single-use recovery backup codes, and two-step login challenge flow (`/api/v1/auth/mfa/*`).
 - [ ] **Magic Link & Passwordless Provider**: One-time email token authentication flows.
 
 #### Phase 2: Attribute-Based Access Control (ABAC)

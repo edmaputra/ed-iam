@@ -1,5 +1,7 @@
 package io.github.edmaputra.iam.adapter.rest;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -10,14 +12,23 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import io.github.edmaputra.iam.adapter.rest.dto.LoginRequest;
+import io.github.edmaputra.iam.adapter.rest.dto.MfaActivateRequest;
+import io.github.edmaputra.iam.adapter.rest.dto.MfaDisableRequest;
+import io.github.edmaputra.iam.adapter.rest.dto.MfaLoginVerifyRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.RefreshTokenRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.SwitchTenantRequest;
+import io.github.edmaputra.iam.adapter.rest.dto.UserSessionResponse;
+import io.github.edmaputra.iam.application.model.MfaSetupResponse;
+import io.github.edmaputra.iam.application.model.MfaStatusResponse;
 import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.model.UserProfileResponse;
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
 import io.github.edmaputra.iam.application.port.in.LoginCommand;
+import io.github.edmaputra.iam.application.port.in.ManageMfaUseCase;
 import io.github.edmaputra.iam.application.port.in.RefreshTokenCommand;
 import io.github.edmaputra.iam.application.port.in.SwitchTenantCommand;
+import io.github.edmaputra.iam.domain.model.UserId;
+import io.github.edmaputra.iam.domain.model.UserSession;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 
@@ -38,13 +49,15 @@ class AuthControllerTest {
 
 	private AuthenticateUserUseCase authenticateUserUseCase;
 	private CurrentActorProvider currentActorProvider;
+	private ManageMfaUseCase manageMfaUseCase;
 	private AuthController controller;
 
 	@BeforeEach
 	void setUp() {
 		authenticateUserUseCase = mock(AuthenticateUserUseCase.class);
 		currentActorProvider = mock(CurrentActorProvider.class);
-		controller = new AuthController(authenticateUserUseCase, currentActorProvider);
+		manageMfaUseCase = mock(ManageMfaUseCase.class);
+		controller = new AuthController(authenticateUserUseCase, currentActorProvider, manageMfaUseCase);
 	}
 
 	@Test
@@ -165,23 +178,105 @@ class AuthControllerTest {
 		when(actor.tokenId()).thenReturn("token-current");
 		when(currentActorProvider.requireCurrentActor()).thenReturn(actor);
 
-		io.github.edmaputra.iam.domain.model.UserSession session = io.github.edmaputra.iam.domain.model.UserSession.create(
-				new io.github.edmaputra.iam.domain.model.UserId(actorId),
+		UserSession session = UserSession.create(
+				new UserId(actorId),
 				null,
 				"token-current",
 				3600,
 				"127.0.0.1",
 				"Test-Agent");
 
-		when(authenticateUserUseCase.getActiveSessions(new io.github.edmaputra.iam.domain.model.UserId(actorId), null))
-				.thenReturn(java.util.List.of(session));
+		when(authenticateUserUseCase.getActiveSessions(new UserId(actorId), null))
+				.thenReturn(List.of(session));
 
-		ResponseEntity<java.util.List<io.github.edmaputra.iam.adapter.rest.dto.UserSessionResponse>> response = controller.getSessions();
+		ResponseEntity<List<UserSessionResponse>> response = controller.getSessions();
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(response.getBody()).hasSize(1);
 		assertThat(response.getBody().get(0).current()).isTrue();
 		assertThat(response.getBody().get(0).tokenIdentifier()).isEqualTo("token-current");
+	}
+
+	@Test
+	@DisplayName("Should verify MFA login challenge and return token response")
+	void shouldVerifyMfaLogin() {
+		UserProfileResponse profile = new UserProfileResponse(UUID.randomUUID(), "user@clinic.org", "User", null, false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+		TokenResponse expected = new TokenResponse("access-token", "refresh-token", "Bearer", 900L, profile);
+		when(manageMfaUseCase.verifyLogin(any())).thenReturn(expected);
+
+		MfaLoginVerifyRequest request = new MfaLoginVerifyRequest("mfa-token", "123456");
+
+		ResponseEntity<TokenResponse> response = controller.verifyMfa(request, null);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isSameAs(expected);
+		verify(manageMfaUseCase).verifyLogin(any());
+	}
+
+	@Test
+	@DisplayName("Should retrieve MFA status for calling actor")
+	void shouldGetMfaStatus() {
+		UUID actorId = UUID.randomUUID();
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.userId()).thenReturn(actorId);
+		when(currentActorProvider.requireCurrentActor()).thenReturn(actor);
+
+		MfaStatusResponse expected = new MfaStatusResponse(true, Instant.now());
+		when(manageMfaUseCase.getStatus(new UserId(actorId))).thenReturn(expected);
+
+		ResponseEntity<MfaStatusResponse> response = controller.getMfaStatus();
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isSameAs(expected);
+	}
+
+	@Test
+	@DisplayName("Should initiate MFA setup for calling actor")
+	void shouldSetupMfa() {
+		UUID actorId = UUID.randomUUID();
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.userId()).thenReturn(actorId);
+		when(currentActorProvider.requireCurrentActor()).thenReturn(actor);
+
+		MfaSetupResponse expected = new MfaSetupResponse("SECRET", "otpauth://...", List.of("C1", "C2"));
+		when(manageMfaUseCase.initiateSetup(new UserId(actorId), "ed-iam")).thenReturn(expected);
+
+		ResponseEntity<MfaSetupResponse> response = controller.setupMfa();
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isSameAs(expected);
+	}
+
+	@Test
+	@DisplayName("Should activate MFA for calling actor")
+	void shouldActivateMfa() {
+		UUID actorId = UUID.randomUUID();
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.userId()).thenReturn(actorId);
+		when(currentActorProvider.requireCurrentActor()).thenReturn(actor);
+
+		MfaActivateRequest request = new MfaActivateRequest("123456");
+
+		ResponseEntity<Void> response = controller.activateMfa(request);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		verify(manageMfaUseCase).activate(new UserId(actorId), "123456");
+	}
+
+	@Test
+	@DisplayName("Should disable MFA for calling actor")
+	void shouldDisableMfa() {
+		UUID actorId = UUID.randomUUID();
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.userId()).thenReturn(actorId);
+		when(currentActorProvider.requireCurrentActor()).thenReturn(actor);
+
+		MfaDisableRequest request = new MfaDisableRequest("123456");
+
+		ResponseEntity<Void> response = controller.disableMfa(request);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		verify(manageMfaUseCase).disable(new UserId(actorId), "123456");
 	}
 }
 

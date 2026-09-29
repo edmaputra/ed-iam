@@ -2,6 +2,7 @@ package io.github.edmaputra.iam.playground;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,6 +14,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 
 import com.jayway.jsonpath.JsonPath;
 
+import io.github.edmaputra.iam.domain.auth.mfa.TotpGenerator;
 import io.github.edmaputra.iam.playground.seeder.PlaygroundDataSeeder;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,6 +57,8 @@ class PlaygroundApplicationTests {
 					assertThat(html).contains("Dr. Gregory House");
 					assertThat(html).contains("Custom Credentials Login");
 					assertThat(html).contains("customLoginForm");
+					assertThat(html).contains("mfaModal");
+					assertThat(html).contains("mfaChallengeModal");
 				});
 	}
 
@@ -634,5 +638,298 @@ class PlaygroundApplicationTests {
 				})
 				.exchange()
 				.expectStatus().isNoContent();
+	}
+
+	@Test
+	@DisplayName("Should complete MFA enrollment, enforce TOTP/backup login challenge, and support disabling MFA")
+	void shouldSupportMfaLifecycleAndEnforceLoginChallenge() {
+		// 1. Authenticate as Admin
+		byte[] adminLoginResponse = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s"
+						}
+						""".formatted(PlaygroundDataSeeder.ADMIN_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String adminToken = JsonPath.read(new String(adminLoginResponse), "$.accessToken");
+
+		// 2. Admin creates a fresh user for MFA tests
+		String mfaEmail = "mfa-test-" + UUID.randomUUID().toString().substring(0, 8) + "@metro.org";
+		String mfaPassword = "MfaPassword123!";
+		webTestClient.post()
+				.uri("/api/v1/users")
+				.headers(headers -> {
+					headers.setBearerAuth(adminToken);
+					headers.add("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString());
+				})
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s",
+						    "fullName": "MFA Test User",
+						    "platformSuperAdmin": false
+						}
+						""".formatted(mfaEmail, mfaPassword))
+				.exchange()
+				.expectStatus().isCreated();
+
+		// 3. User logs in with password (MFA not yet configured -> returns access token directly)
+		byte[] initialLoginResponse = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s"
+						}
+						""".formatted(mfaEmail, mfaPassword))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.mfaRequired").isEqualTo(false)
+				.jsonPath("$.accessToken").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String userToken = JsonPath.read(new String(initialLoginResponse), "$.accessToken");
+
+		// 4. Verify initial MFA status is false
+		webTestClient.get()
+				.uri("/api/v1/auth/mfa/status")
+				.headers(headers -> headers.setBearerAuth(userToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.enabled").isEqualTo(false);
+
+		// 5. Initiate MFA setup
+		byte[] setupResponse = webTestClient.post()
+				.uri("/api/v1/auth/mfa/setup")
+				.headers(headers -> headers.setBearerAuth(userToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.secret").isNotEmpty()
+				.jsonPath("$.qrCodeUri").isNotEmpty()
+				.jsonPath("$.backupCodes.length()").isEqualTo(8)
+				.returnResult().getResponseBody();
+
+		String secret = JsonPath.read(new String(setupResponse), "$.secret");
+		List<String> backupCodes = JsonPath.read(new String(setupResponse), "$.backupCodes");
+		assertThat(secret).isNotBlank();
+		assertThat(backupCodes).hasSize(8);
+
+		// 6. Activating with an invalid code should fail
+		webTestClient.post()
+				.uri("/api/v1/auth/mfa/activate")
+				.headers(headers -> headers.setBearerAuth(userToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "code": "000000"
+						}
+						""")
+				.exchange()
+				.expectStatus().isUnauthorized();
+
+		// 7. Activate MFA with valid TOTP code
+		String validTotp = TotpGenerator.generateCurrentTotp(secret);
+		webTestClient.post()
+				.uri("/api/v1/auth/mfa/activate")
+				.headers(headers -> headers.setBearerAuth(userToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "code": "%s"
+						}
+						""".formatted(validTotp))
+				.exchange()
+				.expectStatus().isNoContent();
+
+		// 8. Verify MFA status is now enabled
+		webTestClient.get()
+				.uri("/api/v1/auth/mfa/status")
+				.headers(headers -> headers.setBearerAuth(userToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.enabled").isEqualTo(true);
+
+		// 9. Next login attempt MUST return MFA challenge instead of access token
+		byte[] challengeResponse = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s"
+						}
+						""".formatted(mfaEmail, mfaPassword))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.mfaRequired").isEqualTo(true)
+				.jsonPath("$.mfaToken").isNotEmpty()
+				.jsonPath("$.accessToken").doesNotExist()
+				.returnResult().getResponseBody();
+
+		String mfaToken = JsonPath.read(new String(challengeResponse), "$.mfaToken");
+
+		// 10. Verification with bad code fails
+		webTestClient.post()
+				.uri("/api/v1/auth/mfa/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "mfaToken": "%s",
+						    "code": "123456"
+						}
+						""".formatted(mfaToken))
+				.exchange()
+				.expectStatus().isUnauthorized();
+
+		// 11. Verification with valid TOTP succeeds and issues full JWT token pair
+		String loginTotp = TotpGenerator.generateCurrentTotp(secret);
+		byte[] verifiedTokenResponse = webTestClient.post()
+				.uri("/api/v1/auth/mfa/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "mfaToken": "%s",
+						    "code": "%s"
+						}
+						""".formatted(mfaToken, loginTotp))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.mfaRequired").isEqualTo(false)
+				.jsonPath("$.accessToken").isNotEmpty()
+				.jsonPath("$.refreshToken").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String verifiedAccessToken = JsonPath.read(new String(verifiedTokenResponse), "$.accessToken");
+
+		// 12. Token can access protected endpoints (e.g. GET /api/v1/auth/me)
+		webTestClient.get()
+				.uri("/api/v1/auth/me")
+				.headers(headers -> headers.setBearerAuth(verifiedAccessToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.email").isEqualTo(mfaEmail);
+
+		// 13. Login again to test backup code authentication
+		byte[] secondChallengeResponse = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s"
+						}
+						""".formatted(mfaEmail, mfaPassword))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.mfaRequired").isEqualTo(true)
+				.returnResult().getResponseBodyContent();
+
+		String secondMfaToken = JsonPath.read(new String(secondChallengeResponse), "$.mfaToken");
+		String firstBackupCode = backupCodes.get(0);
+
+		// 14. Verify challenge using backup code
+		byte[] backupCodeVerifiedResponse = webTestClient.post()
+				.uri("/api/v1/auth/mfa/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "mfaToken": "%s",
+						    "code": "%s"
+						}
+						""".formatted(secondMfaToken, firstBackupCode))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String backupAccessToken = JsonPath.read(new String(backupCodeVerifiedResponse), "$.accessToken");
+		assertThat(backupAccessToken).isNotBlank();
+
+		// 15. Attempting to reuse the exact same backup code in a subsequent challenge MUST fail (single-use)
+		byte[] thirdChallengeResponse = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s"
+						}
+						""".formatted(mfaEmail, mfaPassword))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.returnResult().getResponseBodyContent();
+
+		String thirdMfaToken = JsonPath.read(new String(thirdChallengeResponse), "$.mfaToken");
+
+		webTestClient.post()
+				.uri("/api/v1/auth/mfa/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "mfaToken": "%s",
+						    "code": "%s"
+						}
+						""".formatted(thirdMfaToken, firstBackupCode))
+				.exchange()
+				.expectStatus().isUnauthorized();
+
+		// 16. Disable MFA with valid TOTP code
+		String disableTotp = TotpGenerator.generateCurrentTotp(secret);
+		webTestClient.post()
+				.uri("/api/v1/auth/mfa/disable")
+				.headers(headers -> headers.setBearerAuth(backupAccessToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "codeOrPassword": "%s"
+						}
+						""".formatted(disableTotp))
+				.exchange()
+				.expectStatus().isNoContent();
+
+		// 17. Verify MFA status is disabled
+		webTestClient.get()
+				.uri("/api/v1/auth/mfa/status")
+				.headers(headers -> headers.setBearerAuth(backupAccessToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.enabled").isEqualTo(false);
+
+		// 18. User logs in normally without MFA challenge
+		webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s",
+						    "password": "%s"
+						}
+						""".formatted(mfaEmail, mfaPassword))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.mfaRequired").isEqualTo(false)
+				.jsonPath("$.accessToken").isNotEmpty();
 	}
 }

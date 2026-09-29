@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -31,7 +32,9 @@ import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
 import io.github.edmaputra.iam.domain.model.LockoutStatus;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserId;
+import io.github.edmaputra.iam.domain.model.UserMfa;
 import io.github.edmaputra.iam.domain.model.UserSession;
+import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
@@ -55,9 +58,34 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 	private final SessionRegistryPort sessionRegistry;
 	private final TokenRevocationPort tokenRevocationPort;
 	private final SessionProperties sessionProperties;
+	private final UserMfaRepository userMfaRepository;
 
 	/**
-	 * Canonical constructor with session and lockout dependencies.
+	 * Canonical constructor with session, lockout, and MFA dependencies.
+	 */
+	public AuthenticationService(
+			AuthenticationProviderRouter authRouter,
+			UserRepository userRepository,
+			EffectiveAccessResolver effectiveAccessResolver,
+			TokenProviderPort tokenProvider,
+			LoginAttemptTrackerPort loginAttemptTracker,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			SessionProperties sessionProperties,
+			UserMfaRepository userMfaRepository) {
+		this.authRouter = Objects.requireNonNull(authRouter, "AuthenticationProviderRouter must not be null.");
+		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
+		this.effectiveAccessResolver = Objects.requireNonNull(effectiveAccessResolver, "EffectiveAccessResolver must not be null.");
+		this.tokenProvider = Objects.requireNonNull(tokenProvider, "TokenProviderPort must not be null.");
+		this.loginAttemptTracker = loginAttemptTracker;
+		this.sessionRegistry = sessionRegistry;
+		this.tokenRevocationPort = tokenRevocationPort;
+		this.sessionProperties = sessionProperties != null ? sessionProperties : SessionProperties.defaultProperties();
+		this.userMfaRepository = userMfaRepository;
+	}
+
+	/**
+	 * Constructor with session and lockout dependencies.
 	 */
 	public AuthenticationService(
 			AuthenticationProviderRouter authRouter,
@@ -68,14 +96,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			SessionRegistryPort sessionRegistry,
 			TokenRevocationPort tokenRevocationPort,
 			SessionProperties sessionProperties) {
-		this.authRouter = Objects.requireNonNull(authRouter, "AuthenticationProviderRouter must not be null.");
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-		this.effectiveAccessResolver = Objects.requireNonNull(effectiveAccessResolver, "EffectiveAccessResolver must not be null.");
-		this.tokenProvider = Objects.requireNonNull(tokenProvider, "TokenProviderPort must not be null.");
-		this.loginAttemptTracker = loginAttemptTracker;
-		this.sessionRegistry = sessionRegistry;
-		this.tokenRevocationPort = tokenRevocationPort;
-		this.sessionProperties = sessionProperties != null ? sessionProperties : SessionProperties.defaultProperties();
+		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, loginAttemptTracker, sessionRegistry, tokenRevocationPort, sessionProperties, null);
 	}
 
 	/**
@@ -86,7 +107,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			UserRepository userRepository,
 			EffectiveAccessResolver effectiveAccessResolver,
 			TokenProviderPort tokenProvider) {
-		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, null, null, null, SessionProperties.defaultProperties());
+		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, null, null, null, SessionProperties.defaultProperties(), null);
 	}
 
 	@Override
@@ -119,6 +140,14 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 
 		User user = userRepository.findById(identity.userId())
 				.orElseThrow(() -> new UserNotFoundException(identity.userId()));
+
+		if (userMfaRepository != null) {
+			Optional<UserMfa> mfaOpt = userMfaRepository.findByUserId(user.getId());
+			if (mfaOpt.isPresent() && mfaOpt.get().isEnabled()) {
+				String mfaChallengeToken = tokenProvider.createMfaChallengeToken(user.getId(), command.tenantId());
+				return TokenResponse.mfaChallenge(mfaChallengeToken);
+			}
+		}
 
 		EffectiveAccess effectiveAccess = effectiveAccessResolver.resolve(user, command.tenantId());
 

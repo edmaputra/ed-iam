@@ -31,6 +31,7 @@ import io.github.edmaputra.iam.domain.model.UserSession;
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
+import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
 
@@ -51,6 +52,28 @@ public class UserManagementService implements ManageUserUseCase {
 	private final GroupRepository groupRepository;
 	private final SessionRegistryPort sessionRegistry;
 	private final TokenRevocationPort tokenRevocationPort;
+	private final UserMfaRepository userMfaRepository;
+
+	public UserManagementService(
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			UserRoleAssignmentRepository userRoleAssignmentRepository,
+			UserGroupMembershipRepository userGroupMembershipRepository,
+			RoleRepository roleRepository,
+			GroupRepository groupRepository,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			UserMfaRepository userMfaRepository) {
+		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
+		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
+		this.userRoleAssignmentRepository = Objects.requireNonNull(userRoleAssignmentRepository, "UserRoleAssignmentRepository must not be null.");
+		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
+		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
+		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
+		this.sessionRegistry = sessionRegistry;
+		this.tokenRevocationPort = tokenRevocationPort;
+		this.userMfaRepository = userMfaRepository;
+	}
 
 	public UserManagementService(
 			UserRepository userRepository,
@@ -61,14 +84,7 @@ public class UserManagementService implements ManageUserUseCase {
 			GroupRepository groupRepository,
 			SessionRegistryPort sessionRegistry,
 			TokenRevocationPort tokenRevocationPort) {
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
-		this.userRoleAssignmentRepository = Objects.requireNonNull(userRoleAssignmentRepository, "UserRoleAssignmentRepository must not be null.");
-		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
-		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
-		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
-		this.sessionRegistry = sessionRegistry;
-		this.tokenRevocationPort = tokenRevocationPort;
+		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, sessionRegistry, tokenRevocationPort, null);
 	}
 
 	public UserManagementService(
@@ -78,7 +94,7 @@ public class UserManagementService implements ManageUserUseCase {
 			UserGroupMembershipRepository userGroupMembershipRepository,
 			RoleRepository roleRepository,
 			GroupRepository groupRepository) {
-		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, null, null);
+		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, null, null, null);
 	}
 
 	@Override
@@ -148,6 +164,9 @@ public class UserManagementService implements ManageUserUseCase {
 	public void deleteUser(UserId id) {
 		Objects.requireNonNull(id, "UserId must not be null.");
 		revokeUserSessions(id);
+		if (userMfaRepository != null) {
+			userMfaRepository.deleteByUserId(id);
+		}
 		userRepository.delete(id);
 	}
 

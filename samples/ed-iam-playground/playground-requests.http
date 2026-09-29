@@ -390,3 +390,77 @@ X-Tenant-ID: {{metroTenantId}}
 POST {{baseUrl}}/api/v1/users/{{newUserId}}/unlock
 Authorization: Bearer {{adminToken}}
 X-Tenant-ID: {{metroTenantId}}
+
+# =============================================================================
+# 8. MULTI-FACTOR AUTHENTICATION (MFA / TOTP)
+# =============================================================================
+
+### 8.1 Check MFA Status for Current Actor (GET /api/v1/auth/mfa/status)
+GET {{baseUrl}}/api/v1/auth/mfa/status
+Authorization: Bearer {{doctorToken}}
+
+### 8.2 Initiate MFA Setup / Enrollment (POST /api/v1/auth/mfa/setup)
+# @name setupMfa
+POST {{baseUrl}}/api/v1/auth/mfa/setup
+Authorization: Bearer {{doctorToken}}
+
+> {%
+  client.global.set("mfaSecret", response.body.secret);
+  client.global.set("mfaQrCodeUri", response.body.qrCodeUri);
+  client.global.set("mfaBackupCode", response.body.backupCodes[0]);
+%}
+
+### 8.3 Activate MFA with TOTP Code (POST /api/v1/auth/mfa/activate)
+POST {{baseUrl}}/api/v1/auth/mfa/activate
+Authorization: Bearer {{doctorToken}}
+Content-Type: application/json
+
+{
+  "code": "123456"
+}
+
+### 8.4 Login Challenged by MFA (Returns mfaRequired: true and mfaToken)
+# @name mfaLoginChallenge
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "doctor@metro.org",
+  "password": "P@ssw0rd123!"
+}
+
+> {%
+  client.global.set("mfaChallengeToken", response.body.mfaToken);
+%}
+
+### 8.5 Verify MFA Login Challenge with TOTP Code (POST /api/v1/auth/mfa/verify)
+# @name verifyMfaTotp
+POST {{baseUrl}}/api/v1/auth/mfa/verify
+Content-Type: application/json
+
+{
+  "mfaToken": "{{mfaChallengeToken}}",
+  "code": "123456"
+}
+
+> {%
+  client.global.set("mfaAccessToken", response.body.accessToken);
+%}
+
+### 8.6 Verify MFA Login Challenge with Backup Recovery Code (POST /api/v1/auth/mfa/verify)
+POST {{baseUrl}}/api/v1/auth/mfa/verify
+Content-Type: application/json
+
+{
+  "mfaToken": "{{mfaChallengeToken}}",
+  "code": "{{mfaBackupCode}}"
+}
+
+### 8.7 Disable MFA with TOTP or Password (POST /api/v1/auth/mfa/disable)
+POST {{baseUrl}}/api/v1/auth/mfa/disable
+Authorization: Bearer {{doctorToken}}
+Content-Type: application/json
+
+{
+  "codeOrPassword": "P@ssw0rd123!"
+}
