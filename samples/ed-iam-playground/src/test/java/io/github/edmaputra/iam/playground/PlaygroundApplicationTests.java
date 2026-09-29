@@ -932,4 +932,105 @@ class PlaygroundApplicationTests {
 				.jsonPath("$.mfaRequired").isEqualTo(false)
 				.jsonPath("$.accessToken").isNotEmpty();
 	}
+
+	@Test
+	@DisplayName("Should support passwordless magic link request, POST/GET verification, replay defense, and non-existent email handling")
+	void shouldSupportPasswordlessMagicLinkAuthentication() {
+		// 1. Request magic link for Dr. Gregory House
+		byte[] requestResponse = webTestClient.post()
+				.uri("/api/v1/auth/magic-link/request")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s"
+						}
+						""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.message").isNotEmpty()
+				.jsonPath("$.token").isNotEmpty()
+				.jsonPath("$.expiresAt").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String token = JsonPath.read(new String(requestResponse), "$.token");
+		assertThat(token).isNotBlank();
+
+		// 2. Verify magic link via POST /api/v1/auth/magic-link/verify
+		byte[] verifyResponse = webTestClient.post()
+				.uri("/api/v1/auth/magic-link/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "token": "%s"
+						}
+						""".formatted(token))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.jsonPath("$.refreshToken").isNotEmpty()
+				.jsonPath("$.user.email").isEqualTo(PlaygroundDataSeeder.DOCTOR_EMAIL)
+				.returnResult().getResponseBody();
+
+		String accessToken = JsonPath.read(new String(verifyResponse), "$.accessToken");
+
+		// 3. Confirm authenticated access using issued access token
+		webTestClient.get()
+				.uri("/api/v1/auth/me")
+				.headers(headers -> headers.setBearerAuth(accessToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.email").isEqualTo(PlaygroundDataSeeder.DOCTOR_EMAIL);
+
+		// 4. Single-use replay protection: reusing the same magic link token MUST fail with 401 Unauthorized
+		webTestClient.post()
+				.uri("/api/v1/auth/magic-link/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "token": "%s"
+						}
+						""".formatted(token))
+				.exchange()
+				.expectStatus().isUnauthorized();
+
+		// 5. Request a second magic link and verify via GET endpoint (direct link click)
+		byte[] secondRequestResponse = webTestClient.post()
+				.uri("/api/v1/auth/magic-link/request")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s"
+						}
+						""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.token").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String secondToken = JsonPath.read(new String(secondRequestResponse), "$.token");
+
+		webTestClient.get()
+				.uri("/api/v1/auth/magic-link/verify?token=" + secondToken)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.jsonPath("$.user.email").isEqualTo(PlaygroundDataSeeder.DOCTOR_EMAIL);
+
+		// 6. Requesting magic link for non-existent user should fail with 404
+		webTestClient.post()
+				.uri("/api/v1/auth/magic-link/request")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "nonexistent@hospital.org"
+						}
+						""")
+				.exchange()
+				.expectStatus().isNotFound();
+	}
 }

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 import io.github.edmaputra.iam.adapter.persistence.adapter.GroupRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.GroupRoleAssignmentRepositoryAdapter;
+import io.github.edmaputra.iam.adapter.persistence.adapter.JpaMagicLinkTokenStoreAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.RoleRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.UserGroupMembershipRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.UserIdentityRepositoryAdapter;
@@ -17,12 +18,14 @@ import io.github.edmaputra.iam.adapter.persistence.adapter.UserRepositoryAdapter
 import io.github.edmaputra.iam.adapter.persistence.adapter.UserRoleAssignmentRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.repository.GroupJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.GroupRoleAssignmentJpaRepository;
+import io.github.edmaputra.iam.adapter.persistence.repository.MagicLinkTokenJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.RoleJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserGroupMembershipJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserIdentityJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserMfaJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserRoleAssignmentJpaRepository;
+import io.github.edmaputra.iam.application.port.out.MagicLinkTokenStorePort;
 import io.github.edmaputra.iam.adapter.rest.IamExceptionHandler;
 import io.github.edmaputra.iam.adapter.security.IamResourceServerAutoConfiguration;
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
@@ -92,5 +95,11 @@ public class IamSecurityAutoConfiguration {
 	@ConditionalOnMissingBean
 	public UserMfaRepository userMfaRepository(UserMfaJpaRepository repository) {
 		return new UserMfaRepositoryAdapter(repository);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public MagicLinkTokenStorePort magicLinkTokenStorePort(MagicLinkTokenJpaRepository repository) {
+		return new JpaMagicLinkTokenStoreAdapter(repository);
 	}
 }

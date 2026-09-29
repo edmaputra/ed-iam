@@ -12,5 +12,6 @@ public enum ProviderType {
 	OIDC_KEYCLOAK,
 	OIDC_AZURE,
 	SAML_ADFS,
-	API_KEY
+	API_KEY,
+	MAGIC_LINK
 }

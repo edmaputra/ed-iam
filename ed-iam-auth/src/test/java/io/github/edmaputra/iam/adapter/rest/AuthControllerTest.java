@@ -32,6 +32,13 @@ import io.github.edmaputra.iam.domain.model.UserSession;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 
+import io.github.edmaputra.iam.adapter.rest.dto.MagicLinkSendRequest;
+import io.github.edmaputra.iam.adapter.rest.dto.MagicLinkVerifyRequest;
+import io.github.edmaputra.iam.application.model.MagicLinkRequestResponse;
+import io.github.edmaputra.iam.application.port.in.MagicLinkRequestCommand;
+import io.github.edmaputra.iam.application.port.in.MagicLinkVerifyCommand;
+import io.github.edmaputra.iam.application.port.in.ManageMagicLinkUseCase;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,6 +57,7 @@ class AuthControllerTest {
 	private AuthenticateUserUseCase authenticateUserUseCase;
 	private CurrentActorProvider currentActorProvider;
 	private ManageMfaUseCase manageMfaUseCase;
+	private ManageMagicLinkUseCase manageMagicLinkUseCase;
 	private AuthController controller;
 
 	@BeforeEach
@@ -57,7 +65,8 @@ class AuthControllerTest {
 		authenticateUserUseCase = mock(AuthenticateUserUseCase.class);
 		currentActorProvider = mock(CurrentActorProvider.class);
 		manageMfaUseCase = mock(ManageMfaUseCase.class);
-		controller = new AuthController(authenticateUserUseCase, currentActorProvider, manageMfaUseCase);
+		manageMagicLinkUseCase = mock(ManageMagicLinkUseCase.class);
+		controller = new AuthController(authenticateUserUseCase, currentActorProvider, manageMfaUseCase, manageMagicLinkUseCase);
 	}
 
 	@Test
@@ -277,6 +286,57 @@ class AuthControllerTest {
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 		verify(manageMfaUseCase).disable(new UserId(actorId), "123456");
+	}
+
+	@Test
+	@DisplayName("Should request magic link and return response")
+	void shouldRequestMagicLink() {
+		MagicLinkSendRequest request = new MagicLinkSendRequest("user@example.com", null, "https://app/welcome");
+		MagicLinkRequestResponse expected = MagicLinkRequestResponse.of("Sent", "token123", Instant.now().plusSeconds(900));
+
+		when(manageMagicLinkUseCase.requestMagicLink(any(MagicLinkRequestCommand.class))).thenReturn(expected);
+
+		ResponseEntity<MagicLinkRequestResponse> response = controller.requestMagicLink(null, request);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isSameAs(expected);
+	}
+
+	@Test
+	@DisplayName("Should verify magic link via POST")
+	void shouldVerifyMagicLinkPost() {
+		MagicLinkVerifyRequest request = new MagicLinkVerifyRequest("token123");
+		TokenResponse expected = new TokenResponse("access", "refresh", "Bearer", 3600L, mock(UserProfileResponse.class));
+
+		when(manageMagicLinkUseCase.verifyMagicLink(any(MagicLinkVerifyCommand.class))).thenReturn(expected);
+
+		ResponseEntity<TokenResponse> response = controller.verifyMagicLinkPost(request, null);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isSameAs(expected);
+	}
+
+	@Test
+	@DisplayName("Should verify magic link via GET")
+	void shouldVerifyMagicLinkGet() {
+		TokenResponse expected = new TokenResponse("access", "refresh", "Bearer", 3600L, mock(UserProfileResponse.class));
+
+		when(manageMagicLinkUseCase.verifyMagicLink(any(MagicLinkVerifyCommand.class))).thenReturn(expected);
+
+		ResponseEntity<TokenResponse> response = controller.verifyMagicLinkGet("token123", null);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isSameAs(expected);
+	}
+
+	@Test
+	@DisplayName("Should throw IllegalStateException when ManageMagicLinkUseCase is unavailable")
+	void shouldThrowWhenMagicLinkUseCaseUnavailable() {
+		AuthController noMagicLinkController = new AuthController(authenticateUserUseCase, currentActorProvider, manageMfaUseCase, null);
+
+		assertThatThrownBy(() -> noMagicLinkController.requestMagicLink(null, new MagicLinkSendRequest("a@b.com")))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("ManageMagicLinkUseCase");
 	}
 }
 

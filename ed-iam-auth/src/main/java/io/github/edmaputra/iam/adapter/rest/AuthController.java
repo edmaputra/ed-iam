@@ -14,20 +14,26 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.github.edmaputra.iam.adapter.rest.dto.LoginRequest;
+import io.github.edmaputra.iam.adapter.rest.dto.MagicLinkSendRequest;
+import io.github.edmaputra.iam.adapter.rest.dto.MagicLinkVerifyRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.MfaActivateRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.MfaDisableRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.MfaLoginVerifyRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.RefreshTokenRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.SwitchTenantRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.UserSessionResponse;
+import io.github.edmaputra.iam.application.model.MagicLinkRequestResponse;
 import io.github.edmaputra.iam.application.model.MfaSetupResponse;
 import io.github.edmaputra.iam.application.model.MfaStatusResponse;
 import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.model.UserProfileResponse;
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
+import io.github.edmaputra.iam.application.port.in.MagicLinkVerifyCommand;
+import io.github.edmaputra.iam.application.port.in.ManageMagicLinkUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageMfaUseCase;
 import io.github.edmaputra.iam.application.port.in.SwitchTenantCommand;
 import io.github.edmaputra.iam.domain.model.UserId;
@@ -50,30 +56,42 @@ public class AuthController {
 	private final AuthenticateUserUseCase authenticateUserUseCase;
 	private final CurrentActorProvider currentActorProvider;
 	private final ManageMfaUseCase manageMfaUseCase;
+	private final ManageMagicLinkUseCase manageMagicLinkUseCase;
 
 	@Autowired
 	public AuthController(
 			AuthenticateUserUseCase authenticateUserUseCase,
 			CurrentActorProvider currentActorProvider,
-			ObjectProvider<ManageMfaUseCase> manageMfaUseCaseProvider) {
+			ObjectProvider<ManageMfaUseCase> manageMfaUseCaseProvider,
+			ObjectProvider<ManageMagicLinkUseCase> manageMagicLinkUseCaseProvider) {
 		this.authenticateUserUseCase = authenticateUserUseCase;
 		this.currentActorProvider = currentActorProvider;
 		this.manageMfaUseCase = manageMfaUseCaseProvider != null ? manageMfaUseCaseProvider.getIfAvailable() : null;
+		this.manageMagicLinkUseCase = manageMagicLinkUseCaseProvider != null ? manageMagicLinkUseCaseProvider.getIfAvailable() : null;
+	}
+
+	public AuthController(
+			AuthenticateUserUseCase authenticateUserUseCase,
+			CurrentActorProvider currentActorProvider,
+			ManageMfaUseCase manageMfaUseCase,
+			ManageMagicLinkUseCase manageMagicLinkUseCase) {
+		this.authenticateUserUseCase = authenticateUserUseCase;
+		this.currentActorProvider = currentActorProvider;
+		this.manageMfaUseCase = manageMfaUseCase;
+		this.manageMagicLinkUseCase = manageMagicLinkUseCase;
 	}
 
 	public AuthController(
 			AuthenticateUserUseCase authenticateUserUseCase,
 			CurrentActorProvider currentActorProvider,
 			ManageMfaUseCase manageMfaUseCase) {
-		this.authenticateUserUseCase = authenticateUserUseCase;
-		this.currentActorProvider = currentActorProvider;
-		this.manageMfaUseCase = manageMfaUseCase;
+		this(authenticateUserUseCase, currentActorProvider, manageMfaUseCase, (ManageMagicLinkUseCase) null);
 	}
 
 	public AuthController(
 			AuthenticateUserUseCase authenticateUserUseCase,
 			CurrentActorProvider currentActorProvider) {
-		this(authenticateUserUseCase, currentActorProvider, (ManageMfaUseCase) null);
+		this(authenticateUserUseCase, currentActorProvider, (ManageMfaUseCase) null, (ManageMagicLinkUseCase) null);
 	}
 
 	/**
@@ -269,6 +287,66 @@ public class AuthController {
 		TokenResponse response = authenticateUserUseCase.switchTenant(
 				new SwitchTenantCommand(actor, new TenantId(tenantUuid)));
 		return ResponseEntity.ok(response);
+	}
+
+	/**
+	 * Requests a passwordless magic link to be sent to the user's email address.
+	 *
+	 * @param headerTenantId optional target tenant ID supplied via {@code X-Tenant-ID} header
+	 * @param request        the magic link request payload containing email and optional redirect URL
+	 * @return HTTP 200 with {@link MagicLinkRequestResponse}
+	 */
+	@PostMapping("/magic-link/request")
+	public ResponseEntity<MagicLinkRequestResponse> requestMagicLink(
+			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
+			@Valid @RequestBody MagicLinkSendRequest request) {
+		UUID tenantUuid = TenantResolutionHelper.parseTenantHeader(headerTenantId);
+		MagicLinkRequestResponse response = requireManageMagicLinkUseCase()
+				.requestMagicLink(request.toCommand(tenantUuid));
+		return ResponseEntity.ok(response);
+	}
+
+	/**
+	 * Verifies and atomically consumes a magic link token via POST request.
+	 *
+	 * @param request     the verification request payload containing the token
+	 * @param httpRequest the HTTP servlet request for client metadata
+	 * @return HTTP 200 with {@link TokenResponse}
+	 */
+	@PostMapping("/magic-link/verify")
+	public ResponseEntity<TokenResponse> verifyMagicLinkPost(
+			@Valid @RequestBody MagicLinkVerifyRequest request,
+			HttpServletRequest httpRequest) {
+		String ip = extractClientIp(httpRequest);
+		String userAgent = httpRequest != null ? httpRequest.getHeader(HttpHeaders.USER_AGENT) : null;
+		TokenResponse response = requireManageMagicLinkUseCase()
+				.verifyMagicLink(request.toCommand(ip, userAgent));
+		return ResponseEntity.ok(response);
+	}
+
+	/**
+	 * Verifies and atomically consumes a magic link token via GET request (e.g. direct email link click).
+	 *
+	 * @param token       the magic link token from query parameters
+	 * @param httpRequest the HTTP servlet request for client metadata
+	 * @return HTTP 200 with {@link TokenResponse}
+	 */
+	@GetMapping("/magic-link/verify")
+	public ResponseEntity<TokenResponse> verifyMagicLinkGet(
+			@RequestParam("token") String token,
+			HttpServletRequest httpRequest) {
+		String ip = extractClientIp(httpRequest);
+		String userAgent = httpRequest != null ? httpRequest.getHeader(HttpHeaders.USER_AGENT) : null;
+		TokenResponse response = requireManageMagicLinkUseCase()
+				.verifyMagicLink(new MagicLinkVerifyCommand(token, ip, userAgent));
+		return ResponseEntity.ok(response);
+	}
+
+	private ManageMagicLinkUseCase requireManageMagicLinkUseCase() {
+		if (manageMagicLinkUseCase == null) {
+			throw new IllegalStateException("ManageMagicLinkUseCase bean is not available in the current context.");
+		}
+		return manageMagicLinkUseCase;
 	}
 
 	private String extractClientIp(HttpServletRequest request) {

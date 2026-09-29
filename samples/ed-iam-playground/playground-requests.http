@@ -114,6 +114,36 @@ Content-Type: application/json
   client.global.set("adminRefreshToken", response.body.refreshToken);
 %}
 
+### 1.12 Request Magic Link (Passwordless)
+# @name requestMagicLink
+POST {{baseUrl}}/api/v1/auth/magic-link/request
+Content-Type: application/json
+
+{
+  "email": "doctor@metro.org"
+}
+
+> {%
+  client.global.set("magicLinkToken", response.body.token);
+%}
+
+### 1.13 Verify Magic Link via POST (SPA / API Client)
+# @name verifyMagicLinkPost
+POST {{baseUrl}}/api/v1/auth/magic-link/verify
+Content-Type: application/json
+
+{
+  "token": "{{magicLinkToken}}"
+}
+
+> {%
+  client.global.set("magicLinkAccessToken", response.body.accessToken);
+%}
+
+### 1.14 Verify Magic Link via GET (Direct Link Click)
+# @name verifyMagicLinkGet
+GET {{baseUrl}}/api/v1/auth/magic-link/verify?token={{magicLinkToken}}
+
 # =============================================================================
 # 2. USER MANAGEMENT ENDPOINTS (/api/v1/users)
 # =============================================================================
