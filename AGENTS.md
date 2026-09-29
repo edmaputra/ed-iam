@@ -9,7 +9,7 @@ Central multi-tenant Identity & Access Management Spring Boot starter library.
 - **Framework**: Spring Boot 4.1.1
 - **Build Tool**: Maven (`./mvnw`)
 - **JWT Engine**: JJWT 0.12.6
-- **Architecture Testing**: ArchUnit 1.4.0
+- **Architecture Testing**: ArchUnit 1.5.1
 - **Standards**: Inherited from `.agents/rules/java-kotlin/` and `.agents/rules/shared/`
 
 ---

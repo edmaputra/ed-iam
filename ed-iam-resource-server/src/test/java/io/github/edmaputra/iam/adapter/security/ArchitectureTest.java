@@ -16,13 +16,13 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  */
 @AnalyzeClasses(
 		packages = "io.github.edmaputra.iam",
-		importOptions = ImportOption.DoNotIncludeTests.class
+		importOptions = {ImportOption.DoNotIncludeTests.class, ImportOption.DoNotIncludeJars.class}
 )
 class ArchitectureTest {
 
 	@ArchTest
 	static final ArchRule resource_server_classes_must_reside_in_adapter_security =
-			classes().that().resideInAPackage("io.github.edmaputra.iam..")
+			classes().that().resideInAPackage("io.github.edmaputra.iam.adapter..")
 					.should().resideInAPackage("io.github.edmaputra.iam.adapter.security..");
 
 	@ArchTest

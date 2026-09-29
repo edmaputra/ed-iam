@@ -8,18 +8,27 @@ import com.tngtech.archunit.lang.ArchRule;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
+import com.tngtech.archunit.core.importer.Location;
+
 /**
  * Architectural fitness tests verifying Hexagonal Architecture (Ports and Adapters) boundaries
- * and layer dependency rules across the ed-iam module.
+ * and layer dependency rules across the ed-iam-management module.
  *
  * @author edmaputra
  * @since 0.1.0
  */
 @AnalyzeClasses(
 		packages = "io.github.edmaputra.iam",
-		importOptions = ImportOption.DoNotIncludeTests.class
+		importOptions = {ImportOption.DoNotIncludeTests.class, ArchitectureTest.OnlyManagementModule.class}
 )
 class ArchitectureTest {
+
+	static class OnlyManagementModule implements ImportOption {
+		@Override
+		public boolean includes(Location location) {
+			return location.contains("/ed-iam-management/target/classes/");
+		}
+	}
 
 	// --- Domain layer must have ZERO framework dependencies ---
 
