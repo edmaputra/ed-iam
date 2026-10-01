@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Passwordless Magic Link Authentication (Phase 1)**:
+  - Cryptographically secure 256-bit URL-safe token generator (`SecureRandom`) and domain model (`MagicLinkToken`, `MagicLinkId`, `MagicLinkAuthCredentials`).
+  - Single-use atomic invalidation in JPA persistence (`JpaMagicLinkTokenStoreAdapter`, `MagicLinkTokenJpaEntity`, `MagicLinkTokenJpaRepository`) preventing race conditions and replay attacks, with fallback `InMemoryMagicLinkTokenStore`.
+  - Multi-tenant context preservation linking tokens to optional `TenantId` and resolving tenant-scoped effective access and permissions upon verification.
+  - Multi-factor authentication interception issuing `MfaChallengeToken` when user has active TOTP MFA enrolled.
+  - Dedicated Liquibase migration changelog `2026092902-create-iam-magic-link-token.json` creating `iam_magic_link_token` table with index.
+  - Public REST endpoints in `AuthController` (`/api/v1/auth/magic-link/*`):
+    - `POST /api/v1/auth/magic-link/request`: Dispatches one-time magic link token with optional tenant and redirect destination.
+    - `POST /api/v1/auth/magic-link/verify`: Validates and atomically consumes magic link token, returning JWT access/refresh token pair.
+    - `GET /api/v1/auth/magic-link/verify`: Direct browser verification endpoint supporting query-parameter tokens and client redirects.
+  - Interactive Playground UI panel in `samples/ed-iam-playground` enabling one-click link generation, console verification URL display, and browser simulation.
+  - Comprehensive end-to-end integration tests in `ed-iam-playground` verifying complete passwordless request, token verification, single-use invalidation, and non-existent email handling.
+  - Sample HTTP requests added to `samples/ed-iam-playground/playground-requests.http`.
 - **RFC 6238 TOTP Multi-Factor Authentication (MFA) (Phase 1)**:
   - Pure Java RFC 6238 TOTP engine (`TotpGenerator`) implementing HMAC-SHA1 (30s step, 6 digits), RFC 4648 Base32 encoding/decoding, drift window verification ($\pm 1$ time step), and standard `otpauth://` QR URI generation.
   - Domain aggregate `UserMfa` maintaining Base32 secret, activation status, and single-use hashed recovery backup codes (`consumeBackupCode()`).

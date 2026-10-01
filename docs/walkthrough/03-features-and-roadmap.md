@@ -172,7 +172,7 @@ This document outlines the operational capabilities available in the current rel
 #### Phase 1: Enterprise Authentication & MFA
 - [ ] **SAML 2.0 Web SSO Provider**: Enterprise SAML assertion consumer service (ACS) for enterprise hospital and university SSO.
 - [x] **Multi-Factor Authentication (MFA / TOTP)**: RFC 6238 time-based one-time password verification (Google Authenticator, Microsoft Authenticator), RFC 4648 Base32 secret generation, `otpauth://` QR URI provisioning, SHA-256 single-use recovery backup codes, and two-step login challenge flow (`/api/v1/auth/mfa/*`).
-- [ ] **Magic Link & Passwordless Provider**: One-time email token authentication flows.
+- [x] **Magic Link & Passwordless Provider**: One-time email token authentication flows, 256-bit cryptographically secure URL-safe tokens, atomic single-use invalidation, tenant-scoped session resolution, MFA interception, and interactive simulation (`/api/v1/auth/magic-link/*`).
 
 #### Phase 2: Attribute-Based Access Control (ABAC)
 - [ ] **Dynamic Policy Evaluator**: Flexible rule engine evaluating subject, resource, and contextual attributes.

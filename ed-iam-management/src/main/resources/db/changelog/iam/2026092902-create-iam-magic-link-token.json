@@ -1,0 +1,116 @@
+{
+  "databaseChangeLog": [
+    {
+      "changeSet": {
+        "id": "2026092902-create-iam-magic-link-token",
+        "author": "edmaputra",
+        "changes": [
+          {
+            "createTable": {
+              "tableName": "iam_magic_link_token",
+              "columns": [
+                {
+                  "column": {
+                    "name": "id",
+                    "type": "UUID",
+                    "constraints": {
+                      "primaryKey": true,
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "token",
+                    "type": "VARCHAR(128)",
+                    "constraints": {
+                      "nullable": false,
+                      "unique": true,
+                      "uniqueConstraintName": "uk_iam_magic_link_token"
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "user_id",
+                    "type": "UUID",
+                    "constraints": {
+                      "nullable": false,
+                      "foreignKeyName": "fk_iam_magic_link_token_user_id",
+                      "references": "iam_user(id)"
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "tenant_id",
+                    "type": "VARCHAR(64)"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "email",
+                    "type": "VARCHAR(255)",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "expires_at",
+                    "type": "TIMESTAMP",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "consumed_at",
+                    "type": "TIMESTAMP"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "created_at",
+                    "type": "TIMESTAMP",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "createIndex": {
+              "indexName": "idx_iam_magic_link_token_user_id",
+              "tableName": "iam_magic_link_token",
+              "columns": [
+                {
+                  "column": {
+                    "name": "user_id"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "createIndex": {
+              "indexName": "idx_iam_magic_link_token_expires_at",
+              "tableName": "iam_magic_link_token",
+              "columns": [
+                {
+                  "column": {
+                    "name": "expires_at"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

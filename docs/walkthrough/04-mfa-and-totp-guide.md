@@ -8,7 +8,7 @@ This guide details the architecture, cryptographic mechanics, and API lifecycle 
 
 `ed-iam` delivers multi-factor authentication as an enterprise-grade security layer following strict hexagonal architecture principles:
 
-* **Pure Domain Kernel (`ed-iam-core`)**: Zero third-party library dependencies. The mathematical engine ([`TotpGenerator`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/continue_phase_one_implementation/ed-iam-core/src/main/java/io/github/edmaputra/iam/domain/auth/mfa/TotpGenerator.java)) and domain models ([`UserMfa`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/continue_phase_one_implementation/ed-iam-core/src/main/java/io/github/edmaputra/iam/domain/model/UserMfa.java)) are implemented using standard Java standard library cryptographic primitives (`javax.crypto.Mac`, `java.security.MessageDigest`, `java.security.SecureRandom`).
+* **Pure Domain Kernel (`ed-iam-core`)**: Zero third-party library dependencies. The mathematical engine (`TotpGenerator`) and domain models (`UserMfa`) are implemented using standard Java standard library cryptographic primitives (`javax.crypto.Mac`, `java.security.MessageDigest`, `java.security.SecureRandom`).
 * **Cryptographic Standards**:
   * **RFC 6238**: Time-Based One-Time Password Algorithm (TOTP).
   * **RFC 4226**: HMAC-Based One-Time Password Algorithm (HOTP).
@@ -221,10 +221,10 @@ CREATE TABLE iam_user_mfa (
 
 ### Automated Integration Test
 The reference application `ed-iam-playground` contains a complete end-to-end integration test:
-* [**`PlaygroundApplicationTests.java`**](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/continue_phase_one_implementation/samples/ed-iam-playground/src/test/java/io/github/edmaputra/iam/playground/PlaygroundApplicationTests.java#L641-L933) (`shouldSupportMfaLifecycleAndEnforceLoginChallenge`).
+* `PlaygroundApplicationTests.java` (`shouldSupportMfaLifecycleAndEnforceLoginChallenge`).
 
 ### Manual HTTP Client Testing
-Run interactive requests using [**`playground-requests.http`**](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/continue_phase_one_implementation/samples/ed-iam-playground/playground-requests.http#L394-L468) under Section 8:
+Run interactive requests using `samples/ed-iam-playground/playground-requests.http` under Section 8:
 * `8.1 Check MFA Status`
 * `8.2 Initiate MFA Setup`
 * `8.3 Activate MFA`

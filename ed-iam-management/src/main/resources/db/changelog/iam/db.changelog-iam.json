@@ -9,6 +9,11 @@
       "include": {
         "file": "db/changelog/iam/2026092901-create-iam-user-mfa.json"
       }
+    },
+    {
+      "include": {
+        "file": "db/changelog/iam/2026092902-create-iam-magic-link-token.json"
+      }
     }
   ]
 }
