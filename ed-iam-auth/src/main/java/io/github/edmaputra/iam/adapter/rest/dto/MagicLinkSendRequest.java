@@ -15,7 +15,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * @param tenantId    optional tenant UUID
  * @param redirectUrl optional client redirect URL where the user should land after verification
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.7.0
  */
 public record MagicLinkSendRequest(
 		@NotBlank(message = "Email must not be blank.")

@@ -9,7 +9,7 @@ import io.github.edmaputra.iam.application.port.in.MagicLinkVerifyCommand;
  *
  * @param token the secret magic link token
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.7.0
  */
 public record MagicLinkVerifyRequest(
 		@NotBlank(message = "Token must not be blank.")

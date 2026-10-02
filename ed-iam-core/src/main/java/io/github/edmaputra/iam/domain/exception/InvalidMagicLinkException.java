@@ -4,7 +4,7 @@ package io.github.edmaputra.iam.domain.exception;
  * Exception thrown when a magic link token is invalid, unrecognized, or malformed.
  *
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.7.0
  */
 public class InvalidMagicLinkException extends AuthenticationException {
 

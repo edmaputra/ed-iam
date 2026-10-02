@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.6.0] - 2026-10-02
+## [0.7.0] - 2026-10-02
 
 ### Added
 - **Passwordless Magic Link Authentication (Phase 1)**:
@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core authentication remains in `AuthController` (`/api/v1/auth/*`).
   - Multi-factor authentication extracted to dedicated `MfaController` (`/api/v1/auth/mfa/*`).
   - Magic Link authentication extracted to dedicated `MagicLinkController` (`/api/v1/auth/magic-link/*`).
+
+---
+
+## [0.6.0] - 2026-10-01
+
+### Changed
+- Upgraded GitHub Actions workflow configurations to execute under Node.js 24 runtime (`actions/checkout@v7`, `actions/upload-artifact@v7`, `crazy-max/ghaction-import-gpg@v7`), eliminating Node.js 20 deprecation warnings across all CI/CD pipelines ([#20](https://github.com/edmaputra/ed-iam/pull/20)).
+- Upgraded ArchUnit dependencies to 1.5.1 to support Java 25 bytecode class file versions ([#20](https://github.com/edmaputra/ed-iam/pull/20)).
 
 ---
 
@@ -177,7 +185,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automated CI/CD**:
   - GitHub Actions automated release pipeline publishing signed artifacts to Maven Central via Sonatype Central Portal.
 
-[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/edmaputra/ed-iam/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/edmaputra/ed-iam/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/edmaputra/ed-iam/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/edmaputra/ed-iam/compare/v0.3.0...v0.4.0

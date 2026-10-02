@@ -7,7 +7,7 @@ import java.util.Objects;
  *
  * @param token the cryptographically secure magic link token
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.7.0
  */
 public record MagicLinkAuthCredentials(String token) implements AuthCredentials {
 

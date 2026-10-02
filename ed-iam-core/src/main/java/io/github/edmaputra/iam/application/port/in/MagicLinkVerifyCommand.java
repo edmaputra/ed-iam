@@ -9,7 +9,7 @@ import java.util.Objects;
  * @param ipAddress optional client IP address for session tracking
  * @param userAgent optional client User-Agent header
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.7.0
  */
 public record MagicLinkVerifyCommand(
 		String token,

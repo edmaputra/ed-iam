@@ -12,7 +12,7 @@
 
 	<groupId>io.github.edmaputra</groupId>
 	<artifactId>ed-iam</artifactId>
-	<version>0.6.0-SNAPSHOT</version>
+	<version>0.7.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>ed-iam</name>
 	<description>Pluggable Multi-tenant Identity and Access Management Spring Boot Starter Parent</description>
@@ -291,7 +291,7 @@
 						<configuration>
 							<publishingServerId>central</publishingServerId>
 							<autoPublish>true</autoPublish>
-							<waitUntil>published</waitUntil>
+							<waitUntil>validated</waitUntil>
 						</configuration>
 					</plugin>
 				</plugins>
