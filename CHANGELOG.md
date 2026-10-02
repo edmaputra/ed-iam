@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-02
+
 ### Added
 - **Passwordless Magic Link Authentication (Phase 1)**:
   - Cryptographically secure 256-bit URL-safe token generator (`SecureRandom`) and domain model (`MagicLinkToken`, `MagicLinkId`, `MagicLinkAuthCredentials`).
@@ -14,19 +16,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multi-tenant context preservation linking tokens to optional `TenantId` and resolving tenant-scoped effective access and permissions upon verification.
   - Multi-factor authentication interception issuing `MfaChallengeToken` when user has active TOTP MFA enrolled.
   - Dedicated Liquibase migration changelog `2026092902-create-iam-magic-link-token.json` creating `iam_magic_link_token` table with index.
-  - Public REST endpoints in `AuthController` (`/api/v1/auth/magic-link/*`):
+  - Public REST endpoints in `MagicLinkController` (`/api/v1/auth/magic-link/*`):
     - `POST /api/v1/auth/magic-link/request`: Dispatches one-time magic link token with optional tenant and redirect destination.
     - `POST /api/v1/auth/magic-link/verify`: Validates and atomically consumes magic link token, returning JWT access/refresh token pair.
     - `GET /api/v1/auth/magic-link/verify`: Direct browser verification endpoint supporting query-parameter tokens and client redirects.
+  - Pluggable outbound dispatch SPI `MagicLinkNotifierPort` with default `LoggingMagicLinkNotifier` and simulated local inbox (`PlaygroundSimulatedMailService`).
   - Interactive Playground UI panel in `samples/ed-iam-playground` enabling one-click link generation, console verification URL display, and browser simulation.
-  - Comprehensive end-to-end integration tests in `ed-iam-playground` verifying complete passwordless request, token verification, single-use invalidation, and non-existent email handling.
+  - Dynamic database-driven Scope Hierarchy Tree and access status evaluator in playground via `PlaygroundScopeController` (`GET /api/v1/playground/scopes/hierarchy`, `POST /api/v1/playground/scopes/evaluate`).
+  - Replaced browser `alert()` popups with non-blocking floating toast notification system (`showToast`) in playground.
+  - End-to-end integration tests in `ed-iam-management` (`MagicLinkAuthenticationIT`) and `ed-iam-playground` verifying complete passwordless request, token verification, single-use invalidation, and non-existent email handling.
   - Sample HTTP requests added to `samples/ed-iam-playground/playground-requests.http`.
+
+### Changed
+- Decoupled REST controllers in `ed-iam-auth` by separation of concerns:
+  - Core authentication remains in `AuthController` (`/api/v1/auth/*`).
+  - Multi-factor authentication extracted to dedicated `MfaController` (`/api/v1/auth/mfa/*`).
+  - Magic Link authentication extracted to dedicated `MagicLinkController` (`/api/v1/auth/magic-link/*`).
+
+---
+
+## [0.6.0] - 2026-09-29
+
+### Added
 - **RFC 6238 TOTP Multi-Factor Authentication (MFA) (Phase 1)**:
   - Pure Java RFC 6238 TOTP engine (`TotpGenerator`) implementing HMAC-SHA1 (30s step, 6 digits), RFC 4648 Base32 encoding/decoding, drift window verification ($\pm 1$ time step), and standard `otpauth://` QR URI generation.
   - Domain aggregate `UserMfa` maintaining Base32 secret, activation status, and single-use hashed recovery backup codes (`consumeBackupCode()`).
   - Liquibase changelog migration creating `iam_user_mfa` table and JPA persistence adapter (`UserMfaRepositoryAdapter`, `UserMfaJpaEntity`, `UserMfaJpaRepository`).
   - Two-step login challenge flow in `AuthenticationService` issuing transient cryptographically signed `mfaChallengeToken` (300s TTL) with `mfaRequired: true`.
-  - Self-service MFA REST endpoints in `AuthController` (`/api/v1/auth/mfa/*`):
+  - Self-service MFA REST endpoints in `MfaController` (`/api/v1/auth/mfa/*`):
     - `GET /api/v1/auth/mfa/status`: Check MFA activation status.
     - `POST /api/v1/auth/mfa/setup`: Generate Base32 secret, `otpauth://` QR URI, and 8 single-use backup recovery codes.
     - `POST /api/v1/auth/mfa/activate`: Confirm and activate MFA with valid TOTP code.
@@ -160,7 +177,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automated CI/CD**:
   - GitHub Actions automated release pipeline publishing signed artifacts to Maven Central via Sonatype Central Portal.
 
-[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/edmaputra/ed-iam/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/edmaputra/ed-iam/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/edmaputra/ed-iam/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/edmaputra/ed-iam/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/edmaputra/ed-iam/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/edmaputra/ed-iam/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/edmaputra/ed-iam/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/edmaputra/ed-iam/releases/tag/v0.0.1

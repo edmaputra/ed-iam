@@ -16,7 +16,7 @@ import io.github.edmaputra.iam.adapter.persistence.entity.MagicLinkTokenJpaEntit
  * Spring Data JPA repository for {@link MagicLinkTokenJpaEntity}.
  *
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.7.0
  */
 @Repository
 public interface MagicLinkTokenJpaRepository extends JpaRepository<MagicLinkTokenJpaEntity, UUID> {

@@ -25,7 +25,7 @@ import io.github.edmaputra.iam.domain.repository.UserRepository;
  * Validates token state, atomically consumes it via {@link MagicLinkTokenStorePort}, and verifies user state.
  *
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.7.0
  */
 @RequiredArgsConstructor
 public class MagicLinkAuthProvider implements AuthenticationProvider {

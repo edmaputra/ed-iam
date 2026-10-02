@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * and {@link MagicLinkAuthCredentials}.
  *
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.7.0
  */
 class MagicLinkTokenTest {
 

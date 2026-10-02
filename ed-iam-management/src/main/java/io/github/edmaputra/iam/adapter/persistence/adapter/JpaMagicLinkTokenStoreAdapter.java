@@ -20,7 +20,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * Persistence adapter implementing {@link MagicLinkTokenStorePort} backed by Spring Data JPA.
  *
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.7.0
  */
 @RequiredArgsConstructor
 @Transactional(readOnly = true)

@@ -11,7 +11,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * @param tenantId    optional tenant ID context
  * @param redirectUrl optional client redirect URL where the user should land after verification
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.7.0
  */
 public record MagicLinkRequestCommand(
 		String email,

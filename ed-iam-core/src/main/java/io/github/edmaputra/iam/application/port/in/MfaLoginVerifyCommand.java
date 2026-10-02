@@ -10,7 +10,7 @@ import java.util.Objects;
  * @param ipAddress optional client IP address for session tracking
  * @param userAgent optional client User-Agent header for session identification
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.6.0
  */
 public record MfaLoginVerifyCommand(
 		String mfaToken,

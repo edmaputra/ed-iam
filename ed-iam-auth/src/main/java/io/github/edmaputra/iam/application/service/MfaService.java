@@ -39,7 +39,7 @@ import io.github.edmaputra.iam.domain.util.UuidV7;
  * Manages TOTP Multi-Factor Authentication enrollment, verification, backup codes, and login challenge resolution.
  *
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.6.0
  */
 public class MfaService implements ManageMfaUseCase {
 

@@ -11,7 +11,7 @@ import java.util.Objects;
  * @param qrCodeUri   the standardized {@code otpauth://} key URI for QR code generation
  * @param backupCodes list of plaintext backup recovery codes (displayed only once)
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.6.0
  */
 public record MfaSetupResponse(
 		String secret,

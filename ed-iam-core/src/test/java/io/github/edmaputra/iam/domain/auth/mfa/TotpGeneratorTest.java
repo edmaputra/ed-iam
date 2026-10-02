@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Tests verifying RFC 6238 TOTP computation, RFC 4648 Base32 encoding, and backup recovery code utilities.
  *
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.6.0
  */
 class TotpGeneratorTest {
 

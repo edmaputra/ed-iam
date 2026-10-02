@@ -13,7 +13,7 @@ import io.github.edmaputra.iam.domain.model.MagicLinkToken;
  * Suitable for local development, integration tests, and sandbox environments.
  *
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.7.0
  */
 public class LoggingMagicLinkNotifier implements MagicLinkNotifierPort {
 

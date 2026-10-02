@@ -6,7 +6,7 @@ import io.github.edmaputra.iam.domain.model.MagicLinkToken;
  * Outbound SPI port responsible for dispatching magic link login URLs to users.
  *
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.7.0
  */
 public interface MagicLinkNotifierPort {
 

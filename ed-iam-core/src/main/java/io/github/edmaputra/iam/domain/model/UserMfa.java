@@ -13,7 +13,7 @@ import lombok.Getter;
  * secret key, active state, and hashed backup recovery codes for a user account.
  *
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.6.0
  */
 @Getter
 public class UserMfa {

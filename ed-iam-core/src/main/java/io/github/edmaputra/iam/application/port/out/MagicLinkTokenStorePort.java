@@ -9,7 +9,7 @@ import io.github.edmaputra.iam.domain.model.MagicLinkToken;
  * Outbound SPI port for persisting, querying, and atomically consuming magic link tokens.
  *
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.7.0
  */
 public interface MagicLinkTokenStorePort {
 
