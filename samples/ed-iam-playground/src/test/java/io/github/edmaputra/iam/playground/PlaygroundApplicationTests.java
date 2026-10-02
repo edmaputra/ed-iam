@@ -1047,4 +1047,129 @@ class PlaygroundApplicationTests {
 
 		assertThat(mailService.getLatestEmailFor("nonexistent@hospital.org")).isEmpty();
 	}
+
+	@Test
+	@DisplayName("Should return database-backed scope hierarchy tree for anonymous visitor with neutral access status")
+	void shouldReturnDynamicScopeTreeForAnonymousVisitor() {
+		webTestClient.get()
+				.uri("/api/v1/playground/scopes/tree?tenantId=" + PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.tenantName").isEqualTo("Metro General Hospital")
+				.jsonPath("$.authenticated").isEqualTo(false)
+				.jsonPath("$.tree.length()").isEqualTo(1)
+				.jsonPath("$.tree[0].code").isEqualTo("METRO_HOSPITAL")
+				.jsonPath("$.tree[0].colorTheme").isEqualTo("gray")
+				.jsonPath("$.tree[0].accessStatus").isEqualTo("ANONYMOUS")
+				.jsonPath("$.tree[0].children.length()").isEqualTo(2)
+				.jsonPath("$.flatList.length()").isEqualTo(4);
+	}
+
+	@Test
+	@DisplayName("Should dynamically evaluate scope access status and colors for scoped clinician Dr. House")
+	void shouldEvaluateDynamicScopeAccessForScopedClinician() {
+		// 1. Authenticate as Dr. Gregory House (scoped to Cardiology with inheritance)
+		String loginJson = """
+				{
+				    "email": "%s",
+				    "password": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD);
+
+		byte[] loginResponseBody = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(loginJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.returnResult().getResponseBody();
+
+		String token = JsonPath.read(new String(loginResponseBody), "$.accessToken");
+
+		// 2. Fetch scope tree with Dr. House's bearer token
+		webTestClient.get()
+				.uri("/api/v1/playground/scopes/tree?tenantId=" + PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID)
+				.headers(headers -> headers.setBearerAuth(token))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.authenticated").isEqualTo(true)
+				.jsonPath("$.actorEmail").isEqualTo(PlaygroundDataSeeder.DOCTOR_EMAIL)
+				// Root: outside Dr. House's cardiology subtree
+				.jsonPath("$.flatList[?(@.code == 'METRO_HOSPITAL')].accessible").isEqualTo(false)
+				.jsonPath("$.flatList[?(@.code == 'METRO_HOSPITAL')].colorTheme").isEqualTo("red")
+				.jsonPath("$.flatList[?(@.code == 'METRO_HOSPITAL')].accessStatus").isEqualTo("FORBIDDEN")
+				// Cardiology: directly assigned scope
+				.jsonPath("$.flatList[?(@.code == 'CARDIOLOGY')].accessible").isEqualTo(true)
+				.jsonPath("$.flatList[?(@.code == 'CARDIOLOGY')].colorTheme").isEqualTo("emerald")
+				.jsonPath("$.flatList[?(@.code == 'CARDIOLOGY')].accessStatus").isEqualTo("DIRECT")
+				.jsonPath("$.flatList[?(@.code == 'CARDIOLOGY')].patientCount").isEqualTo(1)
+				// ICU: inherited scope from Cardiology
+				.jsonPath("$.flatList[?(@.code == 'ICU')].accessible").isEqualTo(true)
+				.jsonPath("$.flatList[?(@.code == 'ICU')].colorTheme").isEqualTo("emerald")
+				.jsonPath("$.flatList[?(@.code == 'ICU')].accessStatus").isEqualTo("INHERITED")
+				.jsonPath("$.flatList[?(@.code == 'ICU')].patientCount").isEqualTo(1)
+				// Pediatrics: forbidden / outside assigned branch
+				.jsonPath("$.flatList[?(@.code == 'PEDIATRICS')].accessible").isEqualTo(false)
+				.jsonPath("$.flatList[?(@.code == 'PEDIATRICS')].colorTheme").isEqualTo("red")
+				.jsonPath("$.flatList[?(@.code == 'PEDIATRICS')].accessStatus").isEqualTo("FORBIDDEN");
+	}
+
+	@Test
+	@DisplayName("Should evaluate dynamic scopes as NO_PERMISSION when user lacks PATIENT_READ in active tenant")
+	void shouldEvaluateDynamicScopesAsNoPermissionWhenRoleLacksReadPrivilege() {
+		// 1. Login as Dr. Allison Cameron
+		String loginJson = """
+				{
+				    "email": "%s",
+				    "password": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.CONSULTANT_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD);
+
+		byte[] loginResponseBody = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(loginJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.returnResult().getResponseBody();
+
+		String token = JsonPath.read(new String(loginResponseBody), "$.accessToken");
+
+		// 2. Switch tenant to St. Jude Medical Center (where Cameron has AUDITOR role without PATIENT_READ)
+		String switchJson = """
+				{
+				    "tenantId": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.ST_JUDE_TENANT_ID);
+
+		byte[] switchResponseBody = webTestClient.post()
+				.uri("/api/v1/auth/switch-tenant")
+				.headers(headers -> headers.setBearerAuth(token))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(switchJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.returnResult().getResponseBody();
+
+		String switchedToken = JsonPath.read(new String(switchResponseBody), "$.accessToken");
+
+		// 3. Query St. Jude scope tree: all scopes must show NO_PERMISSION and red theme
+		webTestClient.get()
+				.uri("/api/v1/playground/scopes/tree?tenantId=" + PlaygroundDataSeeder.ST_JUDE_TENANT_ID)
+				.headers(headers -> headers.setBearerAuth(switchedToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.tenantName").isEqualTo("St. Jude Medical Center")
+				.jsonPath("$.authenticated").isEqualTo(true)
+				.jsonPath("$.tree[0].code").isEqualTo("ST_JUDE")
+				.jsonPath("$.tree[0].accessible").isEqualTo(false)
+				.jsonPath("$.tree[0].colorTheme").isEqualTo("red")
+				.jsonPath("$.tree[0].accessStatus").isEqualTo("NO_PERMISSION");
+	}
 }
