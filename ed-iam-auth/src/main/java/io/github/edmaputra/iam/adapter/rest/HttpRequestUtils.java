@@ -7,7 +7,7 @@ import org.springframework.http.HttpHeaders;
  * Internal utility class for extracting HTTP request metadata such as client IP addresses and user agents.
  *
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.7.0
  */
 final class HttpRequestUtils {
 

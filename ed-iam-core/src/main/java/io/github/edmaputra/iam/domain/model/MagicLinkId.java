@@ -10,7 +10,7 @@ import io.github.edmaputra.iam.domain.util.UuidV7;
  *
  * @param value the underlying UUID value
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.7.0
  */
 public record MagicLinkId(UUID value) {
 

@@ -17,7 +17,7 @@ import io.github.edmaputra.iam.domain.model.MagicLinkToken;
  * for the interactive playground and automated integration tests.
  *
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.7.0
  */
 @Service
 public class PlaygroundSimulatedMailService implements MagicLinkNotifierPort {

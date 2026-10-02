@@ -16,7 +16,7 @@ import lombok.Setter;
  * JPA entity representing a magic link token record in the {@code iam_magic_link_token} table.
  *
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.7.0
  */
 @Entity
 @Table(name = "iam_magic_link_token")

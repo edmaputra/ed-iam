@@ -9,7 +9,7 @@ import java.util.Objects;
  *
  * @param message human-readable status message
  * @author edmaputra
- * @since 0.5.0
+ * @since 0.7.0
  */
 public record MagicLinkRequestResponse(String message) {
 
