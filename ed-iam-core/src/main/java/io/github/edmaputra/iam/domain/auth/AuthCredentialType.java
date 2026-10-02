@@ -14,5 +14,7 @@ public enum AuthCredentialType {
 	/** SAML 2.0 assertion token. */
 	SAML_ASSERTION,
 	/** Machine-to-machine API key credential. */
-	API_KEY
+	API_KEY,
+	/** One-time passwordless email magic link credential. */
+	MAGIC_LINK
 }

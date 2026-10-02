@@ -37,8 +37,8 @@ We recommend reading through the documentation in the following order:
 │ 3. Capabilities Matrix & Product Roadmap                    │
 │    docs/walkthrough/03-features-and-roadmap.md              │
 └──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
+                                │
+                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 4. Multi-Factor Authentication (MFA / TOTP) Guide           │
 │    docs/walkthrough/04-mfa-and-totp-guide.md                │
@@ -46,7 +46,13 @@ We recommend reading through the documentation in the following order:
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 5. Module Deep Dives & Class Architecture Catalogs          │
+│ 5. Magic Link & Passwordless Authentication Guide           │
+│    docs/walkthrough/05-magic-link-guide.md                  │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 6. Module Deep Dives & Class Architecture Catalogs          │
 │    ├── modules/01-core.md            (Domain Kernel & SPIs) │
 │    ├── modules/02-resource-server.md (JWT & ScopedValue)    │
 │    ├── modules/03-auth.md            (Auth SPI & Providers) │
@@ -65,26 +71,29 @@ We recommend reading through the documentation in the following order:
    Setting up your Java 25 environment, Maven build lifecycle, running tests, code style, and ArchUnit architecture verification.
 
 3. [**Current Features & Product Roadmap**](03-features-and-roadmap.md)  
-   Full matrix of operational capabilities (v0.4.0) and the phased roadmap for future enterprise features (SAML 2.0, MFA/TOTP, ABAC, Redis token blacklisting, and OpenTelemetry).
+   Full matrix of operational capabilities (v0.5.0) and the phased roadmap for future enterprise features (SAML 2.0, MFA/TOTP, Magic Link, ABAC, Redis token blacklisting, and OpenTelemetry).
 
 4. [**Multi-Factor Authentication (MFA / TOTP) Guide**](04-mfa-and-totp-guide.md)  
    RFC 6238 TOTP engine, Base32 encoding, two-step login challenges, single-use backup recovery codes, and API lifecycle walkthrough.
 
-5. [**Module 1: ed-iam-core**](modules/01-core.md)  
+5. [**Magic Link & Passwordless Authentication Guide**](05-magic-link-guide.md)  
+   Cryptographic URL-safe token generation, single-use atomic consumption, tenant-scoped session resolution, MFA interception, and interactive simulation.
+
+6. [**Module 1: ed-iam-core**](modules/01-core.md)  
    The pure domain kernel. Zero framework dependencies, immutable record invariants, use-case driving ports, and driven SPI repository contracts. Includes a complete class catalog.
 
-6. [**Module 2: ed-iam-resource-server**](modules/02-resource-server.md)  
+7. [**Module 2: ed-iam-resource-server**](modules/02-resource-server.md)  
    Stateless downstream microservice integration. JJWT token parsing, `JwtAuthenticationFilter`, Java 25 `ScopedValue` security context, `@RequirePermission` MVC interceptor, and `@iam` SpEL evaluator. Includes a complete class catalog.
 
-7. [**Module 3: ed-iam-auth**](modules/03-auth.md)  
+8. [**Module 3: ed-iam-auth**](modules/03-auth.md)  
    Authentication provider router, local BCrypt passwords, federated OIDC identity provisioning, machine-to-machine (M2M) API keys, and single-pass `EffectiveAccessResolver`. Includes a complete class catalog.
 
-8. [**Module 4: ed-iam-management**](modules/04-management.md)  
+9. [**Module 4: ed-iam-management**](modules/04-management.md)  
    Administrative REST endpoints, Spring Data JPA entities, isolated Liquibase migrations (`iam_*`), and hierarchical scope tree management (`ScopeHierarchyService`). Includes a complete class catalog.
 
-9. [**Module 5: ed-iam-starter**](modules/05-starter.md)  
-   The turnkey Spring Boot AutoConfiguration module bundling core, resource server, auth, and management for zero-configuration consumers. Includes class catalog.
+10. [**Module 5: ed-iam-starter**](modules/05-starter.md)  
+    The turnkey Spring Boot AutoConfiguration module bundling core, resource server, auth, and management for zero-configuration consumers. Includes class catalog.
 
-10. [**Playground & Testing Guide**](modules/06-playground-and-testing.md)  
-   The interactive reference application (`samples/ed-iam-playground`), clinical scenario personas, unit and integration testing strategy, and ArchUnit rules.
+11. [**Playground & Testing Guide**](modules/06-playground-and-testing.md)  
+    The interactive reference application (`samples/ed-iam-playground`), clinical scenario personas, unit and integration testing strategy, and ArchUnit rules.
 

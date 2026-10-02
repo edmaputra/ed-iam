@@ -23,21 +23,31 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 import io.github.edmaputra.iam.adapter.rest.AuthController;
+import io.github.edmaputra.iam.adapter.rest.MagicLinkController;
+import io.github.edmaputra.iam.adapter.rest.MfaController;
 import io.github.edmaputra.iam.adapter.security.BCryptPasswordEncoderAdapter;
 import io.github.edmaputra.iam.adapter.security.IamResourceServerAutoConfiguration;
+import io.github.edmaputra.iam.adapter.security.notifier.LoggingMagicLinkNotifier;
+import io.github.edmaputra.iam.adapter.security.properties.MagicLinkProperties;
 import io.github.edmaputra.iam.adapter.security.provider.ApiKeyAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.LocalPasswordAuthProvider;
+import io.github.edmaputra.iam.adapter.security.provider.MagicLinkAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.OidcAuthProvider;
+import io.github.edmaputra.iam.adapter.security.store.InMemoryMagicLinkTokenStore;
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
+import io.github.edmaputra.iam.application.port.in.ManageMagicLinkUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageMfaUseCase;
 import io.github.edmaputra.iam.application.port.out.ApiKeyValidatorPort;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProvider;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProviderRouter;
+import io.github.edmaputra.iam.application.port.out.MagicLinkNotifierPort;
+import io.github.edmaputra.iam.application.port.out.MagicLinkTokenStorePort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
 import io.github.edmaputra.iam.application.service.AuthenticationService;
 import io.github.edmaputra.iam.application.service.EffectiveAccessResolver;
 import io.github.edmaputra.iam.application.service.FederatedIdentityService;
+import io.github.edmaputra.iam.application.service.MagicLinkService;
 import io.github.edmaputra.iam.application.service.MfaService;
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
@@ -59,8 +69,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  * @since 0.3.0
  */
 @AutoConfiguration(after = IamResourceServerAutoConfiguration.class)
-@EnableConfigurationProperties(SessionProperties.class)
-@Import(AuthController.class)
+@EnableConfigurationProperties({SessionProperties.class, MagicLinkProperties.class})
+@Import({AuthController.class, MfaController.class, MagicLinkController.class})
 public class IamAuthAutoConfiguration {
 
 
@@ -168,6 +178,55 @@ public class IamAuthAutoConfiguration {
 				passwordEncoder,
 				tokenProvider,
 				effectiveAccessResolver,
+				sessionRegistryProvider.getIfAvailable(),
+				tokenRevocationPortProvider.getIfAvailable(),
+				sessionPropertiesProvider.getIfAvailable(SessionProperties::defaultProperties));
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(MagicLinkTokenStorePort.class)
+	public MagicLinkTokenStorePort inMemoryMagicLinkTokenStore() {
+		return new InMemoryMagicLinkTokenStore();
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(MagicLinkNotifierPort.class)
+	public MagicLinkNotifierPort loggingMagicLinkNotifier() {
+		return new LoggingMagicLinkNotifier();
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public MagicLinkAuthProvider magicLinkAuthProvider(
+			MagicLinkTokenStorePort magicLinkTokenStore,
+			UserRepository userRepository) {
+		return new MagicLinkAuthProvider(magicLinkTokenStore, userRepository);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public ManageMagicLinkUseCase manageMagicLinkUseCase(
+			MagicLinkProperties magicLinkProperties,
+			UserRepository userRepository,
+			MagicLinkTokenStorePort magicLinkTokenStore,
+			MagicLinkNotifierPort magicLinkNotifier,
+			AuthenticationProviderRouter authRouter,
+			EffectiveAccessResolver effectiveAccessResolver,
+			TokenProviderPort tokenProvider,
+			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
+			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
+			ObjectProvider<SessionProperties> sessionPropertiesProvider) {
+
+		return new MagicLinkService(
+				magicLinkProperties,
+				userRepository,
+				magicLinkTokenStore,
+				magicLinkNotifier,
+				authRouter,
+				effectiveAccessResolver,
+				tokenProvider,
+				userMfaRepositoryProvider.getIfAvailable(),
 				sessionRegistryProvider.getIfAvailable(),
 				tokenRevocationPortProvider.getIfAvailable(),
 				sessionPropertiesProvider.getIfAvailable(SessionProperties::defaultProperties));

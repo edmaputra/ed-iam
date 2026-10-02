@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.MediaType;
@@ -31,6 +32,9 @@ class PlaygroundApplicationTests {
 
 	@LocalServerPort
 	private int port;
+
+	@Autowired
+	private io.github.edmaputra.iam.playground.service.PlaygroundSimulatedMailService mailService;
 
 	private WebTestClient webTestClient;
 
@@ -931,5 +935,241 @@ class PlaygroundApplicationTests {
 				.expectBody()
 				.jsonPath("$.mfaRequired").isEqualTo(false)
 				.jsonPath("$.accessToken").isNotEmpty();
+	}
+
+	@Test
+	@DisplayName("Should support passwordless magic link request, POST/GET verification, replay defense, and anti-enumeration handling")
+	void shouldSupportPasswordlessMagicLinkAuthentication() {
+		mailService.clear();
+
+		// 1. Request magic link for Dr. Gregory House
+		webTestClient.post()
+				.uri("/api/v1/auth/magic-link/request")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s"
+						}
+						""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.message").isNotEmpty()
+				.jsonPath("$.token").doesNotExist();
+
+		var simulatedMail = mailService.getLatestEmailFor(PlaygroundDataSeeder.DOCTOR_EMAIL)
+				.orElseThrow(() -> new AssertionError("Expected magic link email to be delivered to simulated inbox."));
+		String token = simulatedMail.token();
+		assertThat(token).isNotBlank();
+
+		// 2. Verify magic link via POST /api/v1/auth/magic-link/verify
+		byte[] verifyResponse = webTestClient.post()
+				.uri("/api/v1/auth/magic-link/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "token": "%s"
+						}
+						""".formatted(token))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.jsonPath("$.refreshToken").isNotEmpty()
+				.jsonPath("$.user.email").isEqualTo(PlaygroundDataSeeder.DOCTOR_EMAIL)
+				.returnResult().getResponseBody();
+
+		String accessToken = JsonPath.read(new String(verifyResponse), "$.accessToken");
+
+		// 3. Confirm authenticated access using issued access token
+		webTestClient.get()
+				.uri("/api/v1/auth/me")
+				.headers(headers -> headers.setBearerAuth(accessToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.email").isEqualTo(PlaygroundDataSeeder.DOCTOR_EMAIL);
+
+		// 4. Single-use replay protection: reusing the same magic link token MUST fail with 401 Unauthorized
+		webTestClient.post()
+				.uri("/api/v1/auth/magic-link/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "token": "%s"
+						}
+						""".formatted(token))
+				.exchange()
+				.expectStatus().isUnauthorized();
+
+		// 5. Request a second magic link and verify via GET endpoint (direct link click)
+		webTestClient.post()
+				.uri("/api/v1/auth/magic-link/request")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "%s"
+						}
+						""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.message").isNotEmpty()
+				.jsonPath("$.token").doesNotExist();
+
+		var secondMail = mailService.getLatestEmailFor(PlaygroundDataSeeder.DOCTOR_EMAIL)
+				.orElseThrow();
+		String secondToken = secondMail.token();
+
+		webTestClient.get()
+				.uri("/api/v1/auth/magic-link/verify?token=" + secondToken)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.jsonPath("$.user.email").isEqualTo(PlaygroundDataSeeder.DOCTOR_EMAIL);
+
+		// 6. Anti-enumeration: requesting magic link for non-existent user returns 200 with generic message and no email dispatched
+		mailService.clear();
+		webTestClient.post()
+				.uri("/api/v1/auth/magic-link/request")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("""
+						{
+						    "email": "nonexistent@hospital.org"
+						}
+						""")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.message").isNotEmpty()
+				.jsonPath("$.token").doesNotExist();
+
+		assertThat(mailService.getLatestEmailFor("nonexistent@hospital.org")).isEmpty();
+	}
+
+	@Test
+	@DisplayName("Should return database-backed scope hierarchy tree for anonymous visitor with neutral access status")
+	void shouldReturnDynamicScopeTreeForAnonymousVisitor() {
+		webTestClient.get()
+				.uri("/api/v1/playground/scopes/tree?tenantId=" + PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.tenantName").isEqualTo("Metro General Hospital")
+				.jsonPath("$.authenticated").isEqualTo(false)
+				.jsonPath("$.tree.length()").isEqualTo(1)
+				.jsonPath("$.tree[0].code").isEqualTo("METRO_HOSPITAL")
+				.jsonPath("$.tree[0].colorTheme").isEqualTo("gray")
+				.jsonPath("$.tree[0].accessStatus").isEqualTo("ANONYMOUS")
+				.jsonPath("$.tree[0].children.length()").isEqualTo(2)
+				.jsonPath("$.flatList.length()").isEqualTo(4);
+	}
+
+	@Test
+	@DisplayName("Should dynamically evaluate scope access status and colors for scoped clinician Dr. House")
+	void shouldEvaluateDynamicScopeAccessForScopedClinician() {
+		// 1. Authenticate as Dr. Gregory House (scoped to Cardiology with inheritance)
+		String loginJson = """
+				{
+				    "email": "%s",
+				    "password": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD);
+
+		byte[] loginResponseBody = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(loginJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.returnResult().getResponseBody();
+
+		String token = JsonPath.read(new String(loginResponseBody), "$.accessToken");
+
+		// 2. Fetch scope tree with Dr. House's bearer token
+		webTestClient.get()
+				.uri("/api/v1/playground/scopes/tree?tenantId=" + PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID)
+				.headers(headers -> headers.setBearerAuth(token))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.authenticated").isEqualTo(true)
+				.jsonPath("$.actorEmail").isEqualTo(PlaygroundDataSeeder.DOCTOR_EMAIL)
+				// Root: outside Dr. House's cardiology subtree
+				.jsonPath("$.flatList[?(@.code == 'METRO_HOSPITAL')].accessible").isEqualTo(false)
+				.jsonPath("$.flatList[?(@.code == 'METRO_HOSPITAL')].colorTheme").isEqualTo("red")
+				.jsonPath("$.flatList[?(@.code == 'METRO_HOSPITAL')].accessStatus").isEqualTo("FORBIDDEN")
+				// Cardiology: directly assigned scope
+				.jsonPath("$.flatList[?(@.code == 'CARDIOLOGY')].accessible").isEqualTo(true)
+				.jsonPath("$.flatList[?(@.code == 'CARDIOLOGY')].colorTheme").isEqualTo("emerald")
+				.jsonPath("$.flatList[?(@.code == 'CARDIOLOGY')].accessStatus").isEqualTo("DIRECT")
+				.jsonPath("$.flatList[?(@.code == 'CARDIOLOGY')].patientCount").isEqualTo(1)
+				// ICU: inherited scope from Cardiology
+				.jsonPath("$.flatList[?(@.code == 'ICU')].accessible").isEqualTo(true)
+				.jsonPath("$.flatList[?(@.code == 'ICU')].colorTheme").isEqualTo("emerald")
+				.jsonPath("$.flatList[?(@.code == 'ICU')].accessStatus").isEqualTo("INHERITED")
+				.jsonPath("$.flatList[?(@.code == 'ICU')].patientCount").isEqualTo(1)
+				// Pediatrics: forbidden / outside assigned branch
+				.jsonPath("$.flatList[?(@.code == 'PEDIATRICS')].accessible").isEqualTo(false)
+				.jsonPath("$.flatList[?(@.code == 'PEDIATRICS')].colorTheme").isEqualTo("red")
+				.jsonPath("$.flatList[?(@.code == 'PEDIATRICS')].accessStatus").isEqualTo("FORBIDDEN");
+	}
+
+	@Test
+	@DisplayName("Should evaluate dynamic scopes as NO_PERMISSION when user lacks PATIENT_READ in active tenant")
+	void shouldEvaluateDynamicScopesAsNoPermissionWhenRoleLacksReadPrivilege() {
+		// 1. Login as Dr. Allison Cameron
+		String loginJson = """
+				{
+				    "email": "%s",
+				    "password": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.CONSULTANT_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD);
+
+		byte[] loginResponseBody = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(loginJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.returnResult().getResponseBody();
+
+		String token = JsonPath.read(new String(loginResponseBody), "$.accessToken");
+
+		// 2. Switch tenant to St. Jude Medical Center (where Cameron has AUDITOR role without PATIENT_READ)
+		String switchJson = """
+				{
+				    "tenantId": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.ST_JUDE_TENANT_ID);
+
+		byte[] switchResponseBody = webTestClient.post()
+				.uri("/api/v1/auth/switch-tenant")
+				.headers(headers -> headers.setBearerAuth(token))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(switchJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.returnResult().getResponseBody();
+
+		String switchedToken = JsonPath.read(new String(switchResponseBody), "$.accessToken");
+
+		// 3. Query St. Jude scope tree: all scopes must show NO_PERMISSION and red theme
+		webTestClient.get()
+				.uri("/api/v1/playground/scopes/tree?tenantId=" + PlaygroundDataSeeder.ST_JUDE_TENANT_ID)
+				.headers(headers -> headers.setBearerAuth(switchedToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.tenantName").isEqualTo("St. Jude Medical Center")
+				.jsonPath("$.authenticated").isEqualTo(true)
+				.jsonPath("$.tree[0].code").isEqualTo("ST_JUDE")
+				.jsonPath("$.tree[0].accessible").isEqualTo(false)
+				.jsonPath("$.tree[0].colorTheme").isEqualTo("red")
+				.jsonPath("$.tree[0].accessStatus").isEqualTo("NO_PERMISSION");
 	}
 }

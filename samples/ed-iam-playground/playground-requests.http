@@ -114,6 +114,36 @@ Content-Type: application/json
   client.global.set("adminRefreshToken", response.body.refreshToken);
 %}
 
+### 1.12 Request Magic Link (Passwordless)
+# @name requestMagicLink
+POST {{baseUrl}}/api/v1/auth/magic-link/request
+Content-Type: application/json
+
+{
+  "email": "doctor@metro.org"
+}
+
+> {%
+  client.global.set("magicLinkToken", response.body.token);
+%}
+
+### 1.13 Verify Magic Link via POST (SPA / API Client)
+# @name verifyMagicLinkPost
+POST {{baseUrl}}/api/v1/auth/magic-link/verify
+Content-Type: application/json
+
+{
+  "token": "{{magicLinkToken}}"
+}
+
+> {%
+  client.global.set("magicLinkAccessToken", response.body.accessToken);
+%}
+
+### 1.14 Verify Magic Link via GET (Direct Link Click)
+# @name verifyMagicLinkGet
+GET {{baseUrl}}/api/v1/auth/magic-link/verify?token={{magicLinkToken}}
+
 # =============================================================================
 # 2. USER MANAGEMENT ENDPOINTS (/api/v1/users)
 # =============================================================================
@@ -464,3 +494,48 @@ Content-Type: application/json
 {
   "codeOrPassword": "P@ssw0rd123!"
 }
+
+### ===========================================================================
+### SECTION 9: Magic Link Passwordless Authentication
+### ===========================================================================
+
+### 9.1 Request Passwordless Magic Link (POST /api/v1/auth/magic-link/request)
+# Returns generic message (anti-enumeration); secret token is delivered out-of-band
+# @name requestMagicLink
+POST {{baseUrl}}/api/v1/auth/magic-link/request
+Content-Type: application/json
+
+{
+  "email": "doctor@metro.org"
+}
+
+### 9.2 Inspect Simulated Mail Inbox (GET /api/playground/inbox/latest)
+# Reads the delivered token and verification URL from the simulated inbox
+# @name getSimulatedInbox
+GET {{baseUrl}}/api/playground/inbox/latest?email=doctor@metro.org
+
+> {%
+  client.global.set("magicLinkToken", response.body.token);
+  client.global.set("magicLinkVerifyUrl", response.body.verificationUrl);
+%}
+
+### 9.3 Verify Magic Link via POST (POST /api/v1/auth/magic-link/verify)
+POST {{baseUrl}}/api/v1/auth/magic-link/verify
+Content-Type: application/json
+
+{
+  "token": "{{magicLinkToken}}"
+}
+
+> {%
+  client.global.set("magicLinkAccessToken", response.body.accessToken);
+%}
+
+### 9.4 Replay Attack Rejection (Reusing Consumed Token Fails with 401 Unauthorized)
+POST {{baseUrl}}/api/v1/auth/magic-link/verify
+Content-Type: application/json
+
+{
+  "token": "{{magicLinkToken}}"
+}
+
