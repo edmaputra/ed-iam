@@ -31,7 +31,7 @@ Dependencies flow strictly inward: `adapter` -> `application` -> `domain`.
 - **`ed-iam-resource-server`**: Spring Security resource server integration.
   - `adapter/security/`: Stateless JWT validation filter, `ScopedValue` context accessor, SpEL evaluator (`@iam`), `@RequirePermission` handler interceptor.
 - **`ed-iam-auth`**: Authentication and token issuance module.
-  - `adapter/rest/`: `AuthController` (`/api/v1/auth/*`) and auth request DTOs (`LoginRequest`, `RefreshTokenRequest`, `SwitchTenantRequest`).
+  - `adapter/rest/`: `AuthController` (`/api/v1/auth/*`), `MfaController` (`/api/v1/auth/mfa/*`), `MagicLinkController` (`/api/v1/auth/magic-link/*`), and auth request DTOs (`LoginRequest`, `RefreshTokenRequest`, `SwitchTenantRequest`).
   - `adapter/security/`: `BCryptPasswordEncoderAdapter`, authentication providers (`LocalPasswordAuthProvider`, `ApiKeyAuthProvider`, `OidcAuthProvider`).
   - `application/service/`: `AuthenticationService`, `EffectiveAccessResolver`, `FederatedIdentityService`.
 - **`ed-iam-management`**: Management domain implementations & web adapters.

@@ -23,7 +23,7 @@ sequenceDiagram
     autonumber
     actor User
     participant Browser
-    participant API as AuthController (/api/v1/auth/magic-link)
+    participant API as MagicLinkController (/api/v1/auth/magic-link)
     participant Svc as MagicLinkService
     participant Store as MagicLinkTokenStorePort
     participant Mail as MagicLinkNotifierPort

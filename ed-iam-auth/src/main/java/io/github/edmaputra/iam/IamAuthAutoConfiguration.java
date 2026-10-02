@@ -23,6 +23,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 import io.github.edmaputra.iam.adapter.rest.AuthController;
+import io.github.edmaputra.iam.adapter.rest.MagicLinkController;
+import io.github.edmaputra.iam.adapter.rest.MfaController;
 import io.github.edmaputra.iam.adapter.security.BCryptPasswordEncoderAdapter;
 import io.github.edmaputra.iam.adapter.security.IamResourceServerAutoConfiguration;
 import io.github.edmaputra.iam.adapter.security.notifier.LoggingMagicLinkNotifier;
@@ -68,7 +70,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  */
 @AutoConfiguration(after = IamResourceServerAutoConfiguration.class)
 @EnableConfigurationProperties({SessionProperties.class, MagicLinkProperties.class})
-@Import(AuthController.class)
+@Import({AuthController.class, MfaController.class, MagicLinkController.class})
 public class IamAuthAutoConfiguration {
 
 
