@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotBlank;
  *
  * @param code the 6-digit TOTP verification code
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 public record MfaActivateRequest(
 		@NotBlank(message = "Verification code must not be blank.")

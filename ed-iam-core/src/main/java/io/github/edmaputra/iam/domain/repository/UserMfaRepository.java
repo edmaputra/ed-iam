@@ -9,7 +9,7 @@ import io.github.edmaputra.iam.domain.model.UserMfa;
  * Outbound SPI repository contract for managing {@link UserMfa} persistence.
  *
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 public interface UserMfaRepository {
 

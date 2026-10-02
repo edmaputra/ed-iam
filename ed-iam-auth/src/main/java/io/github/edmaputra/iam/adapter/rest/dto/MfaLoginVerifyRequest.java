@@ -10,7 +10,7 @@ import io.github.edmaputra.iam.application.port.in.MfaLoginVerifyCommand;
  * @param mfaToken the temporary MFA challenge token string
  * @param code     the 6-digit TOTP code or single-use backup recovery code
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 public record MfaLoginVerifyRequest(
 		@NotBlank(message = "MFA token must not be blank.")

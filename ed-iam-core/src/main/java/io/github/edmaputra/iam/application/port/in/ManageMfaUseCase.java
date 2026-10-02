@@ -10,7 +10,7 @@ import io.github.edmaputra.iam.domain.model.UserId;
  * including enrollment setup, activation, disabling, status checks, and login challenge verification.
  *
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 public interface ManageMfaUseCase {
 

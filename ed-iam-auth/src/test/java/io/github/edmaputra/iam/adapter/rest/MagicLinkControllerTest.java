@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
  * Unit tests for {@link MagicLinkController}.
  *
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 class MagicLinkControllerTest {
 

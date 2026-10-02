@@ -11,7 +11,7 @@ import io.github.edmaputra.iam.adapter.persistence.entity.UserMfaJpaEntity;
  * Spring Data JPA repository for {@link UserMfaJpaEntity}.
  *
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 @Repository
 public interface UserMfaJpaRepository extends JpaRepository<UserMfaJpaEntity, UUID> {

@@ -17,7 +17,7 @@ import lombok.Setter;
  * in the {@code iam_user_mfa} table.
  *
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 @Entity
 @Table(name = "iam_user_mfa")

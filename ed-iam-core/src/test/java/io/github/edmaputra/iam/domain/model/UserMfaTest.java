@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Unit tests verifying lifecycle, invariants, and backup code consumption for {@link UserMfa}.
  *
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 class UserMfaTest {
 

@@ -8,7 +8,7 @@ import io.github.edmaputra.iam.application.model.TokenResponse;
  * including token issuance, notification dispatch, and single-use link consumption.
  *
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 public interface ManageMagicLinkUseCase {
 

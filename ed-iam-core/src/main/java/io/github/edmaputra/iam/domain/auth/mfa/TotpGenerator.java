@@ -21,7 +21,7 @@ import javax.crypto.spec.SecretKeySpec;
  * RFC 4648 Base32 encoding/decoding, and backup recovery code utilities.
  *
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 public final class TotpGenerator {
 

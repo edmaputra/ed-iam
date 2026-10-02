@@ -47,7 +47,7 @@ import io.github.edmaputra.iam.domain.util.UuidV7;
  * and single-use link consumption.
  *
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 public class MagicLinkService implements ManageMagicLinkUseCase {
 

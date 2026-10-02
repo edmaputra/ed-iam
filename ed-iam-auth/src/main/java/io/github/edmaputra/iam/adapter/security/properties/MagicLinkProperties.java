@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param expirationSeconds lifetime of an issued magic link token in seconds (default 900s = 15m)
  * @param baseUrl           base application URL used to construct the verification link
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 @ConfigurationProperties(prefix = "iam.auth.magic-link")
 public record MagicLinkProperties(

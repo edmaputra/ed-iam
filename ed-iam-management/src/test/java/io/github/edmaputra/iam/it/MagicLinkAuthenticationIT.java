@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * </ul>
  *
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 class MagicLinkAuthenticationIT extends AbstractIntegrationTest {
 

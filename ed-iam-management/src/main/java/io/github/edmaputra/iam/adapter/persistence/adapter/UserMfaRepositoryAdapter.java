@@ -18,7 +18,7 @@ import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
  * Persistence adapter implementing {@link UserMfaRepository} backed by Spring Data JPA.
  *
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 @RequiredArgsConstructor
 @Transactional(readOnly = true)

@@ -4,7 +4,7 @@ package io.github.edmaputra.iam.domain.exception;
  * Exception thrown when a magic link token has already been consumed and cannot be reused.
  *
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 public class MagicLinkConsumedException extends InvalidMagicLinkException {
 

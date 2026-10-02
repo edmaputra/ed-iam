@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Unit tests for {@link InMemoryMagicLinkTokenStore}.
  *
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 class InMemoryMagicLinkTokenStoreTest {
 

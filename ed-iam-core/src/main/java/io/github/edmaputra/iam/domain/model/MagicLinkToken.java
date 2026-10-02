@@ -21,7 +21,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantOwned;
  * @param consumedAt timestamp when the token was consumed, or null if unused
  * @param createdAt  timestamp when the token was created
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 public record MagicLinkToken(
 		MagicLinkId id,

@@ -15,7 +15,7 @@ import io.github.edmaputra.iam.playground.service.PlaygroundSimulatedMailService
  * Controller exposing endpoints to inspect the simulated mail inbox.
  *
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 @RestController
 @RequestMapping("/api/playground/inbox")

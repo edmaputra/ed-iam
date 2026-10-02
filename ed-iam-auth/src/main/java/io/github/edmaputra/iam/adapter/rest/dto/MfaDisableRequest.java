@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotBlank;
  *
  * @param codeOrPassword either a valid TOTP code or current user account password
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 public record MfaDisableRequest(
 		@NotBlank(message = "Verification code or password must not be blank.")

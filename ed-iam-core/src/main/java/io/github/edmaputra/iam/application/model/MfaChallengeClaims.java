@@ -15,7 +15,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
  * @param issuedAt  timestamp when the challenge token was issued
  * @param expiresAt timestamp when the challenge token expires
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 public record MfaChallengeClaims(
 		UserId userId,

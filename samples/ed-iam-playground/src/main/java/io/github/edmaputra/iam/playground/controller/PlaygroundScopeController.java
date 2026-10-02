@@ -30,7 +30,7 @@ import io.github.edmaputra.iam.playground.seeder.PlaygroundDataSeeder;
  * real-time access evaluation for the active tenant and persona.
  *
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 @RestController
 @RequestMapping("/api/v1/playground/scopes")

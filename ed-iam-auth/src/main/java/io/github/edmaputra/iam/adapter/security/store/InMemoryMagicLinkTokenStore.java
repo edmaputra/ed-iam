@@ -15,7 +15,7 @@ import io.github.edmaputra.iam.domain.model.MagicLinkToken;
  * Useful for local testing, development, and standalone microservices.
  *
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 public class InMemoryMagicLinkTokenStore implements MagicLinkTokenStorePort {
 

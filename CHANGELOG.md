@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.7.0] - 2026-10-02
+## [0.6.0] - 2026-10-02
 
 ### Added
 - **Passwordless Magic Link Authentication (Phase 1)**:
@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.6.0] - 2026-09-29
+## [0.5.0] - 2026-09-29
 
 ### Added
 - **RFC 6238 TOTP Multi-Factor Authentication (MFA) (Phase 1)**:
@@ -177,8 +177,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automated CI/CD**:
   - GitHub Actions automated release pipeline publishing signed artifacts to Maven Central via Sonatype Central Portal.
 
-[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.7.0...HEAD
-[0.7.0]: https://github.com/edmaputra/ed-iam/compare/v0.6.0...v0.7.0
+[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.6.0...HEAD
 [0.6.0]: https://github.com/edmaputra/ed-iam/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/edmaputra/ed-iam/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/edmaputra/ed-iam/compare/v0.3.0...v0.4.0

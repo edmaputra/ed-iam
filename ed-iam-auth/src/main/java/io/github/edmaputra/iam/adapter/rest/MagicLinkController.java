@@ -29,7 +29,7 @@ import io.github.edmaputra.iam.domain.tenancy.TenantResolutionHelper;
  * under {@code /api/v1/auth/magic-link}.
  *
  * @author edmaputra
- * @since 0.7.0
+ * @since 0.6.0
  */
 @RestController
 @RequestMapping("/api/v1/auth/magic-link")

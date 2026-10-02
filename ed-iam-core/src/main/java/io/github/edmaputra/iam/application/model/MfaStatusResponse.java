@@ -9,7 +9,7 @@ import java.util.Optional;
  * @param enabled    whether MFA is currently active and enforced for authentication
  * @param enrolledAt timestamp when MFA was activated, or null if not enabled
  * @author edmaputra
- * @since 0.6.0
+ * @since 0.5.0
  */
 public record MfaStatusResponse(
 		boolean enabled,
