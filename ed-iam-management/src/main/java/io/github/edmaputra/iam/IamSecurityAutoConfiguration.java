@@ -43,7 +43,7 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
  * @author edmaputra
  * @since 0.0.1
  */
-@AutoConfiguration(after = IamResourceServerAutoConfiguration.class)
+@AutoConfiguration(after = IamResourceServerAutoConfiguration.class, beforeName = "io.github.edmaputra.iam.IamAuthAutoConfiguration")
 @EntityScan(basePackages = "io.github.edmaputra.iam.adapter.persistence.entity")
 @EnableJpaRepositories(basePackages = "io.github.edmaputra.iam.adapter.persistence.repository")
 @Import(IamExceptionHandler.class)
