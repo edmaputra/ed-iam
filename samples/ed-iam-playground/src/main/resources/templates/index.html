@@ -1149,20 +1149,27 @@
 
         const feedback = document.getElementById('magicLinkFeedback');
         if (response.ok && data) {
-          currentMagicLinkToken = data.token;
           feedback.className = 'text-xs px-3 py-2 rounded-lg font-mono bg-purple-500/10 text-purple-300 border border-purple-500/30';
           feedback.textContent = data.message;
 
-          const card = document.getElementById('magicLinkIssuedCard');
-          const urlDisplay = document.getElementById('magicLinkUrlDisplay');
-          const expiresText = document.getElementById('magicLinkExpiresText');
+          // Check simulated inbox for the delivered email (out-of-band delivery)
+          try {
+            const inboxRes = await fetch(`/api/playground/inbox/latest?email=${encodeURIComponent(email)}`);
+            if (inboxRes.ok && inboxRes.status === 200) {
+              const mail = await inboxRes.json();
+              currentMagicLinkToken = mail.token;
 
-          const verifyUrl = `${window.location.origin}/api/v1/auth/magic-link/verify?token=${data.token}`;
-          if (urlDisplay) urlDisplay.textContent = verifyUrl;
-          if (expiresText && data.expiresAt) {
-            expiresText.textContent = `Expires: ${new Date(data.expiresAt).toLocaleTimeString()}`;
+              const card = document.getElementById('magicLinkIssuedCard');
+              const urlDisplay = document.getElementById('magicLinkUrlDisplay');
+              const expiresText = document.getElementById('magicLinkExpiresText');
+
+              if (urlDisplay) urlDisplay.textContent = mail.verificationUrl;
+              if (expiresText) expiresText.textContent = `Delivered to Inbox: ${new Date(mail.receivedAt).toLocaleTimeString()}`;
+              if (card) card.classList.remove('hidden');
+            }
+          } catch (e) {
+            console.error('Error fetching simulated inbox:', e);
           }
-          if (card) card.classList.remove('hidden');
         } else {
           const errMsg = data ? (data.detail || data.message || response.statusText) : response.statusText;
           feedback.className = 'text-xs px-3 py-2 rounded-lg font-mono bg-red-500/10 text-red-300 border border-red-500/30';

@@ -101,6 +101,9 @@ public class MagicLinkService implements ManageMagicLinkUseCase {
 				effectiveAccessResolver, tokenProvider, null, null, null, SessionProperties.defaultProperties());
 	}
 
+	private static final String GENERIC_DISPATCH_MESSAGE =
+			"If an account matching that email exists, a sign-in link has been sent to your inbox.";
+
 	@Override
 	public MagicLinkRequestResponse requestMagicLink(MagicLinkRequestCommand command) {
 		Objects.requireNonNull(command, "MagicLinkRequestCommand must not be null.");
@@ -109,14 +112,16 @@ public class MagicLinkService implements ManageMagicLinkUseCase {
 			throw new AuthenticationException("Magic link passwordless authentication is currently disabled.");
 		}
 
-		User user = userRepository.findByEmail(command.email().trim().toLowerCase())
-				.orElseThrow(() -> new UserNotFoundException("User not found with email: " + command.email()));
-
-		if (user.isSuspended()) {
-			throw new AuthenticationException("User account is suspended.");
+		Optional<User> userOpt = userRepository.findByEmail(command.email().trim().toLowerCase());
+		if (userOpt.isEmpty()) {
+			// Anti-enumeration: return generic success without generating or dispatching a token
+			return MagicLinkRequestResponse.of(GENERIC_DISPATCH_MESSAGE);
 		}
-		if (user.isDeactivated()) {
-			throw new AuthenticationException("User account is deactivated.");
+
+		User user = userOpt.get();
+		if (user.isSuspended() || user.isDeactivated()) {
+			// Anti-enumeration: return generic success without dispatching
+			return MagicLinkRequestResponse.of(GENERIC_DISPATCH_MESSAGE);
 		}
 
 		byte[] randomBytes = new byte[32];
@@ -147,10 +152,7 @@ public class MagicLinkService implements ManageMagicLinkUseCase {
 
 		magicLinkNotifier.sendMagicLink(magicLinkToken, verificationUrl);
 
-		return MagicLinkRequestResponse.of(
-				"Magic link has been dispatched to " + user.getEmail(),
-				token,
-				expiresAt);
+		return MagicLinkRequestResponse.of(GENERIC_DISPATCH_MESSAGE);
 	}
 
 	@Override

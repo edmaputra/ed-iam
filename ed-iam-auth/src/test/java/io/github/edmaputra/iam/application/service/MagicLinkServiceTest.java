@@ -120,9 +120,7 @@ class MagicLinkServiceTest {
 		MagicLinkRequestResponse response = service.requestMagicLink(command);
 
 		assertThat(response).isNotNull();
-		assertThat(response.token()).isNotBlank();
-		assertThat(response.message()).contains("user@test.com");
-		assertThat(response.expiresAt()).isNotNull();
+		assertThat(response.message()).contains("sign-in link");
 
 		verify(tokenStore).save(any(MagicLinkToken.class));
 
@@ -133,25 +131,32 @@ class MagicLinkServiceTest {
 	}
 
 	@Test
-	@DisplayName("Should throw UserNotFoundException when requesting magic link for non-existent email")
-	void shouldThrowWhenUserNotFoundOnRequest() {
+	@DisplayName("Should return generic success message without dispatching when email does not exist (anti-enumeration)")
+	void shouldReturnGenericMessageWhenUserNotFoundOnRequest() {
 		when(userRepository.findByEmail("unknown@test.com")).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> service.requestMagicLink(MagicLinkRequestCommand.of("unknown@test.com")))
-				.isInstanceOf(UserNotFoundException.class);
+		MagicLinkRequestResponse response = service.requestMagicLink(MagicLinkRequestCommand.of("unknown@test.com"));
+
+		assertThat(response).isNotNull();
+		assertThat(response.message()).contains("sign-in link");
+		verify(tokenStore, org.mockito.Mockito.never()).save(any());
+		verify(notifier, org.mockito.Mockito.never()).sendMagicLink(any(), any());
 	}
 
 	@Test
-	@DisplayName("Should throw AuthenticationException when user is inactive on request")
-	void shouldThrowWhenUserInactiveOnRequest() {
+	@DisplayName("Should return generic success message without dispatching when user is inactive (anti-enumeration)")
+	void shouldReturnGenericMessageWhenUserInactiveOnRequest() {
 		Instant now = Instant.now();
 		User user = new User(UserId.generate(), "inactive@test.com", "hash", "Inactive User", UserStatus.ACTIVE, false, now, now);
 		user.suspend();
 		when(userRepository.findByEmail("inactive@test.com")).thenReturn(Optional.of(user));
 
-		assertThatThrownBy(() -> service.requestMagicLink(MagicLinkRequestCommand.of("inactive@test.com")))
-				.isInstanceOf(AuthenticationException.class)
-				.hasMessageContaining("suspended");
+		MagicLinkRequestResponse response = service.requestMagicLink(MagicLinkRequestCommand.of("inactive@test.com"));
+
+		assertThat(response).isNotNull();
+		assertThat(response.message()).contains("sign-in link");
+		verify(tokenStore, org.mockito.Mockito.never()).save(any());
+		verify(notifier, org.mockito.Mockito.never()).sendMagicLink(any(), any());
 	}
 
 	@Test

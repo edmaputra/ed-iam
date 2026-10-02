@@ -1,37 +1,29 @@
 package io.github.edmaputra.iam.application.model;
 
-import java.time.Instant;
 import java.util.Objects;
 
 /**
- * Response model returning the status of a requested magic link dispatch.
+ * Safe, enumeration-resistant response model returning the dispatch status of a magic link request.
+ * Secret tokens are never included in HTTP response payloads and are dispatched exclusively
+ * out-of-band via {@link io.github.edmaputra.iam.application.port.out.MagicLinkNotifierPort}.
  *
- * @param message   human-readable status message
- * @param token     the issued magic link token (available for testing/logging)
- * @param expiresAt the timestamp when the magic link token will expire
+ * @param message human-readable status message
  * @author edmaputra
  * @since 0.5.0
  */
-public record MagicLinkRequestResponse(
-		String message,
-		String token,
-		Instant expiresAt) {
+public record MagicLinkRequestResponse(String message) {
 
 	public MagicLinkRequestResponse {
 		Objects.requireNonNull(message, "Message must not be null.");
-		Objects.requireNonNull(token, "Token must not be null.");
-		Objects.requireNonNull(expiresAt, "ExpiresAt must not be null.");
 	}
 
 	/**
 	 * Creates a new {@link MagicLinkRequestResponse}.
 	 *
-	 * @param message   status message
-	 * @param token     the issued token string
-	 * @param expiresAt expiration timestamp
+	 * @param message status message
 	 * @return new {@link MagicLinkRequestResponse}
 	 */
-	public static MagicLinkRequestResponse of(String message, String token, Instant expiresAt) {
-		return new MagicLinkRequestResponse(message, token, expiresAt);
+	public static MagicLinkRequestResponse of(String message) {
+		return new MagicLinkRequestResponse(message);
 	}
 }

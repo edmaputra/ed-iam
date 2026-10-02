@@ -152,8 +152,7 @@ iam:
 * **Response**: `200 OK`
   ```json
   {
-    "message": "If the email is registered, a magic login link has been dispatched.",
-    "expiresAt": "2026-09-29T15:15:00Z"
+    "message": "If an account matching that email exists, a sign-in link has been sent to your inbox."
   }
   ```
 

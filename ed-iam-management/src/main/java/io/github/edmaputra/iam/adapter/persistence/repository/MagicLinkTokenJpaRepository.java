@@ -30,6 +30,14 @@ public interface MagicLinkTokenJpaRepository extends JpaRepository<MagicLinkToke
 	Optional<MagicLinkTokenJpaEntity> findByToken(String token);
 
 	/**
+	 * Finds the latest magic link token entity issued to a given email address.
+	 *
+	 * @param email the destination email address
+	 * @return optional entity if found
+	 */
+	Optional<MagicLinkTokenJpaEntity> findTopByEmailOrderByCreatedAtDesc(String email);
+
+	/**
 	 * Atomically marks an unconsumed, non-expired magic link token as consumed.
 	 *
 	 * @param token      the secret token string

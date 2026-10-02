@@ -52,7 +52,7 @@ class MagicLinkControllerTest {
 	@DisplayName("Should request magic link and return response")
 	void shouldRequestMagicLink() {
 		MagicLinkSendRequest request = new MagicLinkSendRequest("user@example.com", null, "https://app/welcome");
-		MagicLinkRequestResponse expected = MagicLinkRequestResponse.of("Sent", "token123", Instant.now().plusSeconds(900));
+		MagicLinkRequestResponse expected = MagicLinkRequestResponse.of("Sent");
 
 		when(manageMagicLinkUseCase.requestMagicLink(any(MagicLinkRequestCommand.class))).thenReturn(expected);
 

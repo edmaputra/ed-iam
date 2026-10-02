@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.MediaType;
@@ -31,6 +32,9 @@ class PlaygroundApplicationTests {
 
 	@LocalServerPort
 	private int port;
+
+	@Autowired
+	private io.github.edmaputra.iam.playground.service.PlaygroundSimulatedMailService mailService;
 
 	private WebTestClient webTestClient;
 
@@ -934,10 +938,12 @@ class PlaygroundApplicationTests {
 	}
 
 	@Test
-	@DisplayName("Should support passwordless magic link request, POST/GET verification, replay defense, and non-existent email handling")
+	@DisplayName("Should support passwordless magic link request, POST/GET verification, replay defense, and anti-enumeration handling")
 	void shouldSupportPasswordlessMagicLinkAuthentication() {
+		mailService.clear();
+
 		// 1. Request magic link for Dr. Gregory House
-		byte[] requestResponse = webTestClient.post()
+		webTestClient.post()
 				.uri("/api/v1/auth/magic-link/request")
 				.contentType(MediaType.APPLICATION_JSON)
 				.bodyValue("""
@@ -949,11 +955,11 @@ class PlaygroundApplicationTests {
 				.expectStatus().isOk()
 				.expectBody()
 				.jsonPath("$.message").isNotEmpty()
-				.jsonPath("$.token").isNotEmpty()
-				.jsonPath("$.expiresAt").isNotEmpty()
-				.returnResult().getResponseBody();
+				.jsonPath("$.token").doesNotExist();
 
-		String token = JsonPath.read(new String(requestResponse), "$.token");
+		var simulatedMail = mailService.getLatestEmailFor(PlaygroundDataSeeder.DOCTOR_EMAIL)
+				.orElseThrow(() -> new AssertionError("Expected magic link email to be delivered to simulated inbox."));
+		String token = simulatedMail.token();
 		assertThat(token).isNotBlank();
 
 		// 2. Verify magic link via POST /api/v1/auth/magic-link/verify
@@ -997,7 +1003,7 @@ class PlaygroundApplicationTests {
 				.expectStatus().isUnauthorized();
 
 		// 5. Request a second magic link and verify via GET endpoint (direct link click)
-		byte[] secondRequestResponse = webTestClient.post()
+		webTestClient.post()
 				.uri("/api/v1/auth/magic-link/request")
 				.contentType(MediaType.APPLICATION_JSON)
 				.bodyValue("""
@@ -1008,10 +1014,12 @@ class PlaygroundApplicationTests {
 				.exchange()
 				.expectStatus().isOk()
 				.expectBody()
-				.jsonPath("$.token").isNotEmpty()
-				.returnResult().getResponseBody();
+				.jsonPath("$.message").isNotEmpty()
+				.jsonPath("$.token").doesNotExist();
 
-		String secondToken = JsonPath.read(new String(secondRequestResponse), "$.token");
+		var secondMail = mailService.getLatestEmailFor(PlaygroundDataSeeder.DOCTOR_EMAIL)
+				.orElseThrow();
+		String secondToken = secondMail.token();
 
 		webTestClient.get()
 				.uri("/api/v1/auth/magic-link/verify?token=" + secondToken)
@@ -1021,7 +1029,8 @@ class PlaygroundApplicationTests {
 				.jsonPath("$.accessToken").isNotEmpty()
 				.jsonPath("$.user.email").isEqualTo(PlaygroundDataSeeder.DOCTOR_EMAIL);
 
-		// 6. Requesting magic link for non-existent user should fail with 404
+		// 6. Anti-enumeration: requesting magic link for non-existent user returns 200 with generic message and no email dispatched
+		mailService.clear();
 		webTestClient.post()
 				.uri("/api/v1/auth/magic-link/request")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -1031,6 +1040,11 @@ class PlaygroundApplicationTests {
 						}
 						""")
 				.exchange()
-				.expectStatus().isNotFound();
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.message").isNotEmpty()
+				.jsonPath("$.token").doesNotExist();
+
+		assertThat(mailService.getLatestEmailFor("nonexistent@hospital.org")).isEmpty();
 	}
 }

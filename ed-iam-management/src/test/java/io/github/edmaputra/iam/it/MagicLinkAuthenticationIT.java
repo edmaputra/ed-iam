@@ -72,7 +72,7 @@ class MagicLinkAuthenticationIT extends AbstractIntegrationTest {
 				}
 				""".formatted(email);
 
-		byte[] requestBytes = webTestClient.post()
+		webTestClient.post()
 				.uri("/api/v1/auth/magic-link/request")
 				.header("X-Tenant-ID", tenantUuid.toString())
 				.contentType(MediaType.APPLICATION_JSON)
@@ -81,19 +81,14 @@ class MagicLinkAuthenticationIT extends AbstractIntegrationTest {
 				.expectStatus().isOk()
 				.expectBody()
 				.jsonPath("$.message").isNotEmpty()
-				.jsonPath("$.token").isNotEmpty()
-				.jsonPath("$.expiresAt").isNotEmpty()
-				.returnResult()
-				.getResponseBody();
+				.jsonPath("$.token").doesNotExist();
 
-		assertThat(requestBytes).isNotNull();
-		String token = JsonPath.read(new String(requestBytes, StandardCharsets.UTF_8), "$.token");
-		assertThat(token).isNotBlank();
-
-		// 3. Inspect PostgreSQL database row in iam_magic_link_token table directly
-		Optional<MagicLinkTokenJpaEntity> tokenEntityOpt = magicLinkTokenJpaRepository.findByToken(token);
+		// 3. Inspect PostgreSQL database row in iam_magic_link_token table directly (out-of-band delivery)
+		Optional<MagicLinkTokenJpaEntity> tokenEntityOpt = magicLinkTokenJpaRepository.findTopByEmailOrderByCreatedAtDesc(email);
 		assertThat(tokenEntityOpt).isPresent();
 		MagicLinkTokenJpaEntity tokenEntity = tokenEntityOpt.get();
+		String token = tokenEntity.getToken();
+		assertThat(token).isNotBlank();
 		assertThat(tokenEntity.getUserId()).isEqualTo(user.getId().value());
 		assertThat(tokenEntity.getTenantId()).isEqualTo(tenantUuid.toString());
 		assertThat(tokenEntity.getEmail()).isEqualTo(email);
@@ -169,7 +164,7 @@ class MagicLinkAuthenticationIT extends AbstractIntegrationTest {
 		userRepository.save(user);
 
 		// Request magic link
-		byte[] requestBytes = webTestClient.post()
+		webTestClient.post()
 				.uri("/api/v1/auth/magic-link/request")
 				.contentType(MediaType.APPLICATION_JSON)
 				.bodyValue("""
@@ -180,10 +175,12 @@ class MagicLinkAuthenticationIT extends AbstractIntegrationTest {
 				.exchange()
 				.expectStatus().isOk()
 				.expectBody()
-				.returnResult()
-				.getResponseBody();
+				.jsonPath("$.message").isNotEmpty()
+				.jsonPath("$.token").doesNotExist();
 
-		String token = JsonPath.read(new String(requestBytes, StandardCharsets.UTF_8), "$.token");
+		Optional<MagicLinkTokenJpaEntity> tokenEntityOpt = magicLinkTokenJpaRepository.findTopByEmailOrderByCreatedAtDesc(email);
+		assertThat(tokenEntityOpt).isPresent();
+		String token = tokenEntityOpt.get().getToken();
 
 		// Verify via GET /api/v1/auth/magic-link/verify?token=...
 		webTestClient.get()
@@ -275,17 +272,23 @@ class MagicLinkAuthenticationIT extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("Should return 404 Not Found when requesting magic link for non-existent email")
-	void shouldReturn404WhenRequestingMagicLinkForNonExistentUser() {
+	@DisplayName("Should return generic success and not create token when requesting for non-existent email (anti-enumeration)")
+	void shouldReturnGenericSuccessWhenRequestingForNonExistentUser() {
+		String unknownEmail = "unknown-" + UUID.randomUUID() + "@hospital.org";
 		webTestClient.post()
 				.uri("/api/v1/auth/magic-link/request")
 				.contentType(MediaType.APPLICATION_JSON)
 				.bodyValue("""
 						{
-						    "email": "unknown-nonexistent@hospital.org"
+						    "email": "%s"
 						}
-						""")
+						""".formatted(unknownEmail))
 				.exchange()
-				.expectStatus().isNotFound();
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.message").isNotEmpty()
+				.jsonPath("$.token").doesNotExist();
+
+		assertThat(magicLinkTokenJpaRepository.findTopByEmailOrderByCreatedAtDesc(unknownEmail)).isEmpty();
 	}
 }
