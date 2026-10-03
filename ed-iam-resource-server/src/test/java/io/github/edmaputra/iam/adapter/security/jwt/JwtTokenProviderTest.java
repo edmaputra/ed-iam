@@ -87,6 +87,8 @@ class JwtTokenProviderTest {
 
 		assertThat(claims.userId()).isEqualTo(userId);
 		assertThat(claims.tenantId()).isEqualTo(tenantId);
+		assertThat(claims.optionalTokenId()).isPresent();
+		assertThat(claims.tokenId()).isNotBlank();
 	}
 
 	@Test
@@ -124,6 +126,54 @@ class JwtTokenProviderTest {
 	}
 
 	@Test
+	@DisplayName("Should reject token with mismatched issuer")
+	void shouldRejectTokenWithMismatchedIssuer() {
+		JwtProperties customIssuerProps = new JwtProperties(
+				JwtProperties.TEST_SECRET,
+				3600,
+				604800,
+				"untrusted-foreign-issuer",
+				JwtProperties.DEFAULT_AUDIENCE);
+		JwtTokenProvider otherIssuerProvider = new JwtTokenProvider(customIssuerProps);
+
+		UserId userId = UserId.generate();
+		EffectiveAccess access = new EffectiveAccess(
+				userId, "user@test.org", null, true, true,
+				Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+
+		String token = otherIssuerProvider.createAccessToken(access);
+
+		assertThat(jwtTokenProvider.validateToken(token)).isFalse();
+		assertThatThrownBy(() -> jwtTokenProvider.parseAccessToken(token))
+				.isInstanceOf(AuthenticationException.class)
+				.hasMessageContaining("Invalid or expired JWT token");
+	}
+
+	@Test
+	@DisplayName("Should reject token with mismatched audience")
+	void shouldRejectTokenWithMismatchedAudience() {
+		JwtProperties customAudProps = new JwtProperties(
+				JwtProperties.TEST_SECRET,
+				3600,
+				604800,
+				JwtProperties.DEFAULT_ISSUER,
+				"foreign-api-audience");
+		JwtTokenProvider otherAudProvider = new JwtTokenProvider(customAudProps);
+
+		UserId userId = UserId.generate();
+		EffectiveAccess access = new EffectiveAccess(
+				userId, "user@test.org", null, true, true,
+				Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+
+		String token = otherAudProvider.createAccessToken(access);
+
+		assertThat(jwtTokenProvider.validateToken(token)).isFalse();
+		assertThatThrownBy(() -> jwtTokenProvider.parseAccessToken(token))
+				.isInstanceOf(AuthenticationException.class)
+				.hasMessageContaining("Invalid or expired JWT token");
+	}
+
+	@Test
 	@DisplayName("Should create and parse access and refresh token with null tenant context")
 	void shouldCreateAndParseTokensWithNullTenant() {
 		UserId userId = UserId.generate();
@@ -133,6 +183,7 @@ class JwtTokenProviderTest {
 		RefreshTokenClaims refreshClaims = jwtTokenProvider.parseRefreshToken(refreshToken);
 		assertThat(refreshClaims.userId()).isEqualTo(userId);
 		assertThat(refreshClaims.tenantId()).isNull();
+		assertThat(refreshClaims.tokenId()).isNotBlank();
 
 		// Access token for superadmin with null tenant
 		EffectiveAccess superAdminAccess = new EffectiveAccess(
@@ -148,20 +199,39 @@ class JwtTokenProviderTest {
 				.hasMessageContaining("not an ACCESS token");
 
 		assertThat(jwtTokenProvider.getAccessTokenExpirationSeconds()).isGreaterThan(0);
+		assertThat(jwtTokenProvider.getIssuer()).isEqualTo(JwtProperties.DEFAULT_ISSUER);
+		assertThat(jwtTokenProvider.getAudience()).isEqualTo(JwtProperties.DEFAULT_AUDIENCE);
 	}
 
 	@Test
-	@DisplayName("Should handle JwtProperties defaults for blank or negative values")
+	@DisplayName("Should fail when secret is null, blank, or shorter than 256 bits")
+	void shouldEnforceSecretValidation() {
+		assertThatThrownBy(() -> JwtProperties.of(null, 3600, 604800))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("iam.jwt.secret must not be null or blank");
+
+		assertThatThrownBy(() -> JwtProperties.of("   ", 3600, 604800))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("iam.jwt.secret must not be null or blank");
+
+		assertThatThrownBy(() -> JwtProperties.of("short-secret-less-than-32-bytes", 3600, 604800))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("at least 256 bits (32 bytes)");
+	}
+
+	@Test
+	@DisplayName("Should handle JwtProperties defaults for blank issuer, audience, or negative expiration")
 	void shouldHandleJwtPropertiesEdgeCases() {
-		JwtProperties p1 = new JwtProperties(null, -10, -20);
-		assertThat(p1.secret()).isEqualTo(JwtProperties.DEFAULT_SECRET);
+		JwtProperties p1 = new JwtProperties(JwtProperties.TEST_SECRET, -10, -20, null, null);
+		assertThat(p1.secret()).isEqualTo(JwtProperties.TEST_SECRET);
 		assertThat(p1.accessTokenExpirationSeconds()).isEqualTo(JwtProperties.DEFAULT_ACCESS_TOKEN_EXPIRATION);
 		assertThat(p1.refreshTokenExpirationSeconds()).isEqualTo(JwtProperties.DEFAULT_REFRESH_TOKEN_EXPIRATION);
+		assertThat(p1.issuer()).isEqualTo(JwtProperties.DEFAULT_ISSUER);
+		assertThat(p1.audience()).isEqualTo(JwtProperties.DEFAULT_AUDIENCE);
 
-		JwtProperties p2 = new JwtProperties("   ", 0, 0);
-		assertThat(p2.secret()).isEqualTo(JwtProperties.DEFAULT_SECRET);
-		assertThat(p2.accessTokenExpirationSeconds()).isEqualTo(JwtProperties.DEFAULT_ACCESS_TOKEN_EXPIRATION);
-		assertThat(p2.refreshTokenExpirationSeconds()).isEqualTo(JwtProperties.DEFAULT_REFRESH_TOKEN_EXPIRATION);
+		JwtProperties p2 = new JwtProperties(JwtProperties.TEST_SECRET, 0, 0, "   ", "   ");
+		assertThat(p2.issuer()).isEqualTo(JwtProperties.DEFAULT_ISSUER);
+		assertThat(p2.audience()).isEqualTo(JwtProperties.DEFAULT_AUDIENCE);
 	}
 
 	@Test
