@@ -82,7 +82,8 @@ public class IamManagementAutoConfiguration {
 			GroupRepository groupRepository,
 			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
 			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
-			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider) {
+			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
+			ObjectProvider<io.github.edmaputra.iam.domain.security.CurrentActorProvider> currentActorProvider) {
 		return new UserManagementService(
 				userRepository,
 				passwordEncoder,
@@ -92,7 +93,8 @@ public class IamManagementAutoConfiguration {
 				groupRepository,
 				sessionRegistryProvider.getIfAvailable(),
 				tokenRevocationPortProvider.getIfAvailable(),
-				userMfaRepositoryProvider.getIfAvailable());
+				userMfaRepositoryProvider.getIfAvailable(),
+				currentActorProvider.getIfAvailable());
 	}
 
 	/**

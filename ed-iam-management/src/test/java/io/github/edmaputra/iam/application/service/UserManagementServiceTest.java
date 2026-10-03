@@ -16,6 +16,9 @@ import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.domain.exception.GroupNotFoundException;
 import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
+import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
+import io.github.edmaputra.iam.domain.security.CurrentActor;
+import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupId;
 import io.github.edmaputra.iam.domain.model.PageQuery;
@@ -100,6 +103,61 @@ class UserManagementServiceTest {
 		// Duplicate email check
 		when(userRepository.findByEmail("alice@test.org")).thenReturn(Optional.of(user1));
 		assertThatThrownBy(() -> service.createUser(cmd1)).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	@DisplayName("Should prevent non-platform superadmin from creating superadmin user")
+	void shouldPreventNonSuperAdminFromCreatingSuperAdminUser() {
+		CurrentActorProvider actorProvider = mock(CurrentActorProvider.class);
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.isPlatformSuperAdmin()).thenReturn(false);
+		when(actorProvider.currentActor()).thenReturn(Optional.of(actor));
+
+		UserManagementService securedService = new UserManagementService(
+				userRepository,
+				passwordEncoder,
+				userRoleAssignmentRepository,
+				userGroupMembershipRepository,
+				roleRepository,
+				groupRepository,
+				null,
+				null,
+				null,
+				actorProvider);
+
+		CreateUserCommand command = new CreateUserCommand("super@test.org", "password123", "Super Admin", true);
+
+		assertThatThrownBy(() -> securedService.createUser(command))
+				.isInstanceOf(AccessDeniedException.class)
+				.hasMessageContaining("Only platform superadmins can create platform superadmin accounts.");
+	}
+
+	@Test
+	@DisplayName("Should allow platform superadmin to create superadmin user")
+	void shouldAllowSuperAdminToCreateSuperAdminUser() {
+		CurrentActorProvider actorProvider = mock(CurrentActorProvider.class);
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.isPlatformSuperAdmin()).thenReturn(true);
+		when(actorProvider.currentActor()).thenReturn(Optional.of(actor));
+
+		UserManagementService securedService = new UserManagementService(
+				userRepository,
+				passwordEncoder,
+				userRoleAssignmentRepository,
+				userGroupMembershipRepository,
+				roleRepository,
+				groupRepository,
+				null,
+				null,
+				null,
+				actorProvider);
+
+		when(userRepository.findByEmail("super@test.org")).thenReturn(Optional.empty());
+		when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
+
+		CreateUserCommand command = new CreateUserCommand("super@test.org", "password123", "Super Admin", true);
+		User created = securedService.createUser(command);
+		assertThat(created.isPlatformSuperAdmin()).isTrue();
 	}
 
 	@Test

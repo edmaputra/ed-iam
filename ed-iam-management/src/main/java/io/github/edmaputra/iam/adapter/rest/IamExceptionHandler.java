@@ -98,6 +98,12 @@ public class IamExceptionHandler {
 		return handleNotFound(ex, null);
 	}
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(IamExceptionHandler.class);
+
+	private static final List<String> SENSITIVE_FIELD_NAMES = List.of(
+			"password", "secret", "token", "apikey", "api_key", "credential", "privatekey", "private_key"
+	);
+
 	/**
 	 * Handles validation exceptions and returns RFC 9457 HTTP 422 Unprocessable Entity with structured field errors.
 	 *
@@ -111,7 +117,9 @@ public class IamExceptionHandler {
 				.map(fe -> Map.<String, Object>of(
 						"field", fe.getField(),
 						"message", fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "",
-						"rejectedValue", fe.getRejectedValue() != null ? fe.getRejectedValue() : "null"
+						"rejectedValue", isSensitiveField(fe.getField())
+								? "[PROTECTED]"
+								: (fe.getRejectedValue() != null ? fe.getRejectedValue() : "null")
 				))
 				.toList();
 
@@ -148,5 +156,58 @@ public class IamExceptionHandler {
 
 	public ProblemDetail handleBadRequest(Exception ex) {
 		return handleBadRequest(ex, null);
+	}
+
+	/**
+	 * Handles Spring web ResponseStatusException, preserving status code and reason.
+	 *
+	 * @param ex      the response status exception
+	 * @param request the optional HTTP servlet request
+	 * @return RFC 9457 problem detail with corresponding status
+	 */
+	@ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+	public ProblemDetail handleResponseStatus(org.springframework.web.server.ResponseStatusException ex, HttpServletRequest request) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatusCode(), ex.getReason());
+		if (request != null) {
+			problem.setInstance(URI.create(request.getRequestURI()));
+		}
+		return problem;
+	}
+
+	public ProblemDetail handleResponseStatus(org.springframework.web.server.ResponseStatusException ex) {
+		return handleResponseStatus(ex, null);
+	}
+
+	/**
+	 * Handles unexpected runtime exceptions and returns HTTP 500 Internal Server Error without leaking internal details.
+	 *
+	 * @param ex      the unexpected exception
+	 * @param request the optional HTTP servlet request
+	 * @return RFC 9457 problem detail with HTTP 500
+	 */
+	@ExceptionHandler(Exception.class)
+	public ProblemDetail handleUnexpected(Exception ex, HttpServletRequest request) {
+		log.error("An unexpected error occurred while processing request: {}", ex.getMessage(), ex);
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+				HttpStatus.INTERNAL_SERVER_ERROR,
+				"An unexpected error occurred. Please contact system support.");
+		problem.setTitle("Internal Server Error");
+		problem.setType(URI.create("https://api.edmaputra.github.io/problems/internal-server-error"));
+		if (request != null) {
+			problem.setInstance(URI.create(request.getRequestURI()));
+		}
+		return problem;
+	}
+
+	public ProblemDetail handleUnexpected(Exception ex) {
+		return handleUnexpected(ex, null);
+	}
+
+	private static boolean isSensitiveField(String fieldName) {
+		if (fieldName == null) {
+			return false;
+		}
+		String lower = fieldName.toLowerCase();
+		return SENSITIVE_FIELD_NAMES.stream().anyMatch(lower::contains);
 	}
 }

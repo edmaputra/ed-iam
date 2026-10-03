@@ -123,6 +123,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	private void writeUnauthorized(HttpServletResponse response, String message) throws IOException {
 		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-		response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"" + message + "\"}");
+		String safeMessage = message != null ? escapeJson(message) : "";
+		response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"" + safeMessage + "\"}");
+	}
+
+	private static String escapeJson(String input) {
+		if (input == null) {
+			return "";
+		}
+		StringBuilder sb = new StringBuilder(input.length() + 16);
+		for (int i = 0; i < input.length(); i++) {
+			char c = input.charAt(i);
+			switch (c) {
+				case '"' -> sb.append("\\\"");
+				case '\\' -> sb.append("\\\\");
+				case '\b' -> sb.append("\\b");
+				case '\f' -> sb.append("\\f");
+				case '\n' -> sb.append("\\n");
+				case '\r' -> sb.append("\\r");
+				case '\t' -> sb.append("\\t");
+				default -> {
+					if (c < ' ') {
+						sb.append(String.format("\\u%04x", (int) c));
+					}
+					else {
+						sb.append(c);
+					}
+				}
+			}
+		}
+		return sb.toString();
 	}
 }
