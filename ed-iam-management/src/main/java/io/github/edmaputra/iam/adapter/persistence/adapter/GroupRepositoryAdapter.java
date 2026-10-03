@@ -8,6 +8,8 @@ import java.util.stream.StreamSupport;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.persistence.entity.GroupJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.GroupJpaRepository;
@@ -22,6 +24,7 @@ import io.github.edmaputra.iam.domain.repository.GroupRepository;
  * @since 0.0.1
  */
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class GroupRepositoryAdapter implements GroupRepository {
 
 	private final GroupJpaRepository repository;
@@ -74,6 +77,7 @@ public class GroupRepositoryAdapter implements GroupRepository {
 	}
 
 	@Override
+	@Transactional
 	public Group save(Group group) {
 		Objects.requireNonNull(group, "Group must not be null.");
 		GroupJpaEntity entity = toEntity(group);
@@ -82,6 +86,7 @@ public class GroupRepositoryAdapter implements GroupRepository {
 	}
 
 	@Override
+	@Transactional
 	public void delete(GroupId id) {
 		Objects.requireNonNull(id, "GroupId must not be null.");
 		repository.deleteById(id.value());

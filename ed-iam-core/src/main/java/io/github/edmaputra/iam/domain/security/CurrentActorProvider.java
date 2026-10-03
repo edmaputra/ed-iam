@@ -14,6 +14,6 @@ public interface CurrentActorProvider {
 
 	default CurrentActor requireCurrentActor() {
 		return currentActor().orElseThrow(
-				() -> new IllegalStateException("An authenticated actor context is required for this operation."));
+				() -> new IllegalStateException("No authenticated actor in current security context."));
 	}
 }

@@ -9,7 +9,10 @@ import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserComman
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupId;
+import io.github.edmaputra.iam.domain.model.PageQuery;
+import io.github.edmaputra.iam.domain.model.PagedResult;
 import io.github.edmaputra.iam.domain.model.User;
+import io.github.edmaputra.iam.domain.model.UserFilter;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserRoleAssignment;
 
@@ -114,4 +117,13 @@ public interface ManageUserUseCase {
 	 * @return list of groups
 	 */
 	List<Group> getUserGroups(UserId userId);
+
+	/**
+	 * Retrieves a paginated list of users matching the specified filter criteria.
+	 *
+	 * @param filter    filter criteria
+	 * @param pageQuery pagination parameters
+	 * @return paginated user records
+	 */
+	PagedResult<User> getUsers(UserFilter filter, PageQuery pageQuery);
 }

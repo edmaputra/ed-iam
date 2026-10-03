@@ -8,6 +8,8 @@ import java.util.stream.StreamSupport;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.persistence.entity.RoleJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.RoleJpaRepository;
@@ -22,6 +24,7 @@ import io.github.edmaputra.iam.domain.repository.RoleRepository;
  * @since 0.0.1
  */
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class RoleRepositoryAdapter implements RoleRepository {
 
 	private final RoleJpaRepository repository;
@@ -72,6 +75,7 @@ public class RoleRepositoryAdapter implements RoleRepository {
 	}
 
 	@Override
+	@Transactional
 	public Role save(Role role) {
 		Objects.requireNonNull(role, "Role must not be null.");
 		RoleJpaEntity entity = toEntity(role);
@@ -80,6 +84,7 @@ public class RoleRepositoryAdapter implements RoleRepository {
 	}
 
 	@Override
+	@Transactional
 	public void delete(RoleId id) {
 		Objects.requireNonNull(id, "RoleId must not be null.");
 		repository.deleteById(id.value());

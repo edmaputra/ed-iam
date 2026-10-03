@@ -8,6 +8,14 @@
   <link rel="alternate icon" type="image/x-icon" th:href="@{/favicon.ico}" href="/favicon.ico">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script th:src="@{/qrcode.min.js}" src="/qrcode.min.js"></script>
+  <script>
+    if (typeof QRCode === 'undefined') {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+      document.head.appendChild(s);
+    }
+  </script>
   <script>
     tailwind.config = {
       theme: {
@@ -28,6 +36,9 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
 
+  <!-- Global Toast Notification Container -->
+  <div id="toastContainer" class="fixed top-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none" aria-live="polite"></div>
+
   <!-- Navigation Bar -->
   <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -35,7 +46,7 @@
         <img th:src="@{/ed-iam-icon-transparent.png}" src="/ed-iam-icon-transparent.png" alt="ed-iam logo" class="w-9 h-9 object-contain drop-shadow-md" />
         <div>
           <span class="font-bold text-lg text-white">ed-iam</span>
-          <span class="ml-2 text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">Playground v0.0.1</span>
+          <span class="ml-2 text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">Playground v0.5.0-SNAPSHOT</span>
         </div>
       </div>
       <div class="flex items-center space-x-4 text-sm">
@@ -79,6 +90,14 @@
           <div id="activeTenantDisplay" class="hidden text-xs bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded-lg text-slate-300">
             <span class="text-slate-500">Tenant:</span> <span id="activeTenantName" class="font-mono text-indigo-400 font-medium">Metro General Hospital</span>
           </div>
+
+          <button id="sessionsBtn" onclick="openSessionsModal()" class="hidden text-xs px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/20 transition">
+            <i class="fa-solid fa-shield-halved mr-1"></i> Active Sessions
+          </button>
+
+          <button id="mfaBtn" onclick="openMfaModal()" class="hidden text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 transition">
+            <i class="fa-solid fa-key mr-1"></i> <span id="mfaBtnText">2FA / MFA</span>
+          </button>
 
           <button id="logoutBtn" onclick="logout()" class="hidden text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition">
             <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Logout
@@ -264,6 +283,79 @@
       <div id="customLoginFeedback" class="hidden text-xs px-3 py-2 rounded-lg font-mono"></div>
     </section>
 
+    <!-- Passwordless Magic Link Login Panel -->
+    <section class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h2 class="text-base font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> Passwordless Magic Link
+            <span class="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full font-mono">POST /api/v1/auth/magic-link/*</span>
+          </h2>
+          <p class="text-xs text-slate-400">Request a secure, single-use email magic link for instant passwordless authentication with zero credential risk.</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2 text-xs">
+        <span class="text-slate-400 self-center">Quick fill:</span>
+        <button type="button" onclick="fillMagicLinkEmail('doctor@metro.org')" class="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs transition">
+          <i class="fa-solid fa-user-doctor text-emerald-400 mr-1"></i>Dr. House
+        </button>
+        <button type="button" onclick="fillMagicLinkEmail('admin@metro.org')" class="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs transition">
+          <i class="fa-solid fa-user-shield text-amber-400 mr-1"></i>Dr. Cuddy (Admin)
+        </button>
+        <button type="button" onclick="fillMagicLinkEmail('consultant@healthgroup.org')" class="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs transition">
+          <i class="fa-solid fa-user-nurse text-cyan-400 mr-1"></i>Dr. Cameron (Multi-Tenant)
+        </button>
+      </div>
+
+      <form id="magicLinkForm" onsubmit="event.preventDefault(); requestMagicLink();" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+        <div>
+          <label for="magicLinkEmail" class="block text-xs font-medium text-slate-300 mb-1">Destination Email</label>
+          <input type="email" id="magicLinkEmail" required placeholder="e.g. doctor@metro.org"
+            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500">
+        </div>
+
+        <div>
+          <label for="magicLinkTenant" class="block text-xs font-medium text-slate-300 mb-1">Tenant Context (Optional)</label>
+          <select id="magicLinkTenant" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <option value="">Auto-Resolve (Default)</option>
+            <option th:value="${metroTenantId}">Metro General Hospital</option>
+            <option th:value="${stJudeTenantId}">St. Jude Medical Center</option>
+          </select>
+        </div>
+
+        <div class="flex gap-2">
+          <button type="submit" id="magicLinkSubmitBtn" class="w-full py-2 px-4 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs shadow-lg shadow-purple-600/30 transition flex items-center justify-center gap-1.5 h-[35px]">
+            <i class="fa-solid fa-paper-plane"></i> Send Magic Link
+          </button>
+          <button type="button" onclick="clearMagicLinkForm()" title="Clear form" class="py-2 px-3 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs transition h-[35px]">
+            <i class="fa-solid fa-rotate-left"></i>
+          </button>
+        </div>
+      </form>
+
+      <div id="magicLinkFeedback" class="hidden text-xs px-3 py-2 rounded-lg font-mono"></div>
+
+      <!-- Magic Link Issued Card -->
+      <div id="magicLinkIssuedCard" class="hidden p-4 bg-slate-950 border border-purple-500/40 rounded-lg space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-purple-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-check text-purple-400"></i> Magic Link Issued (Single-Use Token)
+          </span>
+          <span id="magicLinkExpiresText" class="text-[11px] text-slate-400 font-mono"></span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded p-2 text-xs font-mono break-all text-purple-200" id="magicLinkUrlDisplay"></div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" onclick="verifyGeneratedMagicLink()" class="py-1.5 px-3 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow transition flex items-center gap-1.5">
+            <i class="fa-solid fa-bolt"></i> Simulate Email Click (Consume Link)
+          </button>
+          <button type="button" onclick="copyMagicLink()" class="py-1.5 px-3 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs transition flex items-center gap-1.5">
+            <i class="fa-solid fa-copy"></i> Copy Link
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- Dedicated Multi-Tenant Context Switcher Card -->
     <section class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -336,49 +428,20 @@
 
       <!-- Department Authorization Tester -->
       <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl space-y-5">
-        <div>
-          <h2 class="text-base font-semibold text-white flex items-center gap-2">
-            <i class="fa-solid fa-sitemap text-indigo-400"></i> Scope-Based Access Evaluator
-          </h2>
-          <p class="text-xs text-slate-400">Query clinical records by department to test ScopeNode subtree authorization checks.</p>
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-sitemap text-indigo-400"></i> Scope-Based Access Evaluator
+            </h2>
+            <p class="text-xs text-slate-400">Query clinical records by department to test ScopeNode subtree authorization checks.</p>
+          </div>
+          <button onclick="refreshEvaluatorScopes()" title="Reload Scopes from Database" class="text-xs px-2.5 py-1 rounded bg-slate-900 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition flex items-center gap-1.5">
+            <i class="fa-solid fa-rotate text-[11px]"></i> Refresh
+          </button>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button onclick="fetchPatientsByScope(CARDIOLOGY_SCOPE_ID, 'Cardiology Department')" class="p-3 bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-lg text-left transition group">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-white group-hover:text-emerald-300">Cardiology</span>
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            </div>
-            <p class="text-[10px] text-slate-400 mt-1 font-mono">Scope: Cardio</p>
-            <span class="inline-block mt-2 text-[10px] text-emerald-400 font-medium">Expected: 200 OK</span>
-          </button>
-
-          <button onclick="fetchPatientsByScope(ICU_SCOPE_ID, 'Cardiology ICU Ward')" class="p-3 bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-lg text-left transition group">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-white group-hover:text-emerald-300">ICU Ward</span>
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            </div>
-            <p class="text-[10px] text-slate-400 mt-1 font-mono">Cardio Subchild</p>
-            <span class="inline-block mt-2 text-[10px] text-emerald-400 font-medium">Expected: 200 OK (Inherited)</span>
-          </button>
-
-          <button onclick="fetchPatientsByScope(PEDIATRICS_SCOPE_ID, 'Pediatrics Department')" class="p-3 bg-slate-900 border border-slate-700 hover:border-red-500 rounded-lg text-left transition group">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-white group-hover:text-red-300">Pediatrics</span>
-              <span class="w-2 h-2 rounded-full bg-red-400"></span>
-            </div>
-            <p class="text-[10px] text-slate-400 mt-1 font-mono">Outside Scope</p>
-            <span class="inline-block mt-2 text-[10px] text-red-400 font-medium">Expected: 403 Forbidden</span>
-          </button>
-
-          <button onclick="fetchCurrentTenantPatients()" class="p-3 bg-slate-900 border border-slate-700 hover:border-indigo-500 rounded-lg text-left transition group">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-white group-hover:text-indigo-300">Active Tenant Records</span>
-              <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
-            </div>
-            <p class="text-[10px] text-slate-400 mt-1 font-mono">GET /api/v1/playground/patients</p>
-            <span class="inline-block mt-2 text-[10px] text-indigo-400 font-medium">Tests Tenant Isolation</span>
-          </button>
+        <div id="scopeButtonsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <p class="text-xs text-slate-500 italic col-span-2 py-4 text-center">Loading scopes from active database...</p>
         </div>
 
         <!-- Query Result Card -->
@@ -389,40 +452,23 @@
 
       <!-- Scope Hierarchy Tree Visualizer -->
       <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl space-y-4">
-        <div>
-          <h2 class="text-base font-semibold text-white flex items-center gap-2">
-            <i class="fa-solid fa-network-wired text-indigo-400"></i> Scope Hierarchy Tree
-          </h2>
-          <p class="text-xs text-slate-400">Materialized path tree structure in Metro General Hospital</p>
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-network-wired text-indigo-400"></i> Scope Hierarchy Tree
+            </h2>
+            <p id="scopeTreeTenantSubtext" class="text-xs text-slate-400">Materialized path tree structure in database</p>
+          </div>
+          <span id="scopeTreeBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono">DB Synced</span>
         </div>
 
-        <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 text-xs font-mono space-y-2 text-slate-300">
-          <div class="flex items-center gap-2 text-indigo-400 font-semibold">
-            <i class="fa-solid fa-hospital"></i> Metro General Hospital (Root Node)
-          </div>
-          <div class="pl-6 border-l border-slate-800 space-y-2">
-            <div>
-              <div class="flex items-center gap-2 text-emerald-400">
-                <i class="fa-solid fa-folder-tree"></i> Cardiology Department <span class="text-[10px] text-slate-500">(/11111111.../aaaa1111...0002/)</span>
-              </div>
-              <div class="pl-6 border-l border-slate-800 mt-2">
-                <div class="flex items-center gap-2 text-emerald-300">
-                  <i class="fa-solid fa-bed-pulse"></i> ICU Ward <span class="text-[10px] text-slate-500">(Inherits Cardiology access)</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="pt-2 border-t border-slate-850">
-              <div class="flex items-center gap-2 text-amber-400">
-                <i class="fa-solid fa-folder-tree"></i> Pediatrics Department <span class="text-[10px] text-slate-500">(/11111111.../aaaa1111...0004/)</span>
-              </div>
-            </div>
-          </div>
+        <div id="scopeHierarchyTreeContainer" class="bg-slate-950 border border-slate-800 rounded-lg p-4 text-xs font-mono space-y-2 text-slate-300 min-h-[120px]">
+          <p class="text-xs text-slate-500 italic py-2">Loading hierarchy tree...</p>
         </div>
 
-        <div class="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800 p-3 rounded-lg flex items-start gap-2">
+        <div id="scopeHierarchyInfoContainer" class="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800 p-3 rounded-lg flex items-start gap-2">
           <i class="fa-solid fa-circle-info text-indigo-400 mt-0.5"></i>
-          <span>When Dr. House is assigned to <strong>Cardiology</strong> with <code>inheritChildren=true</code>, ed-iam's <code>EffectiveAccessResolver</code> computes access to both Cardiology and ICU. Access to Pediatrics is rejected with HTTP 403.</span>
+          <span id="scopeHierarchyInfoText">Authenticate with a persona above to evaluate scope hierarchy access rules in real-time.</span>
         </div>
       </div>
     </section>
@@ -461,6 +507,9 @@
         </button>
         <button id="tabBtnAuth" onclick="switchMgmtTab('auth')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
           <i class="fa-solid fa-key"></i> Auth &amp; Tokens
+        </button>
+        <button id="tabBtnSessions" onclick="switchMgmtTab('sessions')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-shield-halved"></i> Sessions &amp; Lockout
         </button>
       </div>
 
@@ -727,7 +776,7 @@
           <span class="text-xs text-slate-400">Test authentication endpoints, claims validation, and JWT token rotation.</span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 text-xs">
             <h3 class="font-bold text-white text-sm flex items-center gap-2">
               <i class="fa-solid fa-id-card text-indigo-400"></i> Identity &amp; Profile (/api/v1/auth/me)
@@ -751,6 +800,80 @@
             </button>
             <div id="refreshResult" class="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto">
               // Click above to rotate tokens
+            </div>
+          </div>
+
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 text-xs">
+            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+              <i class="fa-solid fa-shield-halved text-emerald-400"></i> Active Sessions (/api/v1/auth/sessions)
+            </h3>
+            <p class="text-slate-400">View and revoke active sessions associated with the current user account.</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="fetchMySessions()" class="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-list"></i> List Sessions
+              </button>
+              <button onclick="logoutAll()" class="py-2 px-3 bg-red-600/80 hover:bg-red-500 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-power-off"></i> Revoke All
+              </button>
+            </div>
+            <div id="mySessionsResult" class="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto">
+              // Click above to list sessions
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 6: SESSIONS & LOCKOUT -->
+      <div id="panelSessions" class="hidden space-y-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-400">Administrative oversight for user sessions and brute-force account lockout remediation.</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Card 1: User Session Oversight -->
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 text-xs">
+            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+              <i class="fa-solid fa-laptop text-indigo-400"></i> User Sessions Oversight
+            </h3>
+            <p class="text-slate-400">Inspect and terminate active sessions for any user in the tenant.</p>
+            <div class="space-y-2">
+              <label class="block text-slate-400">Target User ID</label>
+              <div class="flex gap-2">
+                <input id="adminSessionUserId" type="text" placeholder="User UUID..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1 text-slate-200 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <button onclick="fillAdminSessionUserWithCurrent()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 text-[11px]">Current</button>
+              </div>
+            </div>
+            <button onclick="fetchAdminUserSessions()" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-list-check"></i> List User Sessions
+            </button>
+            <div id="adminSessionsList" class="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto">
+              // Click above to list sessions
+            </div>
+          </div>
+
+          <!-- Card 2: Brute-Force Lockout & Remediation -->
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 text-xs">
+            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+              <i class="fa-solid fa-user-lock text-rose-400"></i> Account Lockout &amp; Remediation
+            </h3>
+            <p class="text-slate-400">Query brute-force lockout status and immediately unlock an account.</p>
+            <div class="space-y-2">
+              <label class="block text-slate-400">Target User ID</label>
+              <div class="flex gap-2">
+                <input id="adminLockoutUserId" type="text" placeholder="User UUID..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1 text-slate-200 font-mono text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                <button onclick="fillAdminLockoutUserWithCurrent()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 text-[11px]">Current</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="checkAdminUserLockout()" class="py-2 px-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-magnifying-glass"></i> Check Status
+              </button>
+              <button onclick="unlockAdminUser()" class="py-2 px-3 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg shadow transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-lock-open"></i> Unlock User
+              </button>
+            </div>
+            <div id="adminLockoutResult" class="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto">
+              // Click above to check status or unlock
             </div>
           </div>
         </div>
@@ -807,11 +930,139 @@
     let currentUser = JSON.parse(localStorage.getItem('iam_user') || 'null');
     let currentTenantId = localStorage.getItem('iam_tenant_id') || null;
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeQuotes(str) {
+      if (!str) return '';
+      return String(str).replace(/'/g, "\\'");
+    }
+
+    /**
+     * Display a modern non-blocking floating toast notification.
+     * @param {string} message - Message text to display
+     * @param {'success'|'error'|'warning'|'info'} [type='info'] - Semantic notification level
+     * @param {number} [durationMs=3500] - Duration in ms before auto-dismissal
+     */
+    function showToast(message, type = 'info', durationMs = 3500) {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+
+      const config = {
+        success: {
+          border: 'border-emerald-500/50',
+          bg: 'bg-slate-900/95',
+          icon: 'fa-solid fa-circle-check text-emerald-400',
+          title: 'Success',
+          titleColor: 'text-emerald-400',
+          shadow: 'shadow-emerald-500/10'
+        },
+        error: {
+          border: 'border-red-500/50',
+          bg: 'bg-slate-900/95',
+          icon: 'fa-solid fa-circle-exclamation text-red-400',
+          title: 'Error',
+          titleColor: 'text-red-400',
+          shadow: 'shadow-red-500/10'
+        },
+        warning: {
+          border: 'border-amber-500/50',
+          bg: 'bg-slate-900/95',
+          icon: 'fa-solid fa-triangle-exclamation text-amber-400',
+          title: 'Warning',
+          titleColor: 'text-amber-400',
+          shadow: 'shadow-amber-500/10'
+        },
+        info: {
+          border: 'border-indigo-500/50',
+          bg: 'bg-slate-900/95',
+          icon: 'fa-solid fa-circle-info text-indigo-400',
+          title: 'Notice',
+          titleColor: 'text-indigo-400',
+          shadow: 'shadow-indigo-500/10'
+        }
+      }[type] || {
+        border: 'border-slate-700',
+        bg: 'bg-slate-900/95',
+        icon: 'fa-solid fa-bell text-slate-400',
+        title: 'Notice',
+        titleColor: 'text-slate-300',
+        shadow: 'shadow-slate-500/10'
+      };
+
+      toast.className = `pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl border ${config.border} ${config.bg} backdrop-blur-md shadow-2xl ${config.shadow} text-xs text-slate-200 transition-all duration-300 ease-out transform translate-x-8 opacity-0`;
+
+      toast.innerHTML = `
+        <i class="${config.icon} text-base mt-0.5 shrink-0"></i>
+        <div class="flex-1 min-w-0 pr-1">
+          <div class="font-semibold ${config.titleColor} text-[11px] mb-0.5">${config.title}</div>
+          <div class="leading-relaxed break-words">${escapeHtml(message)}</div>
+        </div>
+        <button type="button" class="text-slate-400 hover:text-white transition shrink-0 p-1 -mr-1 -mt-1 rounded" title="Dismiss">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      `;
+
+      const closeBtn = toast.querySelector('button');
+      closeBtn.onclick = () => dismissToast(toast);
+
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-x-8', 'opacity-0');
+        toast.classList.add('translate-x-0', 'opacity-100');
+      });
+
+      let timeoutId = setTimeout(() => dismissToast(toast), durationMs);
+
+      toast.onmouseenter = () => clearTimeout(timeoutId);
+      toast.onmouseleave = () => {
+        timeoutId = setTimeout(() => dismissToast(toast), 1500);
+      };
+    }
+
+    function dismissToast(toast) {
+      if (!toast || toast.dataset.dismissing) return;
+      toast.dataset.dismissing = 'true';
+      toast.classList.remove('translate-x-0', 'opacity-100');
+      toast.classList.add('translate-x-8', 'opacity-0');
+      setTimeout(() => {
+        if (toast.parentElement) toast.parentElement.removeChild(toast);
+      }, 300);
+    }
+
+    // Override browser window.alert to automatically direct to showToast as a non-blocking toast
+    window.alert = function(msg) {
+      showToast(String(msg), 'info');
+    };
+    window.showToast = showToast;
+
     // Initialize session state on load
     window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const magicToken = urlParams.get('token');
+      if (magicToken) {
+        consumeMagicLink(magicToken);
+        // Clear token parameter from browser URL bar without reload
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+        return;
+      }
+
       if (currentToken && currentUser) {
         updateSessionUi(currentUser, currentTenantId);
         fetchActorContext();
+      } else {
+        refreshEvaluatorScopes();
       }
     });
 
@@ -840,6 +1091,11 @@
         logResponse(response.status, latency, data);
 
         if (response.ok) {
+          if (data && data.mfaRequired) {
+            promptMfaChallenge(data.mfaToken, email);
+            showCustomLoginFeedback(`Two-Factor Authentication required for ${email}`, false);
+            return true;
+          }
           currentToken = data.accessToken;
           currentRefreshToken = data.refreshToken;
           currentUser = data.user;
@@ -857,7 +1113,7 @@
         } else {
           const errMsg = data ? (data.detail || data.message || response.statusText) : response.statusText;
           showCustomLoginFeedback(`Login rejected (${response.status}): ${errMsg}`, true);
-          alert('Login rejected (' + response.status + '): ' + errMsg);
+          showToast('Login rejected (' + response.status + '): ' + errMsg, 'error');
           return false;
         }
       } catch (err) {
@@ -919,6 +1175,166 @@
       el.textContent = message;
     }
 
+    let currentMagicLinkToken = null;
+
+    function fillMagicLinkEmail(email) {
+      const input = document.getElementById('magicLinkEmail');
+      if (input) input.value = email;
+    }
+
+    function clearMagicLinkForm() {
+      const input = document.getElementById('magicLinkEmail');
+      if (input) input.value = '';
+      const tenant = document.getElementById('magicLinkTenant');
+      if (tenant) tenant.value = '';
+      const feedback = document.getElementById('magicLinkFeedback');
+      if (feedback) feedback.className = 'hidden text-xs px-3 py-2 rounded-lg font-mono';
+      const card = document.getElementById('magicLinkIssuedCard');
+      if (card) card.classList.add('hidden');
+      currentMagicLinkToken = null;
+    }
+
+    async function requestMagicLink() {
+      const email = document.getElementById('magicLinkEmail').value.trim();
+      const tenantId = document.getElementById('magicLinkTenant').value.trim();
+      if (!email) return;
+
+      const payload = { email: email };
+      if (tenantId) {
+        payload.tenantId = tenantId;
+      }
+
+      logRequest('POST', '/api/v1/auth/magic-link/request', {
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      });
+
+      const startTime = performance.now();
+      try {
+        const response = await fetch('/api/v1/auth/magic-link/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const latency = Math.round(performance.now() - startTime);
+        let data = null;
+        try { data = await response.json(); } catch(e) {}
+
+        logResponse(response.status, latency, data);
+
+        const feedback = document.getElementById('magicLinkFeedback');
+        if (response.ok && data) {
+          feedback.className = 'text-xs px-3 py-2 rounded-lg font-mono bg-purple-500/10 text-purple-300 border border-purple-500/30';
+          feedback.textContent = data.message;
+
+          // Check simulated inbox for the delivered email (out-of-band delivery)
+          try {
+            const inboxRes = await fetch(`/api/playground/inbox/latest?email=${encodeURIComponent(email)}`);
+            if (inboxRes.ok && inboxRes.status === 200) {
+              const mail = await inboxRes.json();
+              currentMagicLinkToken = mail.token;
+
+              const card = document.getElementById('magicLinkIssuedCard');
+              const urlDisplay = document.getElementById('magicLinkUrlDisplay');
+              const expiresText = document.getElementById('magicLinkExpiresText');
+
+              if (urlDisplay) urlDisplay.textContent = mail.verificationUrl;
+              if (expiresText) expiresText.textContent = `Delivered to Inbox: ${new Date(mail.receivedAt).toLocaleTimeString()}`;
+              if (card) card.classList.remove('hidden');
+            }
+          } catch (e) {
+            console.error('Error fetching simulated inbox:', e);
+          }
+        } else {
+          const errMsg = data ? (data.detail || data.message || response.statusText) : response.statusText;
+          feedback.className = 'text-xs px-3 py-2 rounded-lg font-mono bg-red-500/10 text-red-300 border border-red-500/30';
+          feedback.textContent = `Request failed (${response.status}): ${errMsg}`;
+        }
+      } catch (err) {
+        logResponse(500, Math.round(performance.now() - startTime), { error: err.message });
+      }
+    }
+
+    async function verifyGeneratedMagicLink() {
+      if (!currentMagicLinkToken) return;
+      await consumeMagicLink(currentMagicLinkToken);
+    }
+
+    async function consumeMagicLink(token) {
+      logRequest('POST', '/api/v1/auth/magic-link/verify', {
+        headers: { 'Content-Type': 'application/json' },
+        body: { token: token }
+      });
+
+      const startTime = performance.now();
+      try {
+        const response = await fetch('/api/v1/auth/magic-link/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token })
+        });
+        const latency = Math.round(performance.now() - startTime);
+        let data = null;
+        try { data = await response.json(); } catch(e) {}
+
+        logResponse(response.status, latency, data);
+
+        const feedback = document.getElementById('magicLinkFeedback');
+        if (response.ok && data) {
+          if (data.mfaRequired) {
+            promptMfaChallenge(data.mfaToken, 'Magic Link User');
+            if (feedback) {
+              feedback.className = 'text-xs px-3 py-2 rounded-lg font-mono bg-purple-500/10 text-purple-300 border border-purple-500/30';
+              feedback.textContent = 'Primary factor verified via Magic Link. Multi-Factor Authentication required.';
+            }
+            return;
+          }
+
+          currentToken = data.accessToken;
+          currentRefreshToken = data.refreshToken;
+          currentUser = data.user;
+          currentTenantId = data.user.tenantId;
+
+          localStorage.setItem('iam_token', currentToken);
+          localStorage.setItem('iam_refresh_token', currentRefreshToken);
+          localStorage.setItem('iam_user', JSON.stringify(currentUser));
+          localStorage.setItem('iam_tenant_id', currentTenantId);
+
+          updateSessionUi(currentUser, currentTenantId);
+          await fetchActorContext();
+
+          if (feedback) {
+            feedback.className = 'text-xs px-3 py-2 rounded-lg font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/30';
+            feedback.textContent = `Successfully authenticated via Magic Link as ${currentUser.email}!`;
+          }
+
+          const card = document.getElementById('magicLinkIssuedCard');
+          if (card) card.classList.add('hidden');
+          currentMagicLinkToken = null;
+
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          const errMsg = data ? (data.detail || data.message || response.statusText) : response.statusText;
+          if (feedback) {
+            feedback.className = 'text-xs px-3 py-2 rounded-lg font-mono bg-red-500/10 text-red-300 border border-red-500/30';
+            feedback.textContent = `Magic link verification failed (${response.status}): ${errMsg}`;
+          }
+          showToast(`Magic link verification failed (${response.status}): ${errMsg}`, 'error');
+        }
+      } catch (err) {
+        logResponse(500, Math.round(performance.now() - startTime), { error: err.message });
+      }
+    }
+
+    function copyMagicLink() {
+      const urlDisplay = document.getElementById('magicLinkUrlDisplay');
+      if (urlDisplay && urlDisplay.textContent) {
+        navigator.clipboard.writeText(urlDisplay.textContent).then(() => {
+          showToast('Magic link copied to clipboard!', 'success');
+        });
+      }
+    }
+
     async function quickLoginAsNewUser(email, password) {
       const emailInput = document.getElementById('customLoginEmail');
       const passInput = document.getElementById('customLoginPassword');
@@ -967,8 +1383,9 @@
 
           updateSessionUi(currentUser, currentTenantId);
           await fetchActorContext();
+          showToast(`Switched active context to ${currentUser.tenantName || 'selected tenant'}`, 'info');
         } else {
-          alert('Tenant switch failed: ' + (data.message || response.statusText));
+          showToast('Tenant switch failed: ' + (data.message || response.statusText), 'error');
         }
       } catch (err) {
         logResponse(500, Math.round(performance.now() - startTime), { error: err.message });
@@ -992,7 +1409,7 @@
 
     async function fetchPatientsByScope(departmentId, deptName) {
       if (!currentToken) {
-        alert('Please log in with a persona first.');
+        showToast('Please log in with a persona first.', 'warning');
         return;
       }
 
@@ -1017,25 +1434,26 @@
         logResponse(response.status, latency, data);
 
         if (response.ok) {
+          const recordsCount = Array.isArray(data) ? data.length : 0;
           resContainer.innerHTML = `
             <div class="space-y-3">
               <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-                <span class="text-xs font-semibold text-white">${deptName}</span>
+                <span class="text-xs font-semibold text-white">${escapeHtml(deptName)}</span>
                 <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  <i class="fa-solid fa-check mr-1"></i> Access Granted (200 OK)
+                  <i class="fa-solid fa-check mr-1"></i> Access Granted (200 OK) · ${recordsCount} record${recordsCount !== 1 ? 's' : ''}
                 </span>
               </div>
               <div class="space-y-2">
-                ${data.map(p => `
+                ${Array.isArray(data) && data.length > 0 ? data.map(p => `
                   <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-xs">
                     <div class="flex justify-between font-semibold text-slate-200">
-                      <span>${p.patientName}</span>
-                      <span class="text-[11px] text-indigo-400 font-mono">${p.departmentName}</span>
+                      <span>${escapeHtml(p.patientName)}</span>
+                      <span class="text-[11px] text-indigo-400 font-mono">${escapeHtml(p.departmentName || deptName)}</span>
                     </div>
-                    <p class="text-slate-400 mt-1 text-[11px]"><span class="text-slate-500">Diagnosis:</span> ${p.diagnosis}</p>
-                    <p class="text-slate-500 text-[10px] mt-0.5">${p.treatmentNotes || ''}</p>
+                    <p class="text-slate-400 mt-1 text-[11px]"><span class="text-slate-500">Diagnosis:</span> ${escapeHtml(p.diagnosis)}</p>
+                    <p class="text-slate-500 text-[10px] mt-0.5">${escapeHtml(p.treatmentNotes || '')}</p>
                   </div>
-                `).join('')}
+                `).join('') : '<p class="text-slate-500 text-xs italic py-2">No clinical records found in this scope department.</p>'}
               </div>
             </div>
           `;
@@ -1046,7 +1464,7 @@
                 <i class="fa-solid fa-shield-xmark text-base"></i>
                 <span>403 Forbidden - Outside Scope Hierarchy</span>
               </div>
-              <p class="text-slate-300 text-[11px]">Actor is not authorized to access department scope: <code>${departmentId}</code>.</p>
+              <p class="text-slate-300 text-[11px]">Actor is not authorized to access department scope: <code>${escapeHtml(departmentId)}</code>.</p>
               <p class="text-slate-400 text-[10px] pt-1">The user's assigned scope does not include this department node or its materialized path.</p>
             </div>
           `;
@@ -1058,7 +1476,7 @@
 
     async function fetchCurrentTenantPatients() {
       if (!currentToken) {
-        alert('Please log in with a persona first.');
+        showToast('Please log in with a persona first.', 'warning');
         return;
       }
 
@@ -1087,7 +1505,7 @@
           resContainer.innerHTML = `
             <div class="space-y-3">
               <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-                <span class="text-xs font-semibold text-white">All Patients in ${tenantName}</span>
+                <span class="text-xs font-semibold text-white">All Patients in ${escapeHtml(tenantName)}</span>
                 <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   <i class="fa-solid fa-check mr-1"></i> Access Granted (${data.length} records)
                 </span>
@@ -1096,11 +1514,11 @@
                 ${data.map(p => `
                   <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-xs">
                     <div class="flex justify-between font-semibold text-slate-200">
-                      <span>${p.patientName}</span>
-                      <span class="text-[11px] text-indigo-400 font-mono">${p.departmentName}</span>
+                      <span>${escapeHtml(p.patientName)}</span>
+                      <span class="text-[11px] text-indigo-400 font-mono">${escapeHtml(p.departmentName)}</span>
                     </div>
-                    <p class="text-slate-400 mt-1 text-[11px]"><span class="text-slate-500">Diagnosis:</span> ${p.diagnosis}</p>
-                    <p class="text-slate-500 text-[10px] mt-0.5">${p.treatmentNotes || ''}</p>
+                    <p class="text-slate-400 mt-1 text-[11px]"><span class="text-slate-500">Diagnosis:</span> ${escapeHtml(p.diagnosis)}</p>
+                    <p class="text-slate-500 text-[10px] mt-0.5">${escapeHtml(p.treatmentNotes || '')}</p>
                   </div>
                 `).join('')}
               </div>
@@ -1111,15 +1529,194 @@
             <div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-xs space-y-1">
               <div class="flex items-center gap-2 text-red-400 font-semibold">
                 <i class="fa-solid fa-shield-xmark text-base"></i>
-                <span>403 Forbidden - Missing Permission in ${tenantName}</span>
+                <span>403 Forbidden - Missing Permission in ${escapeHtml(tenantName)}</span>
               </div>
-              <p class="text-slate-300 text-[11px]">Actor is not authorized to read patient records in <strong>${tenantName}</strong>.</p>
+              <p class="text-slate-300 text-[11px]">Actor is not authorized to read patient records in <strong>${escapeHtml(tenantName)}</strong>.</p>
               <p class="text-slate-400 text-[10px] pt-1">In this tenant, your role is <code class="text-cyan-300">AUDITOR</code> (permissions: <code>AUDIT_READ, COMPLIANCE_VIEW</code>), which does NOT have <code>PATIENT_READ</code>. This demonstrates cross-tenant role isolation!</p>
             </div>
           `;
         }
       } catch (err) {
         logResponse(500, Math.round(performance.now() - startTime), { error: err.message });
+      }
+    }
+
+    async function refreshEvaluatorScopes() {
+      const tenantId = currentTenantId || METRO_TENANT_ID;
+      const url = `/api/v1/playground/scopes/tree?tenantId=${tenantId}`;
+      const headers = {};
+      if (currentToken) {
+        headers['Authorization'] = `Bearer ${currentToken}`;
+      }
+
+      try {
+        const response = await fetch(url, { headers });
+        if (response.ok) {
+          const data = await response.json();
+          renderScopeButtons(data.flatList, data);
+          renderScopeHierarchyTree(data.tree, data);
+        }
+      } catch (err) {
+        console.error('Failed to load database scopes:', err);
+      }
+    }
+
+    function renderScopeButtons(nodes, overview) {
+      const container = document.getElementById('scopeButtonsContainer');
+      if (!container) return;
+
+      if (!nodes || nodes.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-xs italic col-span-2 py-4 text-center">No scopes found in database for this tenant.</p>';
+        return;
+      }
+
+      let html = nodes.map(node => {
+        const isEmerald = node.colorTheme === 'emerald';
+        const isRed = node.colorTheme === 'red';
+
+        const borderHover = isEmerald ? 'hover:border-emerald-500' : (isRed ? 'hover:border-red-500' : 'hover:border-slate-500');
+        const titleHover = isEmerald ? 'group-hover:text-emerald-300' : (isRed ? 'group-hover:text-red-300' : 'group-hover:text-slate-200');
+        const dotBg = isEmerald ? 'bg-emerald-400' : (isRed ? 'bg-red-400' : 'bg-slate-500');
+        const badgeText = isEmerald ? 'text-emerald-400' : (isRed ? 'text-red-400' : 'text-slate-400');
+        const countBadge = node.patientCount > 0
+          ? `<span class="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">${node.patientCount} record${node.patientCount > 1 ? 's' : ''}</span>`
+          : '';
+
+        return `
+          <button onclick="fetchPatientsByScope('${node.id}', '${escapeQuotes(node.name)}')" class="p-3 bg-slate-900 border border-slate-700 ${borderHover} rounded-lg text-left transition group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-xs font-semibold text-white ${titleHover} truncate">${escapeHtml(node.name)}</span>
+                <span class="w-2 h-2 rounded-full ${dotBg} shrink-0"></span>
+              </div>
+              <div class="flex items-center justify-between mt-1">
+                <p class="text-[10px] text-slate-400 font-mono truncate">[${escapeHtml(node.code)}]</p>
+                ${countBadge}
+              </div>
+            </div>
+            <span class="inline-block mt-2 text-[10px] ${badgeText} font-medium">${escapeHtml(node.accessStatusLabel)}</span>
+          </button>
+        `;
+      }).join('');
+
+      // Always append the "Active Tenant Records" button to test tenant-wide isolation
+      const hasClinicalAccess = overview.authenticated && (
+        overview.actorRoleSummary.includes('CLINICIAN') ||
+        overview.actorRoleSummary.includes('HOSPITAL_ADMIN') ||
+        overview.actorRoleSummary.includes('CONSULTANT') ||
+        overview.actorRoleSummary.includes('*')
+      );
+      const tenantDot = overview.authenticated ? (hasClinicalAccess ? 'bg-indigo-400' : 'bg-red-400') : 'bg-slate-500';
+      const tenantText = overview.authenticated ? (hasClinicalAccess ? 'text-indigo-400' : 'text-red-400') : 'text-slate-400';
+      const tenantLabel = overview.authenticated
+        ? (hasClinicalAccess ? 'Tests Tenant Isolation (200 OK)' : 'Expected: 403 Forbidden (No PATIENT_READ)')
+        : 'Login Required';
+
+      html += `
+        <button onclick="fetchCurrentTenantPatients()" class="p-3 bg-slate-900 border border-slate-700 hover:border-indigo-500 rounded-lg text-left transition group flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-white group-hover:text-indigo-300">Active Tenant Records</span>
+              <span class="w-2 h-2 rounded-full ${tenantDot}"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1 font-mono">GET /api/v1/playground/patients</p>
+          </div>
+          <span class="inline-block mt-2 text-[10px] ${tenantText} font-medium">${tenantLabel}</span>
+        </button>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    function renderScopeHierarchyTree(treeNodes, overview) {
+      const container = document.getElementById('scopeHierarchyTreeContainer');
+      const subtext = document.getElementById('scopeTreeTenantSubtext');
+      if (subtext) {
+        subtext.textContent = `Materialized path tree structure in ${escapeHtml(overview.tenantName)}`;
+      }
+      if (!container) return;
+
+      if (!treeNodes || treeNodes.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-xs italic py-2">No scope hierarchy defined in database for this tenant.</p>';
+        return;
+      }
+
+      container.innerHTML = renderTreeBranch(treeNodes, 0);
+      renderScopeHierarchyInfo(overview);
+    }
+
+    function renderTreeBranch(nodes, depth) {
+      return nodes.map(node => {
+        const isEmerald = node.colorTheme === 'emerald';
+        const isRed = node.colorTheme === 'red';
+
+        const badgeClass = isEmerald
+          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+          : (isRed
+              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+              : 'bg-slate-800 text-slate-400 border border-slate-700');
+
+        const titleColor = depth === 0
+          ? 'text-indigo-400 font-bold'
+          : (isEmerald ? 'text-emerald-400 font-semibold' : (isRed ? 'text-red-400 font-semibold' : 'text-slate-300 font-semibold'));
+
+        const icon = depth === 0
+          ? 'fa-hospital'
+          : (node.children && node.children.length > 0 ? 'fa-folder-tree' : (node.code.includes('ICU') ? 'fa-bed-pulse' : 'fa-folder'));
+
+        const countHtml = node.patientCount > 0
+          ? `<span class="text-[10px] text-cyan-300 font-normal">(${node.patientCount} patient record${node.patientCount > 1 ? 's' : ''})</span>`
+          : '';
+
+        const hasChildren = node.children && node.children.length > 0;
+
+        return `
+          <div class="space-y-1">
+            <div class="flex items-center justify-between py-1 px-1.5 rounded hover:bg-slate-900/60 transition group gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                <i class="fa-solid ${icon} ${depth === 0 ? 'text-indigo-400' : (isEmerald ? 'text-emerald-400' : (isRed ? 'text-red-400' : 'text-slate-400'))}"></i>
+                <span class="${titleColor}">${escapeHtml(node.name)}</span>
+                <span class="text-[10px] text-slate-500 font-mono">(${escapeHtml(node.path)})</span>
+                ${countHtml}
+              </div>
+              <span class="text-[10px] px-2 py-0.5 rounded-full ${badgeClass} font-mono uppercase shrink-0">
+                ${escapeHtml(node.accessStatus)}
+              </span>
+            </div>
+            ${hasChildren ? `
+              <div class="pl-5 border-l border-slate-800 ml-2 space-y-1">
+                ${renderTreeBranch(node.children, depth + 1)}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderScopeHierarchyInfo(overview) {
+      const infoText = document.getElementById('scopeHierarchyInfoText');
+      if (!infoText) return;
+
+      if (!overview.authenticated) {
+        infoText.innerHTML = 'Authenticate with a persona above (e.g. <strong>Dr. House</strong>, <strong>Dr. Cameron</strong>, or <strong>Dr. Cuddy</strong>) to evaluate scope hierarchy access rules in real-time.';
+        return;
+      }
+
+      const email = overview.actorEmail;
+      if (email === 'doctor@metro.org') {
+        infoText.innerHTML = 'Logged in as <strong>Dr. Gregory House</strong> (role: <code>CLINICIAN</code> scoped directly to <strong>Cardiology</strong> with <code>inheritChildren=true</code>). ed-iam\'s <code>EffectiveAccessResolver</code> computes access to both <strong>Cardiology</strong> (<span class="text-emerald-400 font-semibold">DIRECT</span>) and <strong>ICU</strong> (<span class="text-emerald-400 font-semibold">INHERITED</span>). Scopes outside this branch (like Pediatrics) are rejected with <span class="text-red-400 font-semibold">403 Forbidden</span>.';
+      } else if (email === 'admin@metro.org') {
+        infoText.innerHTML = 'Logged in as <strong>Dr. Lisa Cuddy</strong> (role: <code>HOSPITAL_ADMIN</code>). Holds tenant-wide administrator access (<span class="text-emerald-400 font-semibold">TENANT_WIDE</span>) across all scope branches in Metro General Hospital.';
+      } else if (email === 'nurse@metro.org') {
+        infoText.innerHTML = 'Logged in as <strong>Nurse Jackie Peyton</strong> (member of <code>SURGICAL_TEAM</code> group). Role <code>CLINICIAN</code> is assigned at <strong>Metro Root</strong> with inheritance, granting access to all descendant departments (<span class="text-emerald-400 font-semibold">INHERITED</span>).';
+      } else if (email === 'consultant@healthgroup.org') {
+        if (overview.tenantName.includes('St. Jude')) {
+          infoText.innerHTML = 'Logged in as <strong>Dr. Allison Cameron</strong> in <strong>St. Jude Medical Center</strong> (role: <code>AUDITOR</code>). Missing <code>PATIENT_READ</code> permission in this tenant (<span class="text-red-400 font-semibold">NO_PERMISSION</span>), demonstrating cross-tenant role isolation.';
+        } else {
+          infoText.innerHTML = 'Logged in as <strong>Dr. Allison Cameron</strong> in <strong>Metro General Hospital</strong> (role: <code>CONSULTANT</code>). Holds tenant-wide clinical consultation access (<span class="text-emerald-400 font-semibold">TENANT_WIDE</span>).';
+        }
+      } else {
+        infoText.innerHTML = `Authenticated as <strong>${escapeHtml(email)}</strong> (${escapeHtml(overview.actorRoleSummary)}). Real-time scope evaluations reflect current database role assignments and materialized hierarchy paths.`;
       }
     }
 
@@ -1131,7 +1728,10 @@
 
       document.getElementById('sessionAvatar').innerHTML = '<i class="fa-solid fa-user-doctor text-indigo-400"></i>';
       document.getElementById('logoutBtn').classList.remove('hidden');
+      document.getElementById('sessionsBtn').classList.remove('hidden');
+      document.getElementById('mfaBtn').classList.remove('hidden');
       document.getElementById('permissionsBar').classList.remove('hidden');
+      refreshMfaStatus();
 
       // Tenant selector setup in top bar
       const availableTenants = user.availableTenantIds || [tenantId];
@@ -1218,6 +1818,8 @@
       const tenantLabel = tenantId === METRO_TENANT_ID ? 'Metro General Hospital' : (tenantId === ST_JUDE_TENANT_ID ? 'St. Jude Medical Center' : tenantId);
       const mgmtTenantEl = document.getElementById('mgmtContextTenant');
       if (mgmtTenantEl) mgmtTenantEl.textContent = tenantLabel;
+
+      refreshEvaluatorScopes();
     }
 
     // =========================================================================
@@ -1227,7 +1829,7 @@
 
     function switchMgmtTab(tab) {
       activeMgmtTab = tab;
-      const tabs = ['users', 'roles', 'groups', 'scopes', 'auth'];
+      const tabs = ['users', 'roles', 'groups', 'scopes', 'auth', 'sessions'];
       tabs.forEach(t => {
         const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
         const panel = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
@@ -1296,14 +1898,14 @@
     async function lookupUser(email) {
       if (!email) return;
       document.getElementById('userLookupEmail').value = email;
-      const res = await executeApiCall('GET', `/api/v1/users?email=${encodeURIComponent(email)}`);
+      const res = await executeApiCall('GET', `/api/v1/users/lookup?email=${encodeURIComponent(email)}`);
       if (res.ok && res.data) {
         selectedUser = res.data;
         renderSelectedUser(selectedUser);
         await fetchUserRoles(selectedUser.id);
         await fetchUserGroups(selectedUser.id);
       } else {
-        alert('User not found: ' + email);
+        showToast('User not found: ' + email, 'warning');
       }
     }
 
@@ -1482,7 +2084,7 @@
     async function assignRoleToUser(userId) {
       const roleId = document.getElementById('assignRoleIdInput').value.trim();
       const scopeNodeId = document.getElementById('assignScopeIdInput').value.trim() || null;
-      if (!roleId) { alert('Please enter a Role ID'); return; }
+      if (!roleId) { showToast('Please enter a Role ID', 'warning'); return; }
 
       const res = await executeApiCall('POST', `/api/v1/users/${userId}/roles`, {
         roleId,
@@ -1493,8 +2095,9 @@
         document.getElementById('assignRoleIdInput').value = '';
         document.getElementById('assignScopeIdInput').value = '';
         await fetchUserRoles(userId);
+        showToast('Role assigned successfully', 'success');
       } else {
-        alert('Failed to assign role: ' + JSON.stringify(res.data));
+        showToast('Failed to assign role: ' + (res.data?.detail || res.data?.message || JSON.stringify(res.data)), 'error');
       }
     }
 
@@ -1502,6 +2105,7 @@
       const res = await executeApiCall('DELETE', `/api/v1/users/${userId}/roles/${assignmentId}`);
       if (res.ok) {
         await fetchUserRoles(userId);
+        showToast('Role unassigned', 'info');
       }
     }
 
@@ -1527,13 +2131,14 @@
 
     async function addUserToGroup(userId) {
       const groupId = document.getElementById('addGroupIdInput').value.trim();
-      if (!groupId) { alert('Please enter a Group ID'); return; }
+      if (!groupId) { showToast('Please enter a Group ID', 'warning'); return; }
       const res = await executeApiCall('POST', `/api/v1/users/${userId}/groups/${groupId}`);
       if (res.ok) {
         document.getElementById('addGroupIdInput').value = '';
         await fetchUserGroups(userId);
+        showToast('User added to group', 'success');
       } else {
-        alert('Failed to add to group: ' + JSON.stringify(res.data));
+        showToast('Failed to add to group: ' + (res.data?.detail || res.data?.message || JSON.stringify(res.data)), 'error');
       }
     }
 
@@ -1564,7 +2169,7 @@
                 <span class="text-[10px] px-2 py-0.5 rounded-full ${r.systemRole ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}">${r.systemRole ? 'SYSTEM' : 'CUSTOM'}</span>
               </div>
               <div class="flex items-center gap-2">
-                <button onclick="navigator.clipboard.writeText('${r.id}'); alert('Copied Role ID: ${r.id}')" class="text-[10px] text-slate-400 hover:text-white font-mono">
+                <button onclick="navigator.clipboard.writeText('${r.id}'); showToast('Copied Role ID: ${r.id}', 'info')" class="text-[10px] text-slate-400 hover:text-white font-mono">
                   <i class="fa-solid fa-copy mr-1"></i> ID
                 </button>
                 ${!r.systemRole ? `
@@ -1595,7 +2200,7 @@
         customPermsStr.split(',').map(p => p.trim()).filter(Boolean).forEach(p => perms.push(p));
       }
 
-      if (perms.length === 0) { alert('Please select or specify at least one permission.'); return; }
+      if (perms.length === 0) { showToast('Please select or specify at least one permission.', 'warning'); return; }
 
       const res = await executeApiCall('POST', '/api/v1/roles', {
         tenantId: currentTenantId || METRO_TENANT_ID,
@@ -1604,14 +2209,14 @@
       });
 
       if (res.ok) {
-        alert('Role created: ' + code);
+        showToast('Role created: ' + code, 'success');
         document.getElementById('newRoleCode').value = '';
         document.getElementById('newRoleName').value = '';
         document.getElementById('newRoleDesc').value = '';
         document.getElementById('customPerms').value = '';
         await refreshRoles();
       } else {
-        alert('Failed to create role: ' + JSON.stringify(res.data));
+        showToast('Failed to create role: ' + (res.data?.detail || res.data?.message || JSON.stringify(res.data)), 'error');
       }
     }
 
@@ -1620,8 +2225,9 @@
       const res = await executeApiCall('DELETE', `/api/v1/roles/${roleId}`);
       if (res.ok) {
         await refreshRoles();
+        showToast('Role deleted successfully', 'success');
       } else {
-        alert('Failed to delete role: ' + JSON.stringify(res.data));
+        showToast('Failed to delete role: ' + (res.data?.detail || res.data?.message || JSON.stringify(res.data)), 'error');
       }
     }
 
@@ -1642,7 +2248,7 @@
             <div class="flex items-center justify-between">
               <span class="font-bold text-teal-300 font-mono text-sm">${g.code}</span>
               <div class="flex items-center gap-2">
-                <button onclick="navigator.clipboard.writeText('${g.id}'); alert('Copied Group ID: ${g.id}')" class="text-[10px] text-slate-400 hover:text-white font-mono">
+                <button onclick="navigator.clipboard.writeText('${g.id}'); showToast('Copied Group ID: ${g.id}', 'info')" class="text-[10px] text-slate-400 hover:text-white font-mono">
                   <i class="fa-solid fa-copy mr-1"></i> ID
                 </button>
                 <button onclick="deleteGroup('${g.id}')" class="text-[10px] px-2 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition">
@@ -1733,7 +2339,7 @@
     async function assignRoleToGroup(groupId, groupName) {
       const roleId = document.getElementById('grpAssignRoleId').value.trim();
       const scopeNodeId = document.getElementById('grpAssignScopeId').value.trim() || null;
-      if (!roleId) { alert('Please enter a Role ID'); return; }
+      if (!roleId) { showToast('Please enter a Role ID', 'warning'); return; }
 
       const res = await executeApiCall('POST', `/api/v1/groups/${groupId}/roles`, {
         roleId,
@@ -1742,8 +2348,9 @@
       });
       if (res.ok) {
         await inspectGroupRoles(groupId, groupName);
+        showToast('Role assigned to group', 'success');
       } else {
-        alert('Failed to assign role to group: ' + JSON.stringify(res.data));
+        showToast('Failed to assign role to group: ' + (res.data?.detail || res.data?.message || JSON.stringify(res.data)), 'error');
       }
     }
 
@@ -1751,6 +2358,7 @@
       const res = await executeApiCall('DELETE', `/api/v1/groups/${groupId}/roles/${assignmentId}`);
       if (res.ok) {
         await inspectGroupRoles(groupId, groupName);
+        showToast('Role revoked from group', 'info');
       }
     }
 
@@ -1765,14 +2373,14 @@
         code, name, description, externalIdpGroupName
       });
       if (res.ok) {
-        alert('Group created: ' + code);
+        showToast('Group created: ' + code, 'success');
         document.getElementById('newGroupCode').value = '';
         document.getElementById('newGroupName').value = '';
         document.getElementById('newGroupDesc').value = '';
         document.getElementById('newGroupExternal').value = '';
         await refreshGroups();
       } else {
-        alert('Failed to create group: ' + JSON.stringify(res.data));
+        showToast('Failed to create group: ' + (res.data?.detail || res.data?.message || JSON.stringify(res.data)), 'error');
       }
     }
 
@@ -1782,8 +2390,9 @@
       if (res.ok) {
         await refreshGroups();
         document.getElementById('groupInspectionBox').classList.add('hidden');
+        showToast('Group deleted successfully', 'success');
       } else {
-        alert('Failed to delete group: ' + JSON.stringify(res.data));
+        showToast('Failed to delete group: ' + (res.data?.detail || res.data?.message || JSON.stringify(res.data)), 'error');
       }
     }
 
@@ -1810,10 +2419,10 @@
               <div class="text-[10px] text-slate-500 font-mono">Path: ${n.path}</div>
             </div>
             <div class="flex items-center gap-1">
-              <button onclick="navigator.clipboard.writeText('${n.id}'); alert('Copied Scope ID: ${n.id}')" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-white font-mono">
+              <button onclick="navigator.clipboard.writeText('${n.id}'); showToast('Copied Scope ID: ${n.id}', 'info')" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-white font-mono">
                 Copy ID
               </button>
-              <button onclick="document.getElementById('scopeParentId').value = '${n.id}'; document.getElementById('moveParentId').value = '${n.id}'; alert('Selected as Parent Scope: ${n.name}')" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30">
+              <button onclick="document.getElementById('scopeParentId').value = '${n.id}'; document.getElementById('moveParentId').value = '${n.id}'; showToast('Selected as Parent Scope: ${escapeQuotes(n.name)}', 'info')" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30">
                 Pick Parent
               </button>
               <button onclick="deleteScope('${n.id}')" class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20">
@@ -1840,28 +2449,30 @@
         parentId, code, name
       });
       if (res.ok) {
-        alert('Scope created: ' + name);
+        showToast('Scope created: ' + name, 'success');
         document.getElementById('scopeCode').value = '';
         document.getElementById('scopeName').value = '';
         await refreshScopeTree();
+        await refreshEvaluatorScopes();
       } else {
-        alert('Failed to create scope: ' + JSON.stringify(res.data));
+        showToast('Failed to create scope: ' + (res.data?.detail || res.data?.message || JSON.stringify(res.data)), 'error');
       }
     }
 
     async function moveScope() {
       const scopeId = document.getElementById('moveScopeId').value.trim();
       const newParentId = document.getElementById('moveParentId').value.trim();
-      if (!scopeId || !newParentId) { alert('Scope ID and New Parent ID are required.'); return; }
+      if (!scopeId || !newParentId) { showToast('Scope ID and New Parent ID are required.', 'warning'); return; }
 
       const res = await executeApiCall('POST', `/api/v1/scopes/${scopeId}/move`, { newParentId });
       if (res.ok) {
-        alert('Scope moved successfully!');
+        showToast('Scope moved successfully!', 'success');
         document.getElementById('moveScopeId').value = '';
         document.getElementById('moveParentId').value = '';
         await refreshScopeTree();
+        await refreshEvaluatorScopes();
       } else {
-        alert('Failed to move scope: ' + JSON.stringify(res.data));
+        showToast('Failed to move scope: ' + (res.data?.detail || res.data?.message || JSON.stringify(res.data)), 'error');
       }
     }
 
@@ -1870,8 +2481,10 @@
       const res = await executeApiCall('DELETE', `/api/v1/scopes/${scopeId}`);
       if (res.ok) {
         await refreshScopeTree();
+        await refreshEvaluatorScopes();
+        showToast('Scope deleted successfully', 'success');
       } else {
-        alert('Failed to delete scope: ' + JSON.stringify(res.data));
+        showToast('Failed to delete scope: ' + (res.data?.detail || res.data?.message || JSON.stringify(res.data)), 'error');
       }
     }
 
@@ -1883,7 +2496,7 @@
 
     async function rotateRefreshToken() {
       if (!currentRefreshToken) {
-        alert('No refresh token available in session. Please log in first.');
+        showToast('No refresh token available in session. Please log in first.', 'warning');
         return;
       }
       const res = await executeApiCall('POST', '/api/v1/auth/refresh', { refreshToken: currentRefreshToken });
@@ -1901,6 +2514,7 @@
 
         updateSessionUi(currentUser, currentTenantId);
         await fetchActorContext();
+        showToast('Token rotated successfully', 'success');
       }
     }
 
@@ -1912,12 +2526,167 @@
       permsDiv.innerHTML = (permissions || []).map(p => `<span class="px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-mono">${p}</span>`).join('');
     }
 
-    function logout() {
+    async function logout() {
+      if (currentToken) {
+        try {
+          await fetch('/api/v1/auth/logout', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${currentToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+        } catch (e) {
+          console.warn('Backend logout revocation error:', e);
+        }
+      }
       currentToken = null;
       currentUser = null;
       currentTenantId = null;
       localStorage.clear();
       location.reload();
+    }
+
+    async function logoutAll() {
+      if (currentToken) {
+        try {
+          await fetch('/api/v1/auth/logout-all', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${currentToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+        } catch (e) {
+          console.warn('Backend logout-all revocation error:', e);
+        }
+      }
+      currentToken = null;
+      currentUser = null;
+      currentTenantId = null;
+      localStorage.clear();
+      location.reload();
+    }
+
+    async function fetchMySessions() {
+      const res = await executeApiCall('GET', '/api/v1/auth/sessions');
+      document.getElementById('mySessionsResult').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    async function openSessionsModal() {
+      document.getElementById('sessionsModal').classList.remove('hidden');
+      await renderModalSessions();
+    }
+
+    function closeSessionsModal() {
+      document.getElementById('sessionsModal').classList.add('hidden');
+    }
+
+    async function renderModalSessions() {
+      const container = document.getElementById('modalSessionsContainer');
+      if (!currentToken) {
+        container.innerHTML = '<div class="text-amber-400 text-xs py-4 text-center">Please log in to view active sessions.</div>';
+        return;
+      }
+      container.innerHTML = '<div class="text-slate-400 text-xs font-mono py-4 text-center">Loading active sessions...</div>';
+      try {
+        const res = await executeApiCall('GET', '/api/v1/auth/sessions');
+        if (res.ok && Array.isArray(res.data)) {
+          if (res.data.length === 0) {
+            container.innerHTML = '<div class="text-slate-400 text-xs py-4 text-center">No active sessions found.</div>';
+            return;
+          }
+          container.innerHTML = res.data.map(s => `
+            <div class="bg-slate-950/80 border ${s.current ? 'border-indigo-500/60 bg-indigo-950/20' : 'border-slate-800'} rounded-xl p-3.5 text-xs space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-indigo-300 font-medium">${s.sessionId.substring(0, 13)}...</span>
+                  ${s.current ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-medium">Current Session</span>' : ''}
+                </div>
+                <span class="text-[10px] text-slate-500 font-mono">${new Date(s.createdAt).toLocaleTimeString()}</span>
+              </div>
+              <div class="text-slate-400 text-[11px] grid grid-cols-2 gap-1.5 font-mono">
+                <div><span class="text-slate-500">IP:</span> ${s.ipAddress || 'unknown'}</div>
+                <div><span class="text-slate-500">Agent:</span> ${(s.userAgent || 'unknown').substring(0, 30)}</div>
+                <div class="col-span-2 text-[10px] text-slate-500 truncate"><span class="text-slate-500">JTI:</span> ${s.tokenIdentifier || 'n/a'}</div>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          container.innerHTML = `<div class="text-red-400 text-xs font-mono p-3 bg-red-950/30 rounded">${JSON.stringify(res.data)}</div>`;
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="text-red-400 text-xs py-4 text-center">Failed to load sessions: ${err.message}</div>`;
+      }
+    }
+
+    function fillAdminSessionUserWithCurrent() {
+      if (currentUser && currentUser.id) {
+        document.getElementById('adminSessionUserId').value = currentUser.id;
+      }
+    }
+
+    function fillAdminLockoutUserWithCurrent() {
+      if (currentUser && currentUser.id) {
+        document.getElementById('adminLockoutUserId').value = currentUser.id;
+      }
+    }
+
+    async function fetchAdminUserSessions() {
+      const userId = document.getElementById('adminSessionUserId').value.trim();
+      if (!userId) {
+        showToast('Please enter a target User UUID', 'warning');
+        return;
+      }
+      const res = await executeApiCall('GET', `/api/v1/users/${userId}/sessions`);
+      const container = document.getElementById('adminSessionsList');
+      if (res.ok && Array.isArray(res.data)) {
+        if (res.data.length === 0) {
+          container.innerHTML = '// No active sessions found for this user';
+          return;
+        }
+        container.innerHTML = res.data.map(s => `
+          <div class="pb-2.5 mb-2.5 border-b border-slate-800 last:border-0 last:pb-0 last:mb-0 flex items-center justify-between">
+            <div>
+              <div class="text-indigo-300 font-medium font-mono text-[11px]">${s.sessionId}</div>
+              <div class="text-slate-500 text-[10px]">Created: ${new Date(s.createdAt).toLocaleTimeString()} | IP: ${s.ipAddress || 'n/a'}</div>
+            </div>
+            <button onclick="terminateAdminSession('${userId}', '${s.sessionId}')" class="px-2 py-1 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded text-[10px] transition font-medium">
+              Terminate
+            </button>
+          </div>
+        `).join('');
+      } else {
+        container.textContent = JSON.stringify(res.data, null, 2);
+      }
+    }
+
+    async function terminateAdminSession(userId, sessionId) {
+      if (!confirm(`Terminate session ${sessionId}?`)) return;
+      await executeApiCall('DELETE', `/api/v1/users/${userId}/sessions/${sessionId}`);
+      await fetchAdminUserSessions();
+      showToast('Session terminated', 'info');
+    }
+
+    async function checkAdminUserLockout() {
+      const userId = document.getElementById('adminLockoutUserId').value.trim();
+      if (!userId) {
+        showToast('Please enter a target User UUID', 'warning');
+        return;
+      }
+      const res = await executeApiCall('GET', `/api/v1/users/${userId}/lockout`);
+      document.getElementById('adminLockoutResult').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    async function unlockAdminUser() {
+      const userId = document.getElementById('adminLockoutUserId').value.trim();
+      if (!userId) {
+        showToast('Please enter a target User UUID', 'warning');
+        return;
+      }
+      await executeApiCall('POST', `/api/v1/users/${userId}/unlock`);
+      await checkAdminUserLockout();
+      showToast('Account unlocked successfully', 'success');
     }
 
     function logRequest(method, url, details) {
@@ -1938,6 +2707,481 @@
       document.getElementById('respLatency').textContent = `${latency}ms`;
       document.getElementById('responseInspector').textContent = JSON.stringify(data, null, 2);
     }
+
+    // =========================================================================
+    // Multi-Factor Authentication (MFA / TOTP) Handlers
+    // =========================================================================
+
+    let pendingMfaToken = null;
+    let currentMfaSetupData = null;
+
+    function promptMfaChallenge(mfaToken, email) {
+      pendingMfaToken = mfaToken;
+      document.getElementById('mfaChallengeEmail').textContent = email;
+      document.getElementById('mfaChallengeCodeInput').value = '';
+      const errEl = document.getElementById('mfaChallengeError');
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
+      document.getElementById('mfaChallengeModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('mfaChallengeCodeInput').focus(), 100);
+    }
+
+    function closeMfaChallengeModal() {
+      document.getElementById('mfaChallengeModal').classList.add('hidden');
+      pendingMfaToken = null;
+    }
+
+    async function submitMfaChallenge() {
+      const code = document.getElementById('mfaChallengeCodeInput').value.trim();
+      if (!code) return;
+      const feedback = document.getElementById('mfaChallengeError');
+      feedback.classList.add('hidden');
+
+      logRequest('POST', '/api/v1/auth/mfa/verify', {
+        headers: { 'Content-Type': 'application/json' },
+        body: { mfaToken: pendingMfaToken ? `${pendingMfaToken.substring(0, 15)}...` : null, code }
+      });
+
+      const startTime = performance.now();
+      try {
+        const res = await fetch('/api/v1/auth/mfa/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mfaToken: pendingMfaToken, code: code })
+        });
+        const latency = Math.round(performance.now() - startTime);
+        let data = null;
+        try { data = await res.json(); } catch(e) {}
+        logResponse(res.status, latency, data);
+
+        if (res.ok) {
+          currentToken = data.accessToken;
+          currentRefreshToken = data.refreshToken;
+          currentUser = data.user;
+          currentTenantId = data.user.tenantId;
+
+          localStorage.setItem('iam_token', currentToken);
+          localStorage.setItem('iam_refresh_token', currentRefreshToken);
+          localStorage.setItem('iam_user', JSON.stringify(currentUser));
+          localStorage.setItem('iam_tenant_id', currentTenantId);
+
+          closeMfaChallengeModal();
+          updateSessionUi(currentUser, currentTenantId);
+          await fetchActorContext();
+          showCustomLoginFeedback(`MFA Verified! Authenticated as ${currentUser.email}`, false);
+        } else {
+          const errMsg = data ? (data.detail || data.message || res.statusText) : res.statusText;
+          feedback.textContent = `Verification failed (${res.status}): ${errMsg}`;
+          feedback.classList.remove('hidden');
+        }
+      } catch (err) {
+        feedback.textContent = `Network error: ${err.message}`;
+        feedback.classList.remove('hidden');
+      }
+    }
+
+    async function openMfaModal() {
+      if (!currentToken) return;
+      document.getElementById('mfaModal').classList.remove('hidden');
+      await refreshMfaStatus();
+    }
+
+    function closeMfaModal() {
+      document.getElementById('mfaModal').classList.add('hidden');
+    }
+
+    async function refreshMfaStatus() {
+      if (!currentToken) return;
+      try {
+        const res = await fetch('/api/v1/auth/mfa/status', {
+          headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          renderMfaStatus(data.enabled);
+        }
+      } catch (e) {
+        console.error('Failed to query MFA status:', e);
+      }
+    }
+
+    function renderMfaStatus(enabled) {
+      const statusBadge = document.getElementById('mfaCurrentStatusBadge');
+      const disabledView = document.getElementById('mfaDisabledView');
+      const enabledView = document.getElementById('mfaEnabledView');
+      const setupStepView = document.getElementById('mfaSetupStepView');
+      const mfaBtnText = document.getElementById('mfaBtnText');
+
+      if (enabled) {
+        if (mfaBtnText) mfaBtnText.textContent = '2FA Active';
+        if (statusBadge) {
+          statusBadge.textContent = 'Active / Protected';
+          statusBadge.className = 'text-xs px-2.5 py-1 rounded-full font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        }
+        if (disabledView) disabledView.classList.add('hidden');
+        if (setupStepView) setupStepView.classList.add('hidden');
+        if (enabledView) enabledView.classList.remove('hidden');
+      } else {
+        if (mfaBtnText) mfaBtnText.textContent = '2FA Disabled';
+        if (statusBadge) {
+          statusBadge.textContent = 'Disabled';
+          statusBadge.className = 'text-xs px-2.5 py-1 rounded-full font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30';
+        }
+        if (enabledView) enabledView.classList.add('hidden');
+        if (setupStepView) setupStepView.classList.add('hidden');
+        if (disabledView) disabledView.classList.remove('hidden');
+      }
+    }
+
+    async function startMfaSetup() {
+      logRequest('POST', '/api/v1/auth/mfa/setup', {
+        headers: { 'Authorization': `Bearer ${currentToken.substring(0, 15)}...` }
+      });
+
+      const startTime = performance.now();
+      try {
+        const res = await fetch('/api/v1/auth/mfa/setup', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const latency = Math.round(performance.now() - startTime);
+        const data = await res.json();
+        logResponse(res.status, latency, data);
+
+        if (res.ok) {
+          currentMfaSetupData = data;
+          document.getElementById('mfaDisabledView').classList.add('hidden');
+          document.getElementById('mfaSetupStepView').classList.remove('hidden');
+
+          document.getElementById('mfaSecretDisplay').textContent = data.secret;
+          document.getElementById('mfaQrUriDisplay').textContent = data.qrCodeUri;
+
+          // Render QR Code
+          const qrCanvas = document.getElementById('mfaQrCodeCanvas');
+          if (qrCanvas) {
+            qrCanvas.innerHTML = '';
+            if (typeof QRCode !== 'undefined') {
+              try {
+                new QRCode(qrCanvas, {
+                  text: data.qrCodeUri,
+                  width: 140,
+                  height: 140,
+                  colorDark: '#0f172a',
+                  colorLight: '#ffffff',
+                  correctLevel: QRCode.CorrectLevel.M
+                });
+              } catch (qrErr) {
+                console.warn('QR code generation error:', qrErr);
+                qrCanvas.innerHTML = '<span class="text-[10px] text-slate-500 p-2 text-center">Scan error: use manual key</span>';
+              }
+            } else {
+              qrCanvas.innerHTML = '<span class="text-[10px] text-slate-500 p-2 text-center">QR unavailable: use manual key</span>';
+            }
+          }
+
+          const codesContainer = document.getElementById('mfaBackupCodesContainer');
+          codesContainer.innerHTML = (data.backupCodes || []).map(code =>
+            `<div class="p-1.5 rounded bg-slate-800 border border-slate-700 text-center font-mono text-emerald-300 font-semibold tracking-wider text-xs">${code}</div>`
+          ).join('');
+        } else {
+          showToast('Failed to initiate MFA setup: ' + (data.detail || res.statusText), 'error');
+        }
+      } catch (err) {
+        showToast('Network error initiating setup: ' + err.message, 'error');
+      }
+    }
+
+    async function activateMfa() {
+      const code = document.getElementById('mfaActivateCodeInput').value.trim();
+      if (!code) return;
+      const errorEl = document.getElementById('mfaActivateError');
+      errorEl.classList.add('hidden');
+
+      logRequest('POST', '/api/v1/auth/mfa/activate', {
+        headers: { 'Authorization': `Bearer ${currentToken.substring(0, 15)}...` },
+        body: { code: code }
+      });
+
+      const startTime = performance.now();
+      try {
+        const res = await fetch('/api/v1/auth/mfa/activate', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ code: code })
+        });
+        const latency = Math.round(performance.now() - startTime);
+        logResponse(res.status, latency, { status: res.status });
+
+        if (res.ok) {
+          document.getElementById('mfaActivateCodeInput').value = '';
+          await refreshMfaStatus();
+          showToast('2FA successfully activated for your account!', 'success');
+        } else {
+          let data = null;
+          try { data = await res.json(); } catch(e) {}
+          const errMsg = data ? (data.detail || data.message || res.statusText) : res.statusText;
+          errorEl.textContent = `Activation failed (${res.status}): ${errMsg}`;
+          errorEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorEl.textContent = `Network error: ${err.message}`;
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    async function disableMfa() {
+      const codeOrPassword = document.getElementById('mfaDisableInput').value.trim();
+      if (!codeOrPassword) return;
+      const errorEl = document.getElementById('mfaDisableError');
+      errorEl.classList.add('hidden');
+
+      logRequest('POST', '/api/v1/auth/mfa/disable', {
+        headers: { 'Authorization': `Bearer ${currentToken.substring(0, 15)}...` },
+        body: { codeOrPassword: '***' }
+      });
+
+      const startTime = performance.now();
+      try {
+        const res = await fetch('/api/v1/auth/mfa/disable', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ codeOrPassword: codeOrPassword })
+        });
+        const latency = Math.round(performance.now() - startTime);
+        logResponse(res.status, latency, { status: res.status });
+
+        if (res.ok) {
+          document.getElementById('mfaDisableInput').value = '';
+          await refreshMfaStatus();
+          showToast('2FA has been disabled.', 'info');
+        } else {
+          let data = null;
+          try { data = await res.json(); } catch(e) {}
+          const errMsg = data ? (data.detail || data.message || res.statusText) : res.statusText;
+          errorEl.textContent = `Disable failed (${res.status}): ${errMsg}`;
+          errorEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorEl.textContent = `Network error: ${err.message}`;
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    function copyToClipboard(elementId, btn) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const text = el.textContent.trim();
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-check mr-1 text-emerald-400"></i> Copied!';
+        setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+      });
+    }
   </script>
+
+  <!-- Active Sessions Modal -->
+  <div id="sessionsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved text-indigo-400 text-lg"></i>
+          <h3 class="font-bold text-white text-base">Your Active Sessions</h3>
+        </div>
+        <button onclick="closeSessionsModal()" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-400">Sessions established across your devices. You can inspect token metadata or terminate all sessions.</p>
+
+      <div id="modalSessionsContainer" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+        <div class="text-slate-400 text-xs font-mono py-4 text-center">Loading active sessions...</div>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+        <button onclick="logoutAll()" class="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 text-xs font-medium transition flex items-center gap-1.5">
+          <i class="fa-solid fa-power-off"></i> Terminate All Sessions
+        </button>
+        <button onclick="closeSessionsModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-medium transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MFA Challenge Modal (During Login) -->
+  <div id="mfaChallengeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-key text-emerald-400 text-lg"></i>
+          <h3 class="font-bold text-white text-base">Two-Factor Authentication</h3>
+        </div>
+        <button onclick="closeMfaChallengeModal()" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        Account <strong id="mfaChallengeEmail" class="text-indigo-300 font-mono"></strong> requires a second factor. Enter the 6-digit TOTP code from your authenticator app (or an 8-character backup recovery code):
+      </p>
+
+      <form id="mfaChallengeForm" onsubmit="event.preventDefault(); submitMfaChallenge();" class="space-y-4">
+        <div>
+          <label for="mfaChallengeCodeInput" class="block text-xs font-medium text-slate-400 mb-1">Verification Code / Backup Code</label>
+          <input type="text" id="mfaChallengeCodeInput" required placeholder="e.g. 123456 or ABCD-EFGH" autofocus
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-center text-lg font-mono tracking-widest text-emerald-300 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase">
+        </div>
+
+        <div id="mfaChallengeError" class="hidden text-xs px-3 py-2 rounded-lg font-mono bg-red-500/10 text-red-300 border border-red-500/30"></div>
+
+        <div class="flex items-center justify-between pt-2">
+          <button type="button" onclick="closeMfaChallengeModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-medium transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/30 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-lock-open"></i> Verify & Sign In
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MFA Settings & Enrollment Modal -->
+  <div id="mfaModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-8">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved text-emerald-400 text-lg"></i>
+          <h3 class="font-bold text-white text-base">Two-Factor Authentication (MFA / TOTP)</h3>
+        </div>
+        <button onclick="closeMfaModal()" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between bg-slate-950/70 border border-slate-800 rounded-xl p-3.5">
+        <div>
+          <span class="text-xs text-slate-400 block">Current Status</span>
+          <span class="text-xs text-slate-200">RFC 6238 Time-Based One-Time Password</span>
+        </div>
+        <span id="mfaCurrentStatusBadge" class="text-xs px-2.5 py-1 rounded-full font-mono bg-slate-700 text-slate-300">Checking...</span>
+      </div>
+
+      <!-- State A: MFA is Disabled (Prompt to Enroll) -->
+      <div id="mfaDisabledView" class="hidden space-y-4">
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Enhance your account security with two-factor authentication. When enabled, signing in will require your account password and a 6-digit TOTP code generated by Google Authenticator, Microsoft Authenticator, or 1Password.
+        </p>
+        <button onclick="startMfaSetup()" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-qrcode"></i> Begin 2FA Setup
+        </button>
+      </div>
+
+      <!-- State B: MFA Setup in Progress (Secret, URI, Backup Codes & Activation) -->
+      <div id="mfaSetupStepView" class="hidden space-y-4">
+        <!-- QR Code & Key Container -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+          <div class="flex flex-col sm:flex-row items-center gap-5">
+            <!-- QR Code Card -->
+            <div class="flex flex-col items-center flex-shrink-0">
+              <div class="p-2.5 bg-white rounded-xl shadow-lg border border-slate-300">
+                <div id="mfaQrCodeCanvas" class="w-[140px] h-[140px] flex items-center justify-center"></div>
+              </div>
+              <span class="text-[11px] text-slate-400 mt-2 flex items-center gap-1.5 font-medium">
+                <i class="fa-solid fa-qrcode text-emerald-400"></i> Scan with Authenticator
+              </span>
+            </div>
+
+            <!-- Manual Entry / Provisioning Details -->
+            <div class="flex-1 space-y-3 w-full">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-xs font-semibold text-slate-300">1. Manual Secret Key</span>
+                  <button onclick="copyToClipboard('mfaSecretDisplay', this)" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-mono transition">
+                    <i class="fa-solid fa-copy mr-1"></i> Copy Secret
+                  </button>
+                </div>
+                <div id="mfaSecretDisplay" class="p-2 rounded-lg bg-slate-900 border border-slate-700/80 font-mono text-center text-xs text-emerald-300 tracking-widest break-all select-all font-semibold"></div>
+              </div>
+
+              <div class="pt-2 border-t border-slate-800/80">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-xs font-semibold text-slate-300">2. Provisioning URI (<code class="text-emerald-400">otpauth://</code>)</span>
+                  <button onclick="copyToClipboard('mfaQrUriDisplay', this)" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-mono transition">
+                    <i class="fa-solid fa-copy mr-1"></i> Copy URI
+                  </button>
+                </div>
+                <div id="mfaQrUriDisplay" class="p-2 rounded bg-slate-900 border border-slate-800 font-mono text-[10px] text-slate-400 break-all select-all max-h-14 overflow-y-auto"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Backup Recovery Codes -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300">3. Single-Use Backup Recovery Codes</span>
+            <span class="text-[10px] text-amber-400 font-mono">Save these safely!</span>
+          </div>
+          <p class="text-[11px] text-slate-400">Each code can be consumed once if you lose access to your authenticator app:</p>
+          <div id="mfaBackupCodesContainer" class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1"></div>
+        </div>
+
+        <!-- Step 4: Verification Code to Activate -->
+        <div class="bg-indigo-950/20 border border-indigo-500/30 rounded-xl p-4 space-y-3">
+          <span class="text-xs font-semibold text-white block">4. Confirm Code to Activate 2FA</span>
+          <p class="text-[11px] text-slate-300">Enter the 6-digit code currently displayed in your authenticator app to activate:</p>
+          <div class="flex gap-2">
+            <input type="text" id="mfaActivateCodeInput" maxlength="6" placeholder="000000"
+              class="w-36 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-center text-base font-mono tracking-widest text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <button onclick="activateMfa()" class="flex-1 py-2 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/30 transition flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-check"></i> Activate 2FA
+            </button>
+          </div>
+          <div id="mfaActivateError" class="hidden text-xs px-3 py-2 rounded-lg font-mono bg-red-500/10 text-red-300 border border-red-500/30"></div>
+        </div>
+      </div>
+
+      <!-- State C: MFA is Enabled (Active Protection & Disable Option) -->
+      <div id="mfaEnabledView" class="hidden space-y-4">
+        <div class="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-3">
+          <i class="fa-solid fa-circle-check text-emerald-400 text-2xl"></i>
+          <div>
+            <span class="text-xs font-semibold text-white block">Two-Factor Authentication is Active</span>
+            <span class="text-[11px] text-slate-300">Your account requires an authenticator TOTP code or backup recovery code on every login.</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+          <span class="text-xs font-semibold text-red-400 block">Disable Two-Factor Authentication</span>
+          <p class="text-[11px] text-slate-400">To disable 2FA, enter your current 6-digit TOTP code or your account password:</p>
+          <div class="flex gap-2">
+            <input type="password" id="mfaDisableInput" placeholder="TOTP code or Password"
+              class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500">
+            <button onclick="disableMfa()" class="py-2 px-4 rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 text-xs font-medium transition flex items-center gap-1.5">
+              <i class="fa-solid fa-ban"></i> Disable 2FA
+            </button>
+          </div>
+          <div id="mfaDisableError" class="hidden text-xs px-3 py-2 rounded-lg font-mono bg-red-500/10 text-red-300 border border-red-500/30"></div>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-3 border-t border-slate-800">
+        <button onclick="closeMfaModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-medium transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

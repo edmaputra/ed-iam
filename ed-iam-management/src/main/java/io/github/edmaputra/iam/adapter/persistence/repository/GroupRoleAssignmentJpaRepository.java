@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import io.github.edmaputra.iam.adapter.persistence.entity.GroupRoleAssignmentJpaEntity;
 
@@ -14,7 +13,6 @@ import io.github.edmaputra.iam.adapter.persistence.entity.GroupRoleAssignmentJpa
  * @author edmaputra
  * @since 0.0.1
  */
-@Repository
 public interface GroupRoleAssignmentJpaRepository extends JpaRepository<GroupRoleAssignmentJpaEntity, UUID> {
 
 	/**

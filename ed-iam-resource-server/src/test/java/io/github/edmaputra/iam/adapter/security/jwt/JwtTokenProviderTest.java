@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import io.github.edmaputra.iam.application.model.EffectiveAccess;
+import io.github.edmaputra.iam.application.model.MfaChallengeClaims;
 import io.github.edmaputra.iam.application.model.RefreshTokenClaims;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
@@ -231,5 +232,29 @@ class JwtTokenProviderTest {
 		JwtProperties p2 = new JwtProperties(JwtProperties.TEST_SECRET, 0, 0, "   ", "   ");
 		assertThat(p2.issuer()).isEqualTo(JwtProperties.DEFAULT_ISSUER);
 		assertThat(p2.audience()).isEqualTo(JwtProperties.DEFAULT_AUDIENCE);
+	}
+
+	@Test
+	@DisplayName("Should create and parse MFA challenge token successfully and reject invalid types")
+	void shouldCreateAndParseMfaChallengeToken() {
+		UserId userId = UserId.generate();
+		TenantId tenantId = TenantId.generate();
+
+		String mfaToken = jwtTokenProvider.createMfaChallengeToken(userId, tenantId);
+		assertThat(mfaToken).isNotBlank();
+		assertThat(jwtTokenProvider.validateToken(mfaToken)).isTrue();
+
+		MfaChallengeClaims claims =
+				jwtTokenProvider.parseMfaChallengeToken(mfaToken);
+		assertThat(claims.userId()).isEqualTo(userId);
+		assertThat(claims.optionalTenantId()).contains(tenantId);
+		assertThat(claims.issuedAt()).isNotNull();
+		assertThat(claims.expiresAt()).isAfter(claims.issuedAt());
+
+		// Reject parsing access token or refresh token as MFA challenge
+		String refreshToken = jwtTokenProvider.createRefreshToken(userId, tenantId);
+		assertThatThrownBy(() -> jwtTokenProvider.parseMfaChallengeToken(refreshToken))
+				.isInstanceOf(AuthenticationException.class)
+				.hasMessageContaining("not an MFA challenge token");
 	}
 }

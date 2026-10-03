@@ -6,7 +6,7 @@
 	<parent>
 		<groupId>io.github.edmaputra</groupId>
 		<artifactId>ed-iam</artifactId>
-		<version>0.3.0-SNAPSHOT</version>
+		<version>0.8.0-SNAPSHOT</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
@@ -72,6 +72,11 @@
 		</dependency>
 
 		<!-- Test Dependencies -->
+		<dependency>
+			<groupId>io.github.edmaputra</groupId>
+			<artifactId>ed-iam-auth</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>com.tngtech.archunit</groupId>
 			<artifactId>archunit-junit5</artifactId>

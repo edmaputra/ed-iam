@@ -1,11 +1,9 @@
 package io.github.edmaputra.iam.application.service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.stream.Collectors;
-
-import lombok.RequiredArgsConstructor;
 
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
@@ -13,20 +11,27 @@ import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatus
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
+import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
+import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
 import io.github.edmaputra.iam.domain.exception.GroupNotFoundException;
 import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupId;
+import io.github.edmaputra.iam.domain.model.PageQuery;
+import io.github.edmaputra.iam.domain.model.PagedResult;
 import io.github.edmaputra.iam.domain.model.Role;
 import io.github.edmaputra.iam.domain.model.User;
+import io.github.edmaputra.iam.domain.model.UserFilter;
 import io.github.edmaputra.iam.domain.model.UserGroupMembership;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserRoleAssignment;
 import io.github.edmaputra.iam.domain.model.UserRoleAssignmentId;
+import io.github.edmaputra.iam.domain.model.UserSession;
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
+import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
 
@@ -37,7 +42,6 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
  * @author edmaputra
  * @since 0.0.1
  */
-@RequiredArgsConstructor
 public class UserManagementService implements ManageUserUseCase {
 
 	private final UserRepository userRepository;
@@ -46,6 +50,52 @@ public class UserManagementService implements ManageUserUseCase {
 	private final UserGroupMembershipRepository userGroupMembershipRepository;
 	private final RoleRepository roleRepository;
 	private final GroupRepository groupRepository;
+	private final SessionRegistryPort sessionRegistry;
+	private final TokenRevocationPort tokenRevocationPort;
+	private final UserMfaRepository userMfaRepository;
+
+	public UserManagementService(
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			UserRoleAssignmentRepository userRoleAssignmentRepository,
+			UserGroupMembershipRepository userGroupMembershipRepository,
+			RoleRepository roleRepository,
+			GroupRepository groupRepository,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			UserMfaRepository userMfaRepository) {
+		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
+		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
+		this.userRoleAssignmentRepository = Objects.requireNonNull(userRoleAssignmentRepository, "UserRoleAssignmentRepository must not be null.");
+		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
+		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
+		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
+		this.sessionRegistry = sessionRegistry;
+		this.tokenRevocationPort = tokenRevocationPort;
+		this.userMfaRepository = userMfaRepository;
+	}
+
+	public UserManagementService(
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			UserRoleAssignmentRepository userRoleAssignmentRepository,
+			UserGroupMembershipRepository userGroupMembershipRepository,
+			RoleRepository roleRepository,
+			GroupRepository groupRepository,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort) {
+		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, sessionRegistry, tokenRevocationPort, null);
+	}
+
+	public UserManagementService(
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			UserRoleAssignmentRepository userRoleAssignmentRepository,
+			UserGroupMembershipRepository userGroupMembershipRepository,
+			RoleRepository roleRepository,
+			GroupRepository groupRepository) {
+		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, null, null, null);
+	}
 
 	@Override
 	public User createUser(CreateUserCommand command) {
@@ -97,8 +147,14 @@ public class UserManagementService implements ManageUserUseCase {
 
 		switch (command.status()) {
 			case ACTIVE -> user.activate();
-			case SUSPENDED -> user.suspend();
-			case DEACTIVATED -> user.deactivate();
+			case SUSPENDED -> {
+				user.suspend();
+				revokeUserSessions(user.getId());
+			}
+			case DEACTIVATED -> {
+				user.deactivate();
+				revokeUserSessions(user.getId());
+			}
 		}
 
 		return userRepository.save(user);
@@ -107,6 +163,10 @@ public class UserManagementService implements ManageUserUseCase {
 	@Override
 	public void deleteUser(UserId id) {
 		Objects.requireNonNull(id, "UserId must not be null.");
+		revokeUserSessions(id);
+		if (userMfaRepository != null) {
+			userMfaRepository.deleteByUserId(id);
+		}
 		userRepository.delete(id);
 	}
 
@@ -166,6 +226,28 @@ public class UserManagementService implements ManageUserUseCase {
 		return memberships.stream()
 				.map(m -> groupRepository.findById(m.groupId()).orElse(null))
 				.filter(Objects::nonNull)
-				.collect(Collectors.toList());
+				.toList();
+	}
+
+	@Override
+	public PagedResult<User> getUsers(UserFilter filter, PageQuery pageQuery) {
+		UserFilter resolvedFilter = filter != null ? filter : UserFilter.empty();
+		return userRepository.findAll(resolvedFilter, pageQuery);
+	}
+
+	private void revokeUserSessions(UserId userId) {
+		if (tokenRevocationPort != null) {
+			tokenRevocationPort.revokeAllForUser(userId, Instant.now());
+		}
+		if (sessionRegistry != null) {
+			List<UserSession> activeSessions = sessionRegistry.findActiveSessions(userId, null);
+			for (UserSession s : activeSessions) {
+				sessionRegistry.revokeSession(s.id());
+				if (tokenRevocationPort != null && s.tokenIdentifier() != null) {
+					tokenRevocationPort.revokeToken(s.tokenIdentifier(), s.expiresAt());
+				}
+			}
+		}
 	}
 }
+

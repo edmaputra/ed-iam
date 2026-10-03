@@ -25,9 +25,14 @@ import io.github.edmaputra.iam.domain.security.annotation.RequirePermission;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for {@link RequirePermissionInterceptor}.
+ *
+ * @author edmaputra
+ * @since 0.1.0
+ */
 @ExtendWith(MockitoExtension.class)
 class RequirePermissionInterceptorTest {
 
@@ -85,8 +90,7 @@ class RequirePermissionInterceptorTest {
 
 		CurrentActor superAdmin = new SecurityContextCurrentActor(
 				UUID.randomUUID(), "admin@ed-iam.io", null, true, true,
-				Set.of(), Set.of(), Set.of(), Set.of(), Set.of()
-		);
+				Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
 		when(currentActorProvider.currentActor()).thenReturn(Optional.of(superAdmin));
 
 		boolean result = interceptor.preHandle(request, response, handlerMethod);
@@ -101,8 +105,7 @@ class RequirePermissionInterceptorTest {
 
 		CurrentActor actor = new SecurityContextCurrentActor(
 				UUID.randomUUID(), "user@ed-iam.io", UUID.randomUUID(), false, false,
-				Set.of(), Set.of(), Set.of("iam:user:create"), Set.of(), Set.of()
-		);
+				Set.of(), Set.of(), Set.of("iam:user:create"), Set.of(), Set.of());
 		when(currentActorProvider.currentActor()).thenReturn(Optional.of(actor));
 
 		boolean result = interceptor.preHandle(request, response, handlerMethod);
@@ -117,8 +120,7 @@ class RequirePermissionInterceptorTest {
 
 		CurrentActor actor = new SecurityContextCurrentActor(
 				UUID.randomUUID(), "user@ed-iam.io", UUID.randomUUID(), false, false,
-				Set.of(), Set.of(), Set.of("other:perm"), Set.of(), Set.of()
-		);
+				Set.of(), Set.of(), Set.of("other:perm"), Set.of(), Set.of());
 		when(currentActorProvider.currentActor()).thenReturn(Optional.of(actor));
 
 		assertThatThrownBy(() -> interceptor.preHandle(request, response, handlerMethod))
@@ -134,8 +136,7 @@ class RequirePermissionInterceptorTest {
 
 		CurrentActor actor = new SecurityContextCurrentActor(
 				UUID.randomUUID(), "user@ed-iam.io", UUID.randomUUID(), false, false,
-				Set.of(), Set.of(), Set.of("perm:two"), Set.of(), Set.of()
-		);
+				Set.of(), Set.of(), Set.of("perm:two"), Set.of(), Set.of());
 		when(currentActorProvider.currentActor()).thenReturn(Optional.of(actor));
 
 		boolean result = interceptor.preHandle(request, response, handlerMethod);
@@ -150,8 +151,7 @@ class RequirePermissionInterceptorTest {
 
 		CurrentActor actor = new SecurityContextCurrentActor(
 				UUID.randomUUID(), "user@ed-iam.io", UUID.randomUUID(), false, false,
-				Set.of(), Set.of(), Set.of("perm:three"), Set.of(), Set.of()
-		);
+				Set.of(), Set.of(), Set.of("perm:three"), Set.of(), Set.of());
 		when(currentActorProvider.currentActor()).thenReturn(Optional.of(actor));
 
 		assertThatThrownBy(() -> interceptor.preHandle(request, response, handlerMethod))
@@ -167,8 +167,7 @@ class RequirePermissionInterceptorTest {
 
 		CurrentActor actor = new SecurityContextCurrentActor(
 				UUID.randomUUID(), "user@ed-iam.io", UUID.randomUUID(), false, false,
-				Set.of(), Set.of(), Set.of("class:permission"), Set.of(), Set.of()
-		);
+				Set.of(), Set.of(), Set.of("class:permission"), Set.of(), Set.of());
 		when(currentActorProvider.currentActor()).thenReturn(Optional.of(actor));
 
 		boolean result = interceptor.preHandle(request, response, handlerMethod);
@@ -184,7 +183,7 @@ class RequirePermissionInterceptorTest {
 		public void singlePermissionEndpoint() {
 		}
 
-		@RequirePermission(value = {"perm:one", "perm:two"}, logical = Logical.OR)
+		@RequirePermission(value = { "perm:one", "perm:two" }, logical = Logical.OR)
 		public void orPermissionsEndpoint() {
 		}
 	}

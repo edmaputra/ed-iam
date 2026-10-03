@@ -9,11 +9,14 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import io.github.edmaputra.iam.adapter.rest.AuthController;
+import io.github.edmaputra.iam.adapter.rest.MagicLinkController;
+import io.github.edmaputra.iam.adapter.rest.MfaController;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtAuthenticationFilter;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtTokenProvider;
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageScopeUseCase;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProviderRouter;
+import io.github.edmaputra.iam.application.port.out.MagicLinkTokenStorePort;
 import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,6 +46,9 @@ class IamAutoConfigurationAndMigrationIT extends AbstractIntegrationTest {
 		assertThat(context.getBean(CurrentActorProvider.class)).isNotNull();
 		assertThat(context.getBean(JwtAuthenticationFilter.class)).isNotNull();
 		assertThat(context.getBean(AuthController.class)).isNotNull();
+		assertThat(context.getBean(MfaController.class)).isNotNull();
+		assertThat(context.getBean(MagicLinkController.class)).isNotNull();
+		assertThat(context.getBean(MagicLinkTokenStorePort.class)).isNotNull();
 
 		assertThat(userRepository).isNotNull();
 		assertThat(roleRepository).isNotNull();
@@ -70,6 +76,8 @@ class IamAutoConfigurationAndMigrationIT extends AbstractIntegrationTest {
 				"iam_user_role_assignment",
 				"iam_group_role_assignment",
 				"iam_user_group_membership",
-				"iam_user_identity");
+				"iam_user_identity",
+				"iam_user_mfa",
+				"iam_magic_link_token");
 	}
 }

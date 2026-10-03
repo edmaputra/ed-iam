@@ -6,6 +6,8 @@ import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.adapter.persistence.entity.UserRoleAssignmentJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserRoleAssignmentJpaRepository;
@@ -23,6 +25,7 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
  * @since 0.0.1
  */
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRepository {
 
 	private final UserRoleAssignmentJpaRepository repository;
@@ -51,6 +54,7 @@ public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRe
 	}
 
 	@Override
+	@Transactional
 	public UserRoleAssignment save(UserRoleAssignment assignment) {
 		Objects.requireNonNull(assignment, "UserRoleAssignment must not be null.");
 		UserRoleAssignmentJpaEntity entity = toEntity(assignment);
@@ -59,6 +63,7 @@ public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRe
 	}
 
 	@Override
+	@Transactional
 	public void delete(UserRoleAssignmentId id) {
 		Objects.requireNonNull(id, "UserRoleAssignmentId must not be null.");
 		repository.deleteById(id.value());

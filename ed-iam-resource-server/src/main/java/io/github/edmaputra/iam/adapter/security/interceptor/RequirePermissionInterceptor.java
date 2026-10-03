@@ -60,7 +60,7 @@ public class RequirePermissionInterceptor implements HandlerInterceptor {
 
 		boolean authorized = evaluatePermissions(actor, permissions, annotation.logical());
 		if (!authorized) {
-			throw new AccessDeniedException("Actor [" + actor.email() + "] lacks required permission(s): "
+			throw new AccessDeniedException("Actor [" + actor.userId() + "] lacks required permission(s): "
 					+ Arrays.toString(permissions));
 		}
 

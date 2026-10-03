@@ -22,6 +22,7 @@ spring:
     password: ""
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
     properties:
@@ -48,6 +49,10 @@ iam:
     audience: "${IAM_JWT_AUDIENCE:ed-iam-api}"
     access-token-expiration-seconds: 3600
     refresh-token-expiration-seconds: 604800
+  auth:
+    magic-link:
+      enabled: true
+      base-url: "http://localhost:8080"
   management:
     endpoints:
       enabled: true

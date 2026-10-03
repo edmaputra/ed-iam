@@ -7,6 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-02
+
+### Added
+- **Passwordless Magic Link Authentication (Phase 1)**:
+  - Cryptographically secure 256-bit URL-safe token generator (`SecureRandom`) and domain model (`MagicLinkToken`, `MagicLinkId`, `MagicLinkAuthCredentials`).
+  - Single-use atomic invalidation in JPA persistence (`JpaMagicLinkTokenStoreAdapter`, `MagicLinkTokenJpaEntity`, `MagicLinkTokenJpaRepository`) preventing race conditions and replay attacks, with fallback `InMemoryMagicLinkTokenStore`.
+  - Multi-tenant context preservation linking tokens to optional `TenantId` and resolving tenant-scoped effective access and permissions upon verification.
+  - Multi-factor authentication interception issuing `MfaChallengeToken` when user has active TOTP MFA enrolled.
+  - Dedicated Liquibase migration changelog `2026092902-create-iam-magic-link-token.json` creating `iam_magic_link_token` table with index.
+  - Public REST endpoints in `MagicLinkController` (`/api/v1/auth/magic-link/*`):
+    - `POST /api/v1/auth/magic-link/request`: Dispatches one-time magic link token with optional tenant and redirect destination.
+    - `POST /api/v1/auth/magic-link/verify`: Validates and atomically consumes magic link token, returning JWT access/refresh token pair.
+    - `GET /api/v1/auth/magic-link/verify`: Direct browser verification endpoint supporting query-parameter tokens and client redirects.
+  - Pluggable outbound dispatch SPI `MagicLinkNotifierPort` with default `LoggingMagicLinkNotifier` and simulated local inbox (`PlaygroundSimulatedMailService`).
+  - Interactive Playground UI panel in `samples/ed-iam-playground` enabling one-click link generation, console verification URL display, and browser simulation.
+  - Dynamic database-driven Scope Hierarchy Tree and access status evaluator in playground via `PlaygroundScopeController` (`GET /api/v1/playground/scopes/hierarchy`, `POST /api/v1/playground/scopes/evaluate`).
+  - Replaced browser `alert()` popups with non-blocking floating toast notification system (`showToast`) in playground.
+  - End-to-end integration tests in `ed-iam-management` (`MagicLinkAuthenticationIT`) and `ed-iam-playground` verifying complete passwordless request, token verification, single-use invalidation, and non-existent email handling.
+  - Sample HTTP requests added to `samples/ed-iam-playground/playground-requests.http`.
+
+### Changed
+- Decoupled REST controllers in `ed-iam-auth` by separation of concerns:
+  - Core authentication remains in `AuthController` (`/api/v1/auth/*`).
+  - Multi-factor authentication extracted to dedicated `MfaController` (`/api/v1/auth/mfa/*`).
+  - Magic Link authentication extracted to dedicated `MagicLinkController` (`/api/v1/auth/magic-link/*`).
+
+---
+
+## [0.6.0] - 2026-10-01
+
+### Changed
+- Upgraded GitHub Actions workflow configurations to execute under Node.js 24 runtime (`actions/checkout@v7`, `actions/upload-artifact@v7`, `crazy-max/ghaction-import-gpg@v7`), eliminating Node.js 20 deprecation warnings across all CI/CD pipelines ([#20](https://github.com/edmaputra/ed-iam/pull/20)).
+- Upgraded ArchUnit dependencies to 1.5.1 to support Java 25 bytecode class file versions ([#20](https://github.com/edmaputra/ed-iam/pull/20)).
+
+---
+
+## [0.5.0] - 2026-09-29
+
+### Added
+- **RFC 6238 TOTP Multi-Factor Authentication (MFA) (Phase 1)**:
+  - Pure Java RFC 6238 TOTP engine (`TotpGenerator`) implementing HMAC-SHA1 (30s step, 6 digits), RFC 4648 Base32 encoding/decoding, drift window verification ($\pm 1$ time step), and standard `otpauth://` QR URI generation.
+  - Domain aggregate `UserMfa` maintaining Base32 secret, activation status, and single-use hashed recovery backup codes (`consumeBackupCode()`).
+  - Liquibase changelog migration creating `iam_user_mfa` table and JPA persistence adapter (`UserMfaRepositoryAdapter`, `UserMfaJpaEntity`, `UserMfaJpaRepository`).
+  - Two-step login challenge flow in `AuthenticationService` issuing transient cryptographically signed `mfaChallengeToken` (300s TTL) with `mfaRequired: true`.
+  - Self-service MFA REST endpoints in `MfaController` (`/api/v1/auth/mfa/*`):
+    - `GET /api/v1/auth/mfa/status`: Check MFA activation status.
+    - `POST /api/v1/auth/mfa/setup`: Generate Base32 secret, `otpauth://` QR URI, and 8 single-use backup recovery codes.
+    - `POST /api/v1/auth/mfa/activate`: Confirm and activate MFA with valid TOTP code.
+    - `POST /api/v1/auth/mfa/verify`: Complete login challenge with TOTP code or backup recovery code.
+    - `POST /api/v1/auth/mfa/disable`: Disable MFA with TOTP code or user account password.
+  - User lifecycle cleanup cascade deleting associated MFA configuration upon user deletion in `UserManagementService`.
+  - End-to-end integration test in `ed-iam-playground` verifying complete enrollment, login challenge, TOTP/backup code verification, backup code single-use consumption, replay prevention, and disabling.
+  - Sample HTTP requests added to `samples/ed-iam-playground/playground-requests.http`.
+
+---
+
+## [0.4.0] - 2026-09-28
+
+### Added
+- **Token Revocation & Session Management (Phase 3)**:
+  - Real-time token revocation via `TokenRevocationPort` with cluster-wide Redis (`RedisTokenRevocationStore`) and fallback in-memory (`InMemoryTokenRevocationStore`) stores.
+  - Active session tracking and concurrency limiting via `SessionRegistryPort` with configurable eviction (`TERMINATE_OLDEST`) or rejection (`REJECT_NEW`) policies (`SessionProperties`).
+  - Brute-force account lockout tracking via `LoginAttemptTrackerPort` with Redis and in-memory stores.
+  - Token revocation validation hook in `JwtAuthenticationFilter` with immediate 401 Unauthorized rejection for revoked tokens.
+  - Self-service authentication REST endpoints: `POST /api/v1/auth/logout`, `POST /api/v1/auth/logout-all`, and `GET /api/v1/auth/sessions`.
+  - Administrative oversight REST endpoints: `GET /api/v1/users/{id}/sessions`, `DELETE /api/v1/users/{id}/sessions/{sessionId}`, `DELETE /api/v1/users/{id}/sessions`, `GET /api/v1/users/{id}/lockout`, and `POST /api/v1/users/{id}/unlock`.
+  - User lifecycle synchronization terminating active sessions upon user suspension (`SUSPENDED`/`DEACTIVATED`) or account deletion.
+
+---
+
+## [0.3.0] - 2026-09-24
+
+### Added
+- **Decoupled Authentication Module (`ed-iam-auth`)**:
+  - Extracted authentication workflows, credential provider router, and JWT issuance into dedicated `ed-iam-auth` module ([#14](https://github.com/edmaputra/ed-iam/pull/14), [#13](https://github.com/edmaputra/ed-iam/pull/13)).
+  - Relocated `AuthController` (`/api/v1/auth/*`), `AuthenticationService`, and `EffectiveAccessResolver` to `ed-iam-auth`.
+  - Added `ed-iam-auth` to aggregator `ed-iam-starter` and Dockerfile build stages.
+- **User Pagination & Filtering Endpoint**:
+  - Added paginated user lookup with dynamic criteria filtering (`page`, `size`, `sort`, `email`, `status`) in `ManageUserUseCase` and `UserController` (`GET /api/v1/users`) ([#13](https://github.com/edmaputra/ed-iam/pull/13)).
+
+### Changed
+- Hardened hexagonal architecture boundaries, security adapters, and persistence models ([#12](https://github.com/edmaputra/ed-iam/pull/12)).
+- Cleaned up unused dependencies, annotations, and null-safety warnings across all modules ([#14](https://github.com/edmaputra/ed-iam/pull/14)).
+
 ---
 
 ## [0.2.0] - 2026-09-15
@@ -101,7 +185,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automated CI/CD**:
   - GitHub Actions automated release pipeline publishing signed artifacts to Maven Central via Sonatype Central Portal.
 
-[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/edmaputra/ed-iam/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/edmaputra/ed-iam/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/edmaputra/ed-iam/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/edmaputra/ed-iam/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/edmaputra/ed-iam/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/edmaputra/ed-iam/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/edmaputra/ed-iam/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/edmaputra/ed-iam/releases/tag/v0.0.1

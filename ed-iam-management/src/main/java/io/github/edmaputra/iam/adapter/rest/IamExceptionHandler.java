@@ -30,29 +30,52 @@ public class IamExceptionHandler {
 	/**
 	 * Handles authentication exceptions and returns HTTP 401 Unauthorized.
 	 *
-	 * @param ex the authentication exception
+	 * @param ex      the authentication exception
+	 * @param request the optional HTTP servlet request
 	 * @return RFC 9457 problem detail with HTTP 401
 	 */
 	@ExceptionHandler(AuthenticationException.class)
+	public ProblemDetail handleAuthentication(AuthenticationException ex, HttpServletRequest request) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+		problem.setTitle("Authentication Failed");
+		problem.setType(URI.create("https://api.edmaputra.github.io/problems/authentication-failed"));
+		if (request != null) {
+			problem.setInstance(URI.create(request.getRequestURI()));
+		}
+		return problem;
+	}
+
 	public ProblemDetail handleAuthentication(AuthenticationException ex) {
-		return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+		return handleAuthentication(ex, null);
 	}
 
 	/**
 	 * Handles access denied exceptions and returns HTTP 403 Forbidden.
 	 *
-	 * @param ex the access denied exception
+	 * @param ex      the access denied exception
+	 * @param request the optional HTTP servlet request
 	 * @return RFC 9457 problem detail with HTTP 403
 	 */
 	@ExceptionHandler(AccessDeniedException.class)
+	public ProblemDetail handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+		problem.setTitle("Access Denied");
+		problem.setType(URI.create("https://api.edmaputra.github.io/problems/access-denied"));
+		if (request != null) {
+			problem.setInstance(URI.create(request.getRequestURI()));
+		}
+		return problem;
+	}
+
 	public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
-		return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+		return handleAccessDenied(ex, null);
 	}
 
 	/**
 	 * Handles not found exceptions and returns HTTP 404 Not Found.
 	 *
-	 * @param ex the entity not found exception
+	 * @param ex      the entity not found exception
+	 * @param request the optional HTTP servlet request
 	 * @return RFC 9457 problem detail with HTTP 404
 	 */
 	@ExceptionHandler({
@@ -61,8 +84,18 @@ public class IamExceptionHandler {
 			ScopeNodeNotFoundException.class,
 			GroupNotFoundException.class
 	})
+	public ProblemDetail handleNotFound(RuntimeException ex, HttpServletRequest request) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+		problem.setTitle("Resource Not Found");
+		problem.setType(URI.create("https://api.edmaputra.github.io/problems/resource-not-found"));
+		if (request != null) {
+			problem.setInstance(URI.create(request.getRequestURI()));
+		}
+		return problem;
+	}
+
 	public ProblemDetail handleNotFound(RuntimeException ex) {
-		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+		return handleNotFound(ex, null);
 	}
 
 	/**
@@ -98,11 +131,22 @@ public class IamExceptionHandler {
 	/**
 	 * Handles illegal argument or state exceptions and returns HTTP 400 Bad Request.
 	 *
-	 * @param ex the bad request exception
+	 * @param ex      the bad request exception
+	 * @param request the optional HTTP servlet request
 	 * @return RFC 9457 problem detail with HTTP 400
 	 */
 	@ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
+	public ProblemDetail handleBadRequest(Exception ex, HttpServletRequest request) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+		problem.setTitle("Bad Request");
+		problem.setType(URI.create("https://api.edmaputra.github.io/problems/bad-request"));
+		if (request != null) {
+			problem.setInstance(URI.create(request.getRequestURI()));
+		}
+		return problem;
+	}
+
 	public ProblemDetail handleBadRequest(Exception ex) {
-		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+		return handleBadRequest(ex, null);
 	}
 }

@@ -6,6 +6,8 @@ import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import io.github.edmaputra.iam.adapter.persistence.entity.UserIdentityJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserIdentityJpaRepository;
 import io.github.edmaputra.iam.domain.model.ProviderType;
@@ -21,6 +23,7 @@ import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
  * @since 0.0.1
  */
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserIdentityRepositoryAdapter implements UserIdentityRepository {
 
 	private final UserIdentityJpaRepository repository;
@@ -48,6 +51,7 @@ public class UserIdentityRepositoryAdapter implements UserIdentityRepository {
 	}
 
 	@Override
+	@Transactional
 	public UserIdentity save(UserIdentity identity) {
 		Objects.requireNonNull(identity, "UserIdentity must not be null.");
 		UserIdentityJpaEntity entity = toEntity(identity);
@@ -56,6 +60,7 @@ public class UserIdentityRepositoryAdapter implements UserIdentityRepository {
 	}
 
 	@Override
+	@Transactional
 	public void delete(UserIdentityId id) {
 		Objects.requireNonNull(id, "UserIdentityId must not be null.");
 		repository.deleteById(id.value());

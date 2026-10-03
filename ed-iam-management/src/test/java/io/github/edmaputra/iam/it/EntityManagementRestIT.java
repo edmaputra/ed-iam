@@ -77,13 +77,81 @@ class EntityManagementRestIT extends AbstractIntegrationTest {
 				.jsonPath("$.id").isEqualTo(userId)
 				.jsonPath("$.email").isEqualTo(email);
 
-		// 3. Get User by Email
+		// 3. Lookup User by Email
 		webTestClient.get()
-				.uri("/api/v1/users?email=" + email)
+				.uri("/api/v1/users/lookup?email=" + email)
 				.exchange()
 				.expectStatus().isOk()
 				.expectBody()
 				.jsonPath("$.id").isEqualTo(userId);
+
+		// 3b. List Users with Pagination (default page & size)
+		webTestClient.get()
+				.uri("/api/v1/users")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.content").isArray()
+				.jsonPath("$.page").isEqualTo(0)
+				.jsonPath("$.size").isEqualTo(20)
+				.jsonPath("$.totalElements").isNumber()
+				.jsonPath("$.totalPages").isNumber();
+
+		// 3c. List Users with Custom Pagination
+		webTestClient.get()
+				.uri("/api/v1/users?page=0&size=5")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.content").isArray()
+				.jsonPath("$.page").isEqualTo(0)
+				.jsonPath("$.size").isEqualTo(5);
+
+		// 3d. List Users with invalid pagination parameters
+		webTestClient.get()
+				.uri("/api/v1/users?page=-1&size=10")
+				.exchange()
+				.expectStatus().isBadRequest();
+
+		// 3e. Filter users by username (email substring)
+		webTestClient.get()
+				.uri("/api/v1/users?username=" + email)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.content[?(@.email == '" + email + "')].email").isEqualTo(email);
+
+		// 3f. Filter users by name
+		webTestClient.get()
+				.uri("/api/v1/users?name=Alice")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.content[?(@.email == '" + email + "')].email").isEqualTo(email);
+
+		// 3g. Filter users by status
+		webTestClient.get()
+				.uri("/api/v1/users?status=ACTIVE")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.content").isArray();
+
+		// 3h. Global search matching email
+		webTestClient.get()
+				.uri("/api/v1/users?search=" + email.substring(0, 15))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.content[?(@.email == '" + email + "')].email").isEqualTo(email);
+
+		// 3i. Filter users by collection of statuses
+		webTestClient.get()
+				.uri("/api/v1/users?status=ACTIVE&status=SUSPENDED")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.content").isArray();
 
 		// 4. Update Profile
 		String updateJson = """
@@ -201,6 +269,14 @@ class EntityManagementRestIT extends AbstractIntegrationTest {
 				.expectBody()
 				.jsonPath("$[0].id").isEqualTo(assignmentId);
 
+		// 6b. Filter users by role
+		webTestClient.get()
+				.uri("/api/v1/users?role=" + roleId)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.content").isArray();
+
 		// 7. Create group and add user to group
 		String groupJson = """
 				{
@@ -237,6 +313,14 @@ class EntityManagementRestIT extends AbstractIntegrationTest {
 				.expectBody()
 				.jsonPath("$[0].id").isEqualTo(groupId);
 
+		// 7b. Filter users by group
+		webTestClient.get()
+				.uri("/api/v1/users?group=" + groupId)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.content").isArray();
+
 		// Remove user from group
 		webTestClient.delete()
 				.uri("/api/v1/users/" + userId + "/groups/" + groupId)
@@ -260,6 +344,307 @@ class EntityManagementRestIT extends AbstractIntegrationTest {
 				.uri("/api/v1/users/" + userId)
 				.exchange()
 				.expectStatus().isNotFound();
+	}
+
+	@Test
+	@DisplayName("Should filter users with pagination by multiple values and composite criteria via /api/v1/users")
+	void shouldFilterUsersByMultipleValues() {
+		String runId = UUID.randomUUID().toString().substring(0, 8);
+		UUID tenantId = UUID.randomUUID();
+
+		String email1 = "multi-alpha-" + runId + "@clinic.org";
+		String email2 = "multi-beta-" + runId + "@clinic.org";
+		String email3 = "multi-gamma-" + runId + "@clinic.org";
+
+		// 1. Create three users
+		String u1Id = createUser(email1, "AlphaMulti " + runId);
+		String u2Id = createUser(email2, "BetaMulti " + runId);
+		String u3Id = createUser(email3, "GammaOther " + runId);
+
+		try {
+			// Update status of u2 -> SUSPENDED, u3 -> DEACTIVATED
+			webTestClient.put()
+					.uri("/api/v1/users/" + u2Id + "/status")
+					.contentType(MediaType.APPLICATION_JSON)
+					.bodyValue("{\"status\": \"SUSPENDED\"}")
+					.exchange()
+					.expectStatus().isOk();
+
+			webTestClient.put()
+					.uri("/api/v1/users/" + u3Id + "/status")
+					.contentType(MediaType.APPLICATION_JSON)
+					.bodyValue("{\"status\": \"DEACTIVATED\"}")
+					.exchange()
+					.expectStatus().isOk();
+
+			// 2. Create Roles and assign
+			String role1Code = ("R_ALPHA_" + runId).toUpperCase();
+			String role2Code = ("R_BETA_" + runId).toUpperCase();
+			String role1Id = createRole(tenantId, role1Code, "Role Alpha " + runId);
+			String role2Id = createRole(tenantId, role2Code, "Role Beta " + runId);
+			assignRole(u1Id, role1Id, tenantId);
+			assignRole(u2Id, role2Id, tenantId);
+
+			// Shared role assigned to both u1 and u2 (u3 does NOT have it)
+			String sharedRoleCode = ("R_SHARED_" + runId).toUpperCase();
+			String sharedRoleName = "PediatricSpecialist " + runId;
+			String sharedRoleId = createRole(tenantId, sharedRoleCode, sharedRoleName);
+			assignRole(u1Id, sharedRoleId, tenantId);
+			assignRole(u2Id, sharedRoleId, tenantId);
+
+			// 3. Create Groups and add members
+			String group1Code = ("G_ALPHA_" + runId).toUpperCase();
+			String group2Code = ("G_BETA_" + runId).toUpperCase();
+			String group1Id = createGroup(tenantId, group1Code, "Group Alpha " + runId);
+			String group2Id = createGroup(tenantId, group2Code, "Group Beta " + runId);
+			addUserToGroup(u1Id, group1Id);
+			addUserToGroup(u2Id, group2Id);
+
+			// Shared group containing both u1 and u2 (u3 is NOT in it)
+			String sharedGroupCode = ("G_SHARED_" + runId).toUpperCase();
+			String sharedGroupName = "PediatricWard " + runId;
+			String sharedGroupId = createGroup(tenantId, sharedGroupCode, sharedGroupName);
+			addUserToGroup(u1Id, sharedGroupId);
+			addUserToGroup(u2Id, sharedGroupId);
+
+			// --- Scenario A: Filter by multiple usernames (repeat parameter) ---
+			webTestClient.get()
+					.uri("/api/v1/users?username=multi-alpha-" + runId + "&username=multi-beta-" + runId)
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.content[?(@.email == '" + email1 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email2 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email3 + "')]").doesNotExist();
+
+			// --- Scenario B: Filter by multiple usernames (comma-separated) ---
+			webTestClient.get()
+					.uri("/api/v1/users?username=multi-alpha-" + runId + ",multi-beta-" + runId)
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.content[?(@.email == '" + email1 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email2 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email3 + "')]").doesNotExist();
+
+			// --- Scenario C: Filter by multiple names ---
+			webTestClient.get()
+					.uri("/api/v1/users?name=AlphaMulti&name=BetaMulti")
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.content[?(@.email == '" + email1 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email2 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email3 + "')]").doesNotExist();
+
+			// --- Scenario D: Filter by multiple statuses (scoped by search to this test run) ---
+			webTestClient.get()
+					.uri("/api/v1/users?search=" + runId + "&status=ACTIVE&status=SUSPENDED")
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.totalElements").isEqualTo(2)
+					.jsonPath("$.content[?(@.email == '" + email1 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email2 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email3 + "')]").doesNotExist();
+
+			// --- Scenario E: Filter by multiple statuses (comma-separated) ---
+			webTestClient.get()
+					.uri("/api/v1/users?search=" + runId + "&status=ACTIVE,SUSPENDED")
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.totalElements").isEqualTo(2)
+					.jsonPath("$.content[?(@.email == '" + email1 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email2 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email3 + "')]").doesNotExist();
+
+			// --- Scenario F: Filter by multiple roles ---
+			webTestClient.get()
+					.uri("/api/v1/users?role=" + role1Code + "&role=" + role2Code)
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.content[?(@.email == '" + email1 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email2 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email3 + "')]").doesNotExist();
+
+			// --- Scenario G: Filter by multiple groups ---
+			webTestClient.get()
+					.uri("/api/v1/users?group=" + group1Code + "&group=" + group2Code)
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.content[?(@.email == '" + email1 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email2 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email3 + "')]").doesNotExist();
+
+			// --- Scenario H: Composite filtering (multiple criteria combined) ---
+			webTestClient.get()
+					.uri("/api/v1/users?status=ACTIVE&name=AlphaMulti&role=" + role1Code)
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.content.length()").isEqualTo(1)
+					.jsonPath("$.content[0].email").isEqualTo(email1);
+
+			// --- Scenario I: Multiple status values + single group filter ---
+			webTestClient.get()
+					.uri("/api/v1/users?status=ACTIVE&status=SUSPENDED&group=" + group1Code)
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.content.length()").isEqualTo(1)
+					.jsonPath("$.content[0].email").isEqualTo(email1);
+
+			// --- Scenario J: Search / filter by role name returns all users with that role ---
+			webTestClient.get()
+					.uri("/api/v1/users?role=" + sharedRoleName)
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.content[?(@.email == '" + email1 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email2 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email3 + "')]").doesNotExist();
+
+			webTestClient.get()
+					.uri("/api/v1/users?search=" + sharedRoleName)
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.totalElements").isEqualTo(2)
+					.jsonPath("$.content[?(@.email == '" + email1 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email2 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email3 + "')]").doesNotExist();
+
+			// --- Scenario K: Search / filter by group name returns all users within that group ---
+			webTestClient.get()
+					.uri("/api/v1/users?group=" + sharedGroupName)
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.content[?(@.email == '" + email1 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email2 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email3 + "')]").doesNotExist();
+
+			webTestClient.get()
+					.uri("/api/v1/users?search=" + sharedGroupName)
+					.exchange()
+					.expectStatus().isOk()
+					.expectBody()
+					.jsonPath("$.totalElements").isEqualTo(2)
+					.jsonPath("$.content[?(@.email == '" + email1 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email2 + "')]").isNotEmpty()
+					.jsonPath("$.content[?(@.email == '" + email3 + "')]").doesNotExist();
+		}
+		finally {
+			deleteUserIfExists(u1Id);
+			deleteUserIfExists(u2Id);
+			deleteUserIfExists(u3Id);
+		}
+	}
+
+	private String createUser(String email, String fullName) {
+		String json = """
+				{
+				    "email": "%s",
+				    "password": "Password123!",
+				    "fullName": "%s",
+				    "platformSuperAdmin": false
+				}
+				""".formatted(email, fullName);
+
+		byte[] response = webTestClient.post()
+				.uri("/api/v1/users")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(json)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.returnResult()
+				.getResponseBody();
+
+		return com.jayway.jsonpath.JsonPath.read(new String(response), "$.id");
+	}
+
+	private String createRole(UUID tenantId, String code, String name) {
+		String json = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "%s",
+				    "description": "Desc",
+				    "permissions": ["USER_READ"]
+				}
+				""".formatted(tenantId, code, name);
+
+		byte[] response = webTestClient.post()
+				.uri("/api/v1/roles")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(json)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.returnResult()
+				.getResponseBody();
+
+		return com.jayway.jsonpath.JsonPath.read(new String(response), "$.id");
+	}
+
+	private void assignRole(String userId, String roleId, UUID tenantId) {
+		String json = """
+				{
+				    "roleId": "%s",
+				    "tenantId": "%s"
+				}
+				""".formatted(roleId, tenantId);
+
+		webTestClient.post()
+				.uri("/api/v1/users/" + userId + "/roles")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(json)
+				.exchange()
+				.expectStatus().isCreated();
+	}
+
+	private String createGroup(UUID tenantId, String code, String name) {
+		String json = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "%s",
+				    "description": "Desc"
+				}
+				""".formatted(tenantId, code, name);
+
+		byte[] response = webTestClient.post()
+				.uri("/api/v1/groups")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(json)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.returnResult()
+				.getResponseBody();
+
+		return com.jayway.jsonpath.JsonPath.read(new String(response), "$.id");
+	}
+
+	private void addUserToGroup(String userId, String groupId) {
+		webTestClient.post()
+				.uri("/api/v1/users/" + userId + "/groups/" + groupId)
+				.exchange()
+				.expectStatus().isNoContent();
+	}
+
+	private void deleteUserIfExists(String userId) {
+		try {
+			webTestClient.delete()
+					.uri("/api/v1/users/" + userId)
+					.exchange();
+		}
+		catch (Exception ignored) {
+		}
 	}
 
 	@Test

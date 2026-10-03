@@ -2,7 +2,10 @@ package io.github.edmaputra.iam.domain.repository;
 
 import java.util.Optional;
 
+import io.github.edmaputra.iam.domain.model.PageQuery;
+import io.github.edmaputra.iam.domain.model.PagedResult;
 import io.github.edmaputra.iam.domain.model.User;
+import io.github.edmaputra.iam.domain.model.UserFilter;
 import io.github.edmaputra.iam.domain.model.UserId;
 
 /**
@@ -51,4 +54,13 @@ public interface UserRepository {
 	 * @param id the unique user ID
 	 */
 	void delete(UserId id);
+
+	/**
+	 * Retrieves a paginated list of users matching the specified filter criteria.
+	 *
+	 * @param filter    filter criteria
+	 * @param pageQuery pagination parameters
+	 * @return paginated user records
+	 */
+	PagedResult<User> findAll(UserFilter filter, PageQuery pageQuery);
 }

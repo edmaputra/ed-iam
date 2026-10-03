@@ -12,7 +12,7 @@
 
 	<groupId>io.github.edmaputra</groupId>
 	<artifactId>ed-iam</artifactId>
-	<version>0.3.0-SNAPSHOT</version>
+	<version>0.8.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>ed-iam</name>
 	<description>Pluggable Multi-tenant Identity and Access Management Spring Boot Starter Parent</description>
@@ -43,6 +43,7 @@
 	<modules>
 		<module>ed-iam-core</module>
 		<module>ed-iam-resource-server</module>
+		<module>ed-iam-auth</module>
 		<module>ed-iam-management</module>
 		<module>ed-iam-starter</module>
 		<module>samples/ed-iam-playground</module>
@@ -51,7 +52,7 @@
 	<properties>
 		<java.version>25</java.version>
 		<jjwt.version>0.12.6</jjwt.version>
-		<archunit.version>1.4.0</archunit.version>
+		<archunit.version>1.5.1</archunit.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 	</properties>
@@ -67,6 +68,11 @@
 			<dependency>
 				<groupId>io.github.edmaputra</groupId>
 				<artifactId>ed-iam-resource-server</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.github.edmaputra</groupId>
+				<artifactId>ed-iam-auth</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
@@ -285,7 +291,7 @@
 						<configuration>
 							<publishingServerId>central</publishingServerId>
 							<autoPublish>true</autoPublish>
-							<waitUntil>published</waitUntil>
+							<waitUntil>validated</waitUntil>
 						</configuration>
 					</plugin>
 				</plugins>

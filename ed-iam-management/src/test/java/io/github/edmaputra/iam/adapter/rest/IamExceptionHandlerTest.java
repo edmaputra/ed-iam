@@ -40,33 +40,57 @@ class IamExceptionHandlerTest {
 
 	@Test
 	void shouldReturn401WhenAuthenticationException() {
-		ProblemDetail problem = handler.handleAuthentication(new AuthenticationException("Invalid credentials"));
+		HttpServletRequest request = mock(HttpServletRequest.class);
+		when(request.getRequestURI()).thenReturn("/api/v1/auth/login");
+
+		ProblemDetail problem = handler.handleAuthentication(new AuthenticationException("Invalid credentials"), request);
 
 		assertThat(problem.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+		assertThat(problem.getTitle()).isEqualTo("Authentication Failed");
+		assertThat(problem.getType()).isEqualTo(URI.create("https://api.edmaputra.github.io/problems/authentication-failed"));
+		assertThat(problem.getInstance()).isEqualTo(URI.create("/api/v1/auth/login"));
 		assertThat(problem.getDetail()).isEqualTo("Invalid credentials");
 	}
 
 	@Test
 	void shouldReturn403WhenAccessDeniedException() {
-		ProblemDetail problem = handler.handleAccessDenied(new AccessDeniedException("Forbidden action"));
+		HttpServletRequest request = mock(HttpServletRequest.class);
+		when(request.getRequestURI()).thenReturn("/api/v1/users");
+
+		ProblemDetail problem = handler.handleAccessDenied(new AccessDeniedException("Forbidden action"), request);
 
 		assertThat(problem.getStatus()).isEqualTo(HttpStatus.FORBIDDEN.value());
+		assertThat(problem.getTitle()).isEqualTo("Access Denied");
+		assertThat(problem.getType()).isEqualTo(URI.create("https://api.edmaputra.github.io/problems/access-denied"));
+		assertThat(problem.getInstance()).isEqualTo(URI.create("/api/v1/users"));
 		assertThat(problem.getDetail()).isEqualTo("Forbidden action");
 	}
 
 	@Test
 	void shouldReturn404WhenNotFoundException() {
-		ProblemDetail problem = handler.handleNotFound(new UserNotFoundException("test@example.com"));
+		HttpServletRequest request = mock(HttpServletRequest.class);
+		when(request.getRequestURI()).thenReturn("/api/v1/users/by-email");
+
+		ProblemDetail problem = handler.handleNotFound(new UserNotFoundException("test@example.com"), request);
 
 		assertThat(problem.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
+		assertThat(problem.getTitle()).isEqualTo("Resource Not Found");
+		assertThat(problem.getType()).isEqualTo(URI.create("https://api.edmaputra.github.io/problems/resource-not-found"));
+		assertThat(problem.getInstance()).isEqualTo(URI.create("/api/v1/users/by-email"));
 		assertThat(problem.getDetail()).isEqualTo("User not found with email: test@example.com");
 	}
 
 	@Test
 	void shouldReturn400WhenIllegalArgumentException() {
-		ProblemDetail problem = handler.handleBadRequest(new IllegalArgumentException("Illegal param"));
+		HttpServletRequest request = mock(HttpServletRequest.class);
+		when(request.getRequestURI()).thenReturn("/api/v1/auth/switch-tenant");
+
+		ProblemDetail problem = handler.handleBadRequest(new IllegalArgumentException("Illegal param"), request);
 
 		assertThat(problem.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+		assertThat(problem.getTitle()).isEqualTo("Bad Request");
+		assertThat(problem.getType()).isEqualTo(URI.create("https://api.edmaputra.github.io/problems/bad-request"));
+		assertThat(problem.getInstance()).isEqualTo(URI.create("/api/v1/auth/switch-tenant"));
 		assertThat(problem.getDetail()).isEqualTo("Illegal param");
 	}
 

@@ -114,18 +114,56 @@ Content-Type: application/json
   client.global.set("adminRefreshToken", response.body.refreshToken);
 %}
 
+### 1.12 Request Magic Link (Passwordless)
+# @name requestMagicLink
+POST {{baseUrl}}/api/v1/auth/magic-link/request
+Content-Type: application/json
+
+{
+  "email": "doctor@metro.org"
+}
+
+> {%
+  client.global.set("magicLinkToken", response.body.token);
+%}
+
+### 1.13 Verify Magic Link via POST (SPA / API Client)
+# @name verifyMagicLinkPost
+POST {{baseUrl}}/api/v1/auth/magic-link/verify
+Content-Type: application/json
+
+{
+  "token": "{{magicLinkToken}}"
+}
+
+> {%
+  client.global.set("magicLinkAccessToken", response.body.accessToken);
+%}
+
+### 1.14 Verify Magic Link via GET (Direct Link Click)
+# @name verifyMagicLinkGet
+GET {{baseUrl}}/api/v1/auth/magic-link/verify?token={{magicLinkToken}}
+
 # =============================================================================
 # 2. USER MANAGEMENT ENDPOINTS (/api/v1/users)
 # =============================================================================
 
 ### 2.1 Lookup User by Email
 # @name lookupUser
-GET {{baseUrl}}/api/v1/users?email=suspended@metro.org
+GET {{baseUrl}}/api/v1/users/lookup?email=suspended@metro.org
 Authorization: Bearer {{adminToken}}
 
 > {%
   client.global.set("targetUserId", response.body.id);
 %}
+
+### 2.1b List Users (Paginated & Filtered)
+GET {{baseUrl}}/api/v1/users?page=0&size=20&status=ACTIVE,SUSPENDED
+Authorization: Bearer {{adminToken}}
+
+### 2.1c Global Search Users (across email, name, status, role, group)
+GET {{baseUrl}}/api/v1/users?search=metro&page=0&size=20
+Authorization: Bearer {{adminToken}}
 
 ### 2.2 Get User by ID
 GET {{baseUrl}}/api/v1/users/{{targetUserId}}
@@ -341,3 +379,163 @@ Content-Type: application/json
 {
   "refreshToken": "{{adminRefreshToken}}"
 }
+
+# =============================================================================
+# 7. TOKEN REVOCATION & SESSION MANAGEMENT (PHASE 3)
+# =============================================================================
+
+### 7.1 List Active Sessions for Current Actor (GET /api/v1/auth/sessions)
+# @name listMySessions
+GET {{baseUrl}}/api/v1/auth/sessions
+Authorization: Bearer {{doctorToken}}
+
+### 7.2 Self-Service Single-Device Logout / Revocation (POST /api/v1/auth/logout)
+POST {{baseUrl}}/api/v1/auth/logout
+Authorization: Bearer {{doctorToken}}
+
+### 7.3 Verify Revoked Token Rejected (Expected: 401 Unauthorized)
+GET {{baseUrl}}/api/v1/playground/actor-context
+Authorization: Bearer {{doctorToken}}
+
+### 7.4 Terminate All User Sessions (POST /api/v1/auth/logout-all)
+POST {{baseUrl}}/api/v1/auth/logout-all
+Authorization: Bearer {{consultantToken}}
+
+### 7.5 Admin: List Active Sessions for User (GET /api/v1/users/{id}/sessions)
+GET {{baseUrl}}/api/v1/users/{{newUserId}}/sessions
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+### 7.6 Admin: Terminate Specific User Session (DELETE /api/v1/users/{id}/sessions/{sessionId})
+DELETE {{baseUrl}}/api/v1/users/{{newUserId}}/sessions/{{targetSessionId}}
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+### 7.7 Admin: Query User Lockout Status (GET /api/v1/users/{id}/lockout)
+GET {{baseUrl}}/api/v1/users/{{newUserId}}/lockout
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+### 7.8 Admin: Remediate / Unlock User Account (POST /api/v1/users/{id}/unlock)
+POST {{baseUrl}}/api/v1/users/{{newUserId}}/unlock
+Authorization: Bearer {{adminToken}}
+X-Tenant-ID: {{metroTenantId}}
+
+# =============================================================================
+# 8. MULTI-FACTOR AUTHENTICATION (MFA / TOTP)
+# =============================================================================
+
+### 8.1 Check MFA Status for Current Actor (GET /api/v1/auth/mfa/status)
+GET {{baseUrl}}/api/v1/auth/mfa/status
+Authorization: Bearer {{doctorToken}}
+
+### 8.2 Initiate MFA Setup / Enrollment (POST /api/v1/auth/mfa/setup)
+# @name setupMfa
+POST {{baseUrl}}/api/v1/auth/mfa/setup
+Authorization: Bearer {{doctorToken}}
+
+> {%
+  client.global.set("mfaSecret", response.body.secret);
+  client.global.set("mfaQrCodeUri", response.body.qrCodeUri);
+  client.global.set("mfaBackupCode", response.body.backupCodes[0]);
+%}
+
+### 8.3 Activate MFA with TOTP Code (POST /api/v1/auth/mfa/activate)
+POST {{baseUrl}}/api/v1/auth/mfa/activate
+Authorization: Bearer {{doctorToken}}
+Content-Type: application/json
+
+{
+  "code": "123456"
+}
+
+### 8.4 Login Challenged by MFA (Returns mfaRequired: true and mfaToken)
+# @name mfaLoginChallenge
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "doctor@metro.org",
+  "password": "P@ssw0rd123!"
+}
+
+> {%
+  client.global.set("mfaChallengeToken", response.body.mfaToken);
+%}
+
+### 8.5 Verify MFA Login Challenge with TOTP Code (POST /api/v1/auth/mfa/verify)
+# @name verifyMfaTotp
+POST {{baseUrl}}/api/v1/auth/mfa/verify
+Content-Type: application/json
+
+{
+  "mfaToken": "{{mfaChallengeToken}}",
+  "code": "123456"
+}
+
+> {%
+  client.global.set("mfaAccessToken", response.body.accessToken);
+%}
+
+### 8.6 Verify MFA Login Challenge with Backup Recovery Code (POST /api/v1/auth/mfa/verify)
+POST {{baseUrl}}/api/v1/auth/mfa/verify
+Content-Type: application/json
+
+{
+  "mfaToken": "{{mfaChallengeToken}}",
+  "code": "{{mfaBackupCode}}"
+}
+
+### 8.7 Disable MFA with TOTP or Password (POST /api/v1/auth/mfa/disable)
+POST {{baseUrl}}/api/v1/auth/mfa/disable
+Authorization: Bearer {{doctorToken}}
+Content-Type: application/json
+
+{
+  "codeOrPassword": "P@ssw0rd123!"
+}
+
+### ===========================================================================
+### SECTION 9: Magic Link Passwordless Authentication
+### ===========================================================================
+
+### 9.1 Request Passwordless Magic Link (POST /api/v1/auth/magic-link/request)
+# Returns generic message (anti-enumeration); secret token is delivered out-of-band
+# @name requestMagicLink
+POST {{baseUrl}}/api/v1/auth/magic-link/request
+Content-Type: application/json
+
+{
+  "email": "doctor@metro.org"
+}
+
+### 9.2 Inspect Simulated Mail Inbox (GET /api/playground/inbox/latest)
+# Reads the delivered token and verification URL from the simulated inbox
+# @name getSimulatedInbox
+GET {{baseUrl}}/api/playground/inbox/latest?email=doctor@metro.org
+
+> {%
+  client.global.set("magicLinkToken", response.body.token);
+  client.global.set("magicLinkVerifyUrl", response.body.verificationUrl);
+%}
+
+### 9.3 Verify Magic Link via POST (POST /api/v1/auth/magic-link/verify)
+POST {{baseUrl}}/api/v1/auth/magic-link/verify
+Content-Type: application/json
+
+{
+  "token": "{{magicLinkToken}}"
+}
+
+> {%
+  client.global.set("magicLinkAccessToken", response.body.accessToken);
+%}
+
+### 9.4 Replay Attack Rejection (Reusing Consumed Token Fails with 401 Unauthorized)
+POST {{baseUrl}}/api/v1/auth/magic-link/verify
+Content-Type: application/json
+
+{
+  "token": "{{magicLinkToken}}"
+}
+

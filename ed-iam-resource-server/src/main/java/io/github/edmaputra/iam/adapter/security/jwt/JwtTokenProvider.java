@@ -18,6 +18,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
 import io.github.edmaputra.iam.application.model.EffectiveAccess;
+import io.github.edmaputra.iam.application.model.MfaChallengeClaims;
 import io.github.edmaputra.iam.application.model.RefreshTokenClaims;
 import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
@@ -48,6 +49,8 @@ public class JwtTokenProvider implements TokenProviderPort {
 
 	private static final String TYPE_ACCESS = "ACCESS";
 	private static final String TYPE_REFRESH = "REFRESH";
+	private static final String TYPE_MFA_CHALLENGE = "MFA_CHALLENGE";
+	private static final long DEFAULT_MFA_CHALLENGE_EXPIRATION_SECONDS = 300L;
 
 	private final SecretKey secretKey;
 	private final long accessTokenExpirationSeconds;
@@ -75,17 +78,34 @@ public class JwtTokenProvider implements TokenProviderPort {
 	 * @param access the resolved effective access model
 	 * @return compact signed JWT string
 	 */
+	@Override
 	public String createAccessToken(EffectiveAccess access) {
+		return createAccessToken(access, io.github.edmaputra.iam.domain.util.UuidV7.generate().toString());
+	}
+
+	/**
+	 * Issues a signed access token with a specific token identifier.
+	 *
+	 * @param access  the resolved effective access model
+	 * @param tokenId specific token identifier (jti)
+	 * @return compact signed JWT string
+	 */
+	@Override
+	public String createAccessToken(EffectiveAccess access, String tokenId) {
 		Objects.requireNonNull(access, "EffectiveAccess must not be null.");
 		Instant now = Instant.now();
 		Instant expiry = now.plusSeconds(accessTokenExpirationSeconds);
+
+		String effectiveTokenId = (tokenId != null && !tokenId.isBlank())
+				? tokenId
+				: io.github.edmaputra.iam.domain.util.UuidV7.generate().toString();
 
 		List<String> scopeNodeIdStrings = access.accessibleScopeNodeIds().stream()
 				.map(UUID::toString)
 				.toList();
 
 		return Jwts.builder()
-				.id(UUID.randomUUID().toString())
+				.id(effectiveTokenId)
 				.issuer(issuer)
 				.audience().add(audience).and()
 				.subject(access.userId().value().toString())
@@ -104,6 +124,7 @@ public class JwtTokenProvider implements TokenProviderPort {
 				.signWith(secretKey)
 				.compact();
 	}
+
 
 	/**
 	 * Issues a signed refresh token.
@@ -183,6 +204,7 @@ public class JwtTokenProvider implements TokenProviderPort {
 		Set<String> scopePaths = extractStringSet(claims, CLAIM_SCOPE_PATHS);
 
 		Set<UUID> scopeNodeIds = extractUuidSet(claims, CLAIM_SCOPE_NODE_IDS);
+		String tokenId = claims.getId();
 
 		return new SecurityContextCurrentActor(
 				userId,
@@ -194,8 +216,10 @@ public class JwtTokenProvider implements TokenProviderPort {
 				roles,
 				permissions,
 				scopeNodeIds,
-				scopePaths);
+				scopePaths,
+				tokenId);
 	}
+
 
 	/**
 	 * Parses a refresh token and extracts its payload claims.
@@ -221,6 +245,44 @@ public class JwtTokenProvider implements TokenProviderPort {
 		String tokenId = claims.getId();
 
 		return new RefreshTokenClaims(new UserId(userId), tenantId, issuedAt, expiresAt, tokenId);
+	}
+
+	@Override
+	public String createMfaChallengeToken(UserId userId, TenantId tenantId) {
+		Objects.requireNonNull(userId, "UserId must not be null.");
+		Instant now = Instant.now();
+		Instant expiry = now.plusSeconds(DEFAULT_MFA_CHALLENGE_EXPIRATION_SECONDS);
+
+		return Jwts.builder()
+				.id(UUID.randomUUID().toString())
+				.issuer(issuer)
+				.audience().add(audience).and()
+				.subject(userId.value().toString())
+				.claim(CLAIM_TENANT_ID, tenantId == null ? null : tenantId.value().toString())
+				.claim(CLAIM_TOKEN_TYPE, TYPE_MFA_CHALLENGE)
+				.issuedAt(Date.from(now))
+				.expiration(Date.from(expiry))
+				.signWith(secretKey)
+				.compact();
+	}
+
+	@Override
+	public MfaChallengeClaims parseMfaChallengeToken(String token) {
+		Claims claims = parseClaims(token);
+
+		String tokenType = claims.get(CLAIM_TOKEN_TYPE, String.class);
+		if (!TYPE_MFA_CHALLENGE.equalsIgnoreCase(tokenType)) {
+			throw new AuthenticationException("Provided token is not an MFA challenge token.");
+		}
+
+		UUID userId = UUID.fromString(claims.getSubject());
+		String tenantIdStr = claims.get(CLAIM_TENANT_ID, String.class);
+		TenantId tenantId = (tenantIdStr == null || tenantIdStr.isBlank()) ? null : new TenantId(UUID.fromString(tenantIdStr));
+
+		Instant issuedAt = claims.getIssuedAt() == null ? Instant.now() : claims.getIssuedAt().toInstant();
+		Instant expiresAt = claims.getExpiration() == null ? Instant.now() : claims.getExpiration().toInstant();
+
+		return new MfaChallengeClaims(new UserId(userId), tenantId, issuedAt, expiresAt);
 	}
 
 	/**

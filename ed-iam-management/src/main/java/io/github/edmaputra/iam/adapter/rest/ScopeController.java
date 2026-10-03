@@ -3,7 +3,6 @@ package io.github.edmaputra.iam.adapter.rest;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,8 +33,7 @@ import io.github.edmaputra.iam.domain.model.ScopeNode;
 import io.github.edmaputra.iam.domain.model.ScopeNodeId;
 import io.github.edmaputra.iam.domain.security.annotation.RequirePermission;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
-
-import io.github.edmaputra.iam.adapter.rest.support.TenantResolutionHelper;
+import io.github.edmaputra.iam.domain.tenancy.TenantResolutionHelper;
 
 /**
  * REST controller for managing hierarchical scope trees and node reparenting.
@@ -87,7 +85,7 @@ public class ScopeController {
 		List<ScopeNodeResponse> responses = manageScopeUseCase.getFlatScopeList(new TenantId(tenantUuid))
 				.stream()
 				.map(ScopeNodeResponse::fromDomain)
-				.collect(Collectors.toList());
+				.toList();
 
 		return ResponseEntity.ok(responses);
 	}

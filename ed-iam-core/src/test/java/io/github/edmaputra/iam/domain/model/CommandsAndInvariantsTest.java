@@ -1,21 +1,28 @@
 package io.github.edmaputra.iam.domain.model;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor;
-import io.github.edmaputra.iam.domain.security.CurrentActor;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import io.github.edmaputra.iam.domain.security.CurrentActor;
+import io.github.edmaputra.iam.domain.security.TestCurrentActor;
+
+import io.github.edmaputra.iam.application.model.MfaChallengeClaims;
+import io.github.edmaputra.iam.application.model.MfaSetupResponse;
+import io.github.edmaputra.iam.application.model.MfaStatusResponse;
+import io.github.edmaputra.iam.application.model.ScopeTreeNode;
+import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.port.in.CreateScopeNodeCommand;
 import io.github.edmaputra.iam.application.port.in.DeleteScopeNodeCommand;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.AssignGroupRoleCommand;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.CreateGroupCommand;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.UpdateGroupCommand;
 import io.github.edmaputra.iam.application.port.in.LoginCommand;
+import io.github.edmaputra.iam.application.port.in.MfaLoginVerifyCommand;
 import io.github.edmaputra.iam.application.port.in.MoveScopeNodeCommand;
 import io.github.edmaputra.iam.application.port.in.RefreshTokenCommand;
 import io.github.edmaputra.iam.application.port.in.RoleCommands.CreateRoleCommand;
@@ -26,7 +33,9 @@ import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCo
 import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatusCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
+import io.github.edmaputra.iam.domain.auth.AuthCredentialType;
 import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
+import io.github.edmaputra.iam.domain.auth.PasswordAuthCredentials;
 import io.github.edmaputra.iam.domain.context.ActorType;
 import io.github.edmaputra.iam.domain.context.OperationContext;
 import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
@@ -204,7 +213,7 @@ class CommandsAndInvariantsTest {
 		UserId userId = UserId.generate();
 
 		// SwitchTenantCommand
-		io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor actor = new io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor(
+		TestCurrentActor actor = new TestCurrentActor(
 				userId.value(), "a@b.com", null, false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
 		assertThatThrownBy(() -> new SwitchTenantCommand(null, tenantId)).isInstanceOf(NullPointerException.class);
 		assertThatThrownBy(() -> new SwitchTenantCommand(actor, null)).isInstanceOf(NullPointerException.class);
@@ -356,21 +365,21 @@ class CommandsAndInvariantsTest {
 		UUID otherScope = UUID.randomUUID();
 
 		// Superadmin
-		CurrentActor superAdmin = new io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor(
+		CurrentActor superAdmin = new TestCurrentActor(
 				UUID.randomUUID(), "sa@test.org", null, true, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
 		assertThat(superAdmin.hasPermission("ANY_PERM")).isTrue();
 		assertThat(superAdmin.canAccessScope(targetScope)).isTrue();
 		assertThat(superAdmin.canAccessScope(null)).isTrue();
 
 		// Tenant-wide user
-		CurrentActor tenantWide = new io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor(
+		CurrentActor tenantWide = new TestCurrentActor(
 				UUID.randomUUID(), "tw@test.org", UUID.randomUUID(), false, true, Set.of(), Set.of(), Set.of("READ"), Set.of(), Set.of());
 		assertThat(tenantWide.hasPermission("READ")).isTrue();
 		assertThat(tenantWide.hasPermission("WRITE")).isFalse();
 		assertThat(tenantWide.canAccessScope(targetScope)).isTrue();
 
 		// Scoped user
-		CurrentActor scopedUser = new io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor(
+		CurrentActor scopedUser = new TestCurrentActor(
 				UUID.randomUUID(), "sc@test.org", UUID.randomUUID(), false, false, Set.of(), Set.of(), Set.of("READ"), Set.of(targetScope), Set.of("/path/"));
 		assertThat(scopedUser.canAccessScope(targetScope)).isTrue();
 		assertThat(scopedUser.canAccessScope(otherScope)).isFalse();
@@ -453,15 +462,77 @@ class CommandsAndInvariantsTest {
 		assertThat(o2.externalGroups()).isEmpty();
 
 		// PasswordAuthCredentials blank validation
-		assertThatThrownBy(() -> new io.github.edmaputra.iam.domain.auth.PasswordAuthCredentials("  ", "pass"))
+		assertThatThrownBy(() -> new PasswordAuthCredentials("  ", "pass"))
 				.isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> new io.github.edmaputra.iam.domain.auth.PasswordAuthCredentials("user@test.org", "   "))
+		assertThatThrownBy(() -> new PasswordAuthCredentials("user@test.org", "   "))
 				.isInstanceOf(IllegalArgumentException.class);
-		io.github.edmaputra.iam.domain.auth.PasswordAuthCredentials p = new io.github.edmaputra.iam.domain.auth.PasswordAuthCredentials("u@t.org", "pass");
-		assertThat(p.credentialType()).isEqualTo(io.github.edmaputra.iam.domain.auth.AuthCredentialType.PASSWORD);
+		PasswordAuthCredentials p = new PasswordAuthCredentials("u@t.org", "pass");
+		assertThat(p.credentialType()).isEqualTo(AuthCredentialType.PASSWORD);
 
 		// ScopeTreeNode from null or empty
-		assertThat(io.github.edmaputra.iam.application.model.ScopeTreeNode.from(null)).isEmpty();
-		assertThat(io.github.edmaputra.iam.application.model.ScopeTreeNode.from(java.util.List.of())).isEmpty();
+		assertThat(ScopeTreeNode.from(null)).isEmpty();
+		assertThat(ScopeTreeNode.from(List.of())).isEmpty();
+	}
+
+	@Test
+	@DisplayName("Should cover MFA models, commands, and challenge responses")
+	void shouldCoverMfaModelsAndCommands() {
+		UserId userId = UserId.generate();
+		TenantId tenantId = TenantId.generate();
+		Instant now = Instant.now();
+
+		// MfaSetupResponse
+		MfaSetupResponse setup =
+				new MfaSetupResponse("SECRET", "otpauth://...", List.of("C1", "C2"));
+		assertThat(setup.secret()).isEqualTo("SECRET");
+		assertThat(setup.qrCodeUri()).isEqualTo("otpauth://...");
+		assertThat(setup.backupCodes()).containsExactly("C1", "C2");
+
+		// MfaStatusResponse
+		MfaStatusResponse status =
+				new MfaStatusResponse(true, now);
+		assertThat(status.enabled()).isTrue();
+		assertThat(status.optionalEnrolledAt()).contains(now);
+
+		MfaStatusResponse disabledStatus =
+				new MfaStatusResponse(false, null);
+		assertThat(disabledStatus.optionalEnrolledAt()).isEmpty();
+
+		// MfaChallengeClaims
+		MfaChallengeClaims claims =
+				new MfaChallengeClaims(userId, tenantId, now, now.plusSeconds(300));
+		assertThat(claims.userId()).isEqualTo(userId);
+		assertThat(claims.optionalTenantId()).contains(tenantId);
+
+		// MfaLoginVerifyCommand
+		MfaLoginVerifyCommand cmd =
+				MfaLoginVerifyCommand.of("ticket-1", "123456");
+		assertThat(cmd.mfaToken()).isEqualTo("ticket-1");
+		assertThat(cmd.code()).isEqualTo("123456");
+		assertThat(cmd.ipAddress()).isNull();
+
+		MfaLoginVerifyCommand cmdWithMeta =
+				MfaLoginVerifyCommand.of("ticket-1", "123456", "127.0.0.1", "curl");
+		assertThat(cmdWithMeta.ipAddress()).isEqualTo("127.0.0.1");
+		assertThat(cmdWithMeta.userAgent()).isEqualTo("curl");
+
+		assertThatThrownBy(() -> new MfaLoginVerifyCommand(null, "123456", null, null))
+				.isInstanceOf(NullPointerException.class);
+		assertThatThrownBy(() -> new MfaLoginVerifyCommand("  ", "123456", null, null))
+				.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> new MfaLoginVerifyCommand("t", null, null, null))
+				.isInstanceOf(NullPointerException.class);
+		assertThatThrownBy(() -> new MfaLoginVerifyCommand("t", "  ", null, null))
+				.isInstanceOf(IllegalArgumentException.class);
+
+		// TokenResponse mfaChallenge
+		TokenResponse challengeResp =
+				TokenResponse.mfaChallenge("mfa-token-xyz");
+		assertThat(challengeResp.mfaRequired()).isTrue();
+		assertThat(challengeResp.mfaToken()).isEqualTo("mfa-token-xyz");
+		assertThat(challengeResp.accessToken()).isNull();
+
+		assertThatThrownBy(() -> new TokenResponse(null, null, "Bearer", 0, null, true, null))
+				.isInstanceOf(NullPointerException.class);
 	}
 }

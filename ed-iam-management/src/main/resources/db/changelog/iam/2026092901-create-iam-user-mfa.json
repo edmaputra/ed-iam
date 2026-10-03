@@ -1,0 +1,74 @@
+{
+  "databaseChangeLog": [
+    {
+      "changeSet": {
+        "id": "2026092901-create-iam-user-mfa",
+        "author": "edmaputra",
+        "changes": [
+          {
+            "createTable": {
+              "tableName": "iam_user_mfa",
+              "columns": [
+                {
+                  "column": {
+                    "name": "user_id",
+                    "type": "UUID",
+                    "constraints": {
+                      "primaryKey": true,
+                      "nullable": false,
+                      "foreignKeyName": "fk_iam_user_mfa_user_id",
+                      "references": "iam_user(id)"
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "secret",
+                    "type": "VARCHAR(64)",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "enabled",
+                    "type": "BOOLEAN",
+                    "defaultValueBoolean": false,
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "backup_codes",
+                    "type": "VARCHAR(2048)"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "created_at",
+                    "type": "TIMESTAMP",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "updated_at",
+                    "type": "TIMESTAMP",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

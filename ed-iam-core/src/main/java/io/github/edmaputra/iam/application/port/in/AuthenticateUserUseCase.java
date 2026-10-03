@@ -1,11 +1,17 @@
 package io.github.edmaputra.iam.application.port.in;
 
-import io.github.edmaputra.iam.domain.security.CurrentActor;
+import java.util.List;
+
 import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.model.UserProfileResponse;
+import io.github.edmaputra.iam.domain.model.UserId;
+import io.github.edmaputra.iam.domain.model.UserSession;
+import io.github.edmaputra.iam.domain.security.CurrentActor;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 /**
- * Inbound port defining authentication use cases including user login, token refresh, and profile retrieval.
+ * Inbound port defining authentication use cases including user login, token refresh,
+ * profile retrieval, logout, and session lifecycle management.
  *
  * @author edmaputra
  * @since 0.0.1
@@ -43,4 +49,32 @@ public interface AuthenticateUserUseCase {
 	 * @return the token response containing new access and refresh tokens scoped to the target tenant
 	 */
 	TokenResponse switchTenant(SwitchTenantCommand command);
+
+	/**
+	 * Revokes the token and terminates the session corresponding to the specified token identifier.
+	 *
+	 * @param tokenIdentifier the JWT token ID (jti)
+	 */
+	default void logout(String tokenIdentifier) {
+	}
+
+	/**
+	 * Revokes all tokens and terminates all active sessions for the specified user and tenant context.
+	 *
+	 * @param userId   the user ID
+	 * @param tenantId optional tenant ID
+	 */
+	default void logoutAll(UserId userId, TenantId tenantId) {
+	}
+
+	/**
+	 * Retrieves all active sessions for the specified user and tenant context.
+	 *
+	 * @param userId   the user ID
+	 * @param tenantId optional tenant ID
+	 * @return list of active user sessions
+	 */
+	default List<UserSession> getActiveSessions(UserId userId, TenantId tenantId) {
+		return List.of();
+	}
 }

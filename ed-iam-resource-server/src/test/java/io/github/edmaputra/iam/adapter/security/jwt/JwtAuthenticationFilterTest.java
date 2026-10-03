@@ -297,6 +297,7 @@ class JwtAuthenticationFilterTest {
 
 	@Test
 	@DisplayName("Auto-configuration should load default beans")
+	@SuppressWarnings("unchecked")
 	void shouldLoadAutoConfigurationBeans() {
 		new ApplicationContextRunner()
 				.withUserConfiguration(IamResourceServerAutoConfiguration.class)
@@ -309,4 +310,46 @@ class JwtAuthenticationFilterTest {
 					assertThat(context).hasSingleBean(JwtAuthenticationFilter.class);
 				});
 	}
+
+	@Test
+	@DisplayName("Should return 401 Unauthorized when token is revoked")
+	@SuppressWarnings("unchecked")
+	void shouldRejectRevokedToken() throws ServletException, IOException {
+		io.github.edmaputra.iam.application.port.out.TokenRevocationPort revocationPort =
+				mock(io.github.edmaputra.iam.application.port.out.TokenRevocationPort.class);
+		ObjectProvider<io.github.edmaputra.iam.application.port.out.TokenRevocationPort> revocationProvider =
+				mock(ObjectProvider.class);
+		when(revocationProvider.getIfAvailable()).thenReturn(revocationPort);
+
+		JwtAuthenticationFilter filterWithRevocation =
+				new JwtAuthenticationFilter(jwtTokenProvider, securityContextAccessor, tenantBridgeProvider, revocationProvider);
+
+		String tokenId = UUID.randomUUID().toString();
+		io.github.edmaputra.iam.application.model.EffectiveAccess access = new io.github.edmaputra.iam.application.model.EffectiveAccess(
+				io.github.edmaputra.iam.domain.model.UserId.generate(),
+				"user@test.org",
+				null,
+				false,
+				false,
+				Set.of(),
+				Set.of(),
+				Set.of(),
+				Set.of(),
+				Set.of());
+
+		String token = jwtTokenProvider.createAccessToken(access, tokenId);
+		when(revocationPort.isTokenRevoked(tokenId)).thenReturn(true);
+
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain chain = mock(FilterChain.class);
+
+		filterWithRevocation.doFilter(request, response, chain);
+
+		assertThat(response.getStatus()).isEqualTo(401);
+		assertThat(response.getContentAsString()).contains("Token has been revoked");
+		verify(chain, never()).doFilter(any(), any());
+	}
 }
+

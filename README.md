@@ -20,7 +20,9 @@
 `ed-iam` is an enterprise-grade, modular Identity &amp; Access Management Spring Boot Starter designed for multi-tenant architectures. It provides zero-boilerplate tenancy resolution, Role-Based Access Control (RBAC), hierarchical organizational scoping, declarative endpoint permissions, and virtual-thread-ready JWT security context.
 
 For release history and migration details, see the [Changelog](CHANGELOG.md).  
-For the architectural overview and product roadmap, see the [Features and Roadmap](docs/features-and-roadmap.md).
+For the architectural overview and product roadmap, see the [Features & Product Roadmap](docs/walkthrough/03-features-and-roadmap.md).  
+For onboarding, concepts, and per-module class architecture deep dives, see the [Contributor Walkthrough Guide](docs/walkthrough/README.md).
+
 
 ---
 
@@ -30,7 +32,9 @@ For the architectural overview and product roadmap, see the [Features and Roadma
 - **Declarative Endpoint Security**:
   - `@RequirePermission` annotation with `Logical.AND` and `Logical.OR` composition for Spring MVC controllers.
   - `@iam` Spring Security / SpEL evaluation bridge (`@iam.hasPermission(...)`, `@iam.canAccessScope(...)`).
-- **Turnkey IAM Management REST Endpoints**: Out-of-the-box endpoints for users (`/api/v1/users`), roles (`/api/v1/roles`), groups (`/api/v1/groups`), scopes (`/api/v1/scopes`), and tenant switching (`/api/v1/auth/switch-tenant`).
+- **Turnkey IAM Endpoints**:
+  - **Authentication** (`/api/v1/auth`): Login, token refresh, and post-login tenant context switching (`/api/v1/auth/switch-tenant`).
+  - **Identity & Access Management** (`/api/v1/`): Users with pagination & dynamic filtering (`/api/v1/users`), roles (`/api/v1/roles`), groups (`/api/v1/groups`), and scope trees (`/api/v1/scopes`).
 - **Pluggable Authentication SPI**: Extensible provider router supporting:
   - Local database credentials with BCrypt password hashing.
   - OpenID Connect (OIDC) / OAuth2 federated identities with auto-provisioning.
@@ -40,7 +44,7 @@ For the architectural overview and product roadmap, see the [Features and Roadma
   - Non-blocking `JwtAuthenticationFilter` with Java 25 `ScopedValue`-backed `CurrentActorProvider`.
   - Pluggable `TenantContextBridge` SPI for seamless host-application multi-tenant propagation.
 - **Isolated Schema Migrations**: Module-scoped Liquibase migrations managing namespaced `iam_*` tables with zero host-schema collisions.
-- **Modular Packaging**: Choose the full turnkey starter or a lightweight zero-DB resource server for downstream microservices.
+- **Modular Packaging**: Choose the full turnkey starter, a lightweight zero-DB resource server, or modular combinations.
 
 ---
 
@@ -50,9 +54,10 @@ For the architectural overview and product roadmap, see the [Features and Roadma
 
 | Module | Description | Recommended For |
 |---|---|---|
-| `ed-iam-starter` | Turnkey aggregator bundling core, resource server, management, persistence, and Liquibase. | Identity &amp; authentication servers, monoliths |
+| `ed-iam-starter` | Turnkey aggregator bundling core, resource server, auth, management, persistence, and Liquibase. | Identity &amp; authentication servers, monoliths |
 | `ed-iam-resource-server` | Lightweight library with JWT parsing, `@RequirePermission`, SpEL `@iam` evaluator, and `ScopedValue` context. Zero JPA or Liquibase dependency. | Downstream microservices, API gateways |
-| `ed-iam-management` | Administrative services, JPA entity repositories, REST controllers, and Liquibase auto-configuration. | Custom IAM administration services |
+| `ed-iam-auth` | Authentication provider router (local password, OIDC, API keys), token issuance, and `EffectiveAccessResolver`. | Custom authentication servers, IdPs |
+| `ed-iam-management` | Administrative services, JPA entity repositories, REST controllers, pagination/filtering, and Liquibase auto-configuration. | Custom IAM administration services |
 | `ed-iam-core` | Pure domain models (`User`, `Role`, `Group`, `ScopeNode`), domain events, and ports with zero framework coupling. | Domain model extensions |
 
 ---
@@ -67,7 +72,7 @@ Add `ed-iam-starter` to your `pom.xml`:
 <dependency>
     <groupId>io.github.edmaputra</groupId>
     <artifactId>ed-iam-starter</artifactId>
-    <version>0.1.0</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 
@@ -79,9 +84,10 @@ If your microservice only needs to validate JWTs, enforce `@RequirePermission`, 
 <dependency>
     <groupId>io.github.edmaputra</groupId>
     <artifactId>ed-iam-resource-server</artifactId>
-    <version>0.1.0</version>
+    <version>0.4.0</version>
 </dependency>
 ```
+
 
 ---
 
@@ -222,5 +228,12 @@ Requirements:
 - Maven 3.9+
 
 ```bash
-./mvnw clean install
+# Build and package
+./mvnw clean package
+
+# Run unit and architecture tests
+./mvnw test
+
+# Full verification and JaCoCo coverage
+./mvnw clean verify
 ```
