@@ -52,17 +52,21 @@ public class JwtTokenProvider implements TokenProviderPort {
 	private final SecretKey secretKey;
 	private final long accessTokenExpirationSeconds;
 	private final long refreshTokenExpirationSeconds;
+	private final String issuer;
+	private final String audience;
 
 	/**
 	 * Constructs the provider using the specified JWT properties.
 	 *
-	 * @param properties configuration properties containing secret key and TTL settings
+	 * @param properties configuration properties containing secret key, TTL, issuer, and audience settings
 	 */
 	public JwtTokenProvider(JwtProperties properties) {
 		Objects.requireNonNull(properties, "JwtProperties must not be null.");
 		this.secretKey = Keys.hmacShaKeyFor(properties.secret().getBytes(StandardCharsets.UTF_8));
 		this.accessTokenExpirationSeconds = properties.accessTokenExpirationSeconds();
 		this.refreshTokenExpirationSeconds = properties.refreshTokenExpirationSeconds();
+		this.issuer = properties.issuer();
+		this.audience = properties.audience();
 	}
 
 	/**
@@ -81,6 +85,9 @@ public class JwtTokenProvider implements TokenProviderPort {
 				.toList();
 
 		return Jwts.builder()
+				.id(UUID.randomUUID().toString())
+				.issuer(issuer)
+				.audience().add(audience).and()
 				.subject(access.userId().value().toString())
 				.claim(CLAIM_EMAIL, access.email())
 				.claim(CLAIM_TENANT_ID, access.tenantId() == null ? null : access.tenantId().value().toString())
@@ -111,6 +118,9 @@ public class JwtTokenProvider implements TokenProviderPort {
 		Instant expiry = now.plusSeconds(refreshTokenExpirationSeconds);
 
 		return Jwts.builder()
+				.id(UUID.randomUUID().toString())
+				.issuer(issuer)
+				.audience().add(audience).and()
 				.subject(userId.value().toString())
 				.claim(CLAIM_TENANT_ID, tenantId == null ? null : tenantId.value().toString())
 				.claim(CLAIM_TOKEN_TYPE, TYPE_REFRESH)
@@ -121,7 +131,7 @@ public class JwtTokenProvider implements TokenProviderPort {
 	}
 
 	/**
-	 * Verifies the signature and expiration of a JWT token string.
+	 * Verifies the signature, issuer, audience, and expiration of a JWT token string.
 	 *
 	 * @param token the compact JWT token string
 	 * @return true if valid and not expired
@@ -131,7 +141,12 @@ public class JwtTokenProvider implements TokenProviderPort {
 			return false;
 		}
 		try {
-			Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token.trim());
+			Jwts.parser()
+					.verifyWith(secretKey)
+					.requireIssuer(issuer)
+					.requireAudience(audience)
+					.build()
+					.parseSignedClaims(token.trim());
 			return true;
 		}
 		catch (JwtException | IllegalArgumentException ex) {
@@ -203,8 +218,9 @@ public class JwtTokenProvider implements TokenProviderPort {
 
 		Instant issuedAt = claims.getIssuedAt() == null ? Instant.now() : claims.getIssuedAt().toInstant();
 		Instant expiresAt = claims.getExpiration() == null ? Instant.now() : claims.getExpiration().toInstant();
+		String tokenId = claims.getId();
 
-		return new RefreshTokenClaims(new UserId(userId), tenantId, issuedAt, expiresAt);
+		return new RefreshTokenClaims(new UserId(userId), tenantId, issuedAt, expiresAt, tokenId);
 	}
 
 	/**
@@ -216,10 +232,30 @@ public class JwtTokenProvider implements TokenProviderPort {
 		return accessTokenExpirationSeconds;
 	}
 
+	/**
+	 * Returns configured token issuer.
+	 *
+	 * @return token issuer string
+	 */
+	public String getIssuer() {
+		return issuer;
+	}
+
+	/**
+	 * Returns configured token audience.
+	 *
+	 * @return token audience string
+	 */
+	public String getAudience() {
+		return audience;
+	}
+
 	private Claims parseClaims(String token) {
 		try {
 			return Jwts.parser()
 					.verifyWith(secretKey)
+					.requireIssuer(issuer)
+					.requireAudience(audience)
 					.build()
 					.parseSignedClaims(token.trim())
 					.getPayload();

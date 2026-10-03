@@ -273,13 +273,17 @@ class JwtAuthenticationFilterTest {
 	@Test
 	@DisplayName("JwtProperties should properly store and expose configuration values")
 	void shouldVerifyJwtProperties() {
-		JwtProperties props = new JwtProperties("secret", 3600, 86400);
-		assertThat(props.secret()).isEqualTo("secret");
+		JwtProperties props = JwtProperties.of(SECRET, 3600, 86400);
+		assertThat(props.secret()).isEqualTo(SECRET);
 		assertThat(props.accessTokenExpirationSeconds()).isEqualTo(3600);
 		assertThat(props.refreshTokenExpirationSeconds()).isEqualTo(86400);
+		assertThat(props.issuer()).isEqualTo(JwtProperties.DEFAULT_ISSUER);
+		assertThat(props.audience()).isEqualTo(JwtProperties.DEFAULT_AUDIENCE);
 
 		JwtProperties defaults = JwtProperties.defaultProperties();
 		assertThat(defaults.secret()).isNotBlank();
+		assertThat(defaults.issuer()).isEqualTo(JwtProperties.DEFAULT_ISSUER);
+		assertThat(defaults.audience()).isEqualTo(JwtProperties.DEFAULT_AUDIENCE);
 	}
 
 	@Test
