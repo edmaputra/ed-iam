@@ -28,7 +28,7 @@ spring:
       hibernate:
         format_sql: false
 
-  # Developer tools
+  # Developer tools (WARNING: Disable or restrict h2-console in production environments)
   h2:
     console:
       enabled: true
@@ -42,7 +42,10 @@ spring:
 # ed-iam Starter Configuration
 iam:
   jwt:
-    secret: "demo-secret-key-that-is-at-least-256-bits-long-for-hmac-sha-256-playground!"
+    # Signing secret must be at least 256 bits (32 bytes). In production, configure via IAM_JWT_SECRET environment variable.
+    secret: "${IAM_JWT_SECRET:demo-secret-key-that-is-at-least-256-bits-long-for-hmac-sha-256-playground!}"
+    issuer: "${IAM_JWT_ISSUER:ed-iam}"
+    audience: "${IAM_JWT_AUDIENCE:ed-iam-api}"
     access-token-expiration-seconds: 3600
     refresh-token-expiration-seconds: 604800
   management:
