@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 import io.github.edmaputra.iam.application.port.in.LoginCommand;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
@@ -23,6 +24,7 @@ public record LoginRequest(
 		String email,
 
 		@NotBlank(message = "Password must not be blank.")
+		@Size(max = 128, message = "Password must not exceed 128 characters.")
 		String password,
 
 		UUID tenantId) {

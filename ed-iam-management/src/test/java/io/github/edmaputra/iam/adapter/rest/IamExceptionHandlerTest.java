@@ -124,6 +124,42 @@ class IamExceptionHandlerTest {
 		assertThat(errors.getFirst().get("rejectedValue")).isEqualTo("invalid-email");
 	}
 
+	@Test
+	void shouldMaskSensitiveRejectedValueWhenValidationException() throws NoSuchMethodException {
+		record PasswordDto(String password) {}
+		PasswordDto target = new PasswordDto("short");
+		BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(target, "passwordDto");
+		bindingResult.addError(new FieldError("passwordDto", "password", "short", false, null, null, "Password must be at least 8 characters."));
+
+		Method method = IamExceptionHandlerTest.class.getDeclaredMethod("sampleMethod", Object.class);
+		MethodParameter parameter = new MethodParameter(method, 0);
+		MethodArgumentNotValidException ex = new MethodArgumentNotValidException(parameter, bindingResult);
+
+		HttpServletRequest request = mock(HttpServletRequest.class);
+		when(request.getRequestURI()).thenReturn("/api/v1/auth/login");
+
+		ProblemDetail problem = handler.handleValidation(ex, request);
+
+		@SuppressWarnings("unchecked")
+		List<Map<String, Object>> errors = (List<Map<String, Object>>) problem.getProperties().get("errors");
+		assertThat(errors).hasSize(1);
+		assertThat(errors.getFirst().get("field")).isEqualTo("password");
+		assertThat(errors.getFirst().get("rejectedValue")).isEqualTo("[PROTECTED]");
+	}
+
+	@Test
+	void shouldReturn500WhenUnexpectedException() {
+		HttpServletRequest request = mock(HttpServletRequest.class);
+		when(request.getRequestURI()).thenReturn("/api/v1/roles");
+
+		ProblemDetail problem = handler.handleUnexpected(new RuntimeException("Simulated unexpected failure"), request);
+
+		assertThat(problem.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
+		assertThat(problem.getTitle()).isEqualTo("Internal Server Error");
+		assertThat(problem.getDetail()).isEqualTo("An unexpected error occurred. Please contact system support.");
+		assertThat(problem.getInstance()).isEqualTo(URI.create("/api/v1/roles"));
+	}
+
 	@SuppressWarnings("unused")
 	private void sampleMethod(Object param) {
 	}

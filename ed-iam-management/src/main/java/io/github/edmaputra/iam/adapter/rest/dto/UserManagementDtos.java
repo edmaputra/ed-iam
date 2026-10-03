@@ -28,7 +28,7 @@ public final class UserManagementDtos {
 			String email,
 
 			@NotBlank(message = "Password must not be blank.")
-			@Size(min = 8, message = "Password must be at least 8 characters.")
+			@Size(min = 8, max = 128, message = "Password must be at least 8 characters and at most 128 characters.")
 			String password,
 
 			@NotBlank(message = "Full name must not be blank.")
