@@ -14,6 +14,7 @@ import io.github.edmaputra.iam.adapter.security.interceptor.RequirePermissionInt
 import io.github.edmaputra.iam.adapter.security.jwt.JwtAuthenticationFilter;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtProperties;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtTokenProvider;
+import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
 import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 import io.github.edmaputra.iam.domain.tenancy.TenantContextBridge;
 
@@ -65,7 +66,7 @@ public class IamResourceServerAutoConfiguration {
 			JwtTokenProvider jwtTokenProvider,
 			SecurityContextAccessor securityContextAccessor,
 			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider,
-			ObjectProvider<io.github.edmaputra.iam.application.port.out.TokenRevocationPort> tokenRevocationPortProvider) {
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider) {
 		return new JwtAuthenticationFilter(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider, tokenRevocationPortProvider);
 	}
 
