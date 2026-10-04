@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatusCommand;
@@ -36,6 +38,7 @@ import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 /**
  * Application service implementing {@link ManageUserUseCase} for user provisioning,
@@ -116,6 +119,7 @@ public class UserManagementService implements ManageUserUseCase {
 	}
 
 	@Override
+	@Transactional
 	public User createUser(CreateUserCommand command) {
 		Objects.requireNonNull(command, "CreateUserCommand must not be null.");
 
@@ -145,6 +149,7 @@ public class UserManagementService implements ManageUserUseCase {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
 	public User getUserById(UserId id) {
 		Objects.requireNonNull(id, "UserId must not be null.");
 		return userRepository.findById(id)
@@ -152,6 +157,7 @@ public class UserManagementService implements ManageUserUseCase {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
 	public User getUserByEmail(String email) {
 		Objects.requireNonNull(email, "Email must not be null.");
 		return userRepository.findByEmail(email)
@@ -159,6 +165,7 @@ public class UserManagementService implements ManageUserUseCase {
 	}
 
 	@Override
+	@Transactional
 	public User updateUser(UpdateUserCommand command) {
 		Objects.requireNonNull(command, "UpdateUserCommand must not be null.");
 		User user = getUserById(command.userId());
@@ -167,6 +174,7 @@ public class UserManagementService implements ManageUserUseCase {
 	}
 
 	@Override
+	@Transactional
 	public User changeUserStatus(ChangeUserStatusCommand command) {
 		Objects.requireNonNull(command, "ChangeUserStatusCommand must not be null.");
 		User user = getUserById(command.userId());
@@ -187,6 +195,7 @@ public class UserManagementService implements ManageUserUseCase {
 	}
 
 	@Override
+	@Transactional
 	public void deleteUser(UserId id) {
 		Objects.requireNonNull(id, "UserId must not be null.");
 		revokeUserSessions(id);
@@ -197,8 +206,10 @@ public class UserManagementService implements ManageUserUseCase {
 	}
 
 	@Override
+	@Transactional
 	public UserRoleAssignment assignRole(AssignUserRoleCommand command) {
 		Objects.requireNonNull(command, "AssignUserRoleCommand must not be null.");
+		checkTenantAccess(command.tenantId());
 
 		// Verify user and role exist
 		getUserById(command.userId());
@@ -213,25 +224,31 @@ public class UserManagementService implements ManageUserUseCase {
 	}
 
 	@Override
+	@Transactional
 	public void revokeRole(UUID assignmentId) {
 		Objects.requireNonNull(assignmentId, "AssignmentId must not be null.");
-		userRoleAssignmentRepository.delete(new UserRoleAssignmentId(assignmentId));
+		UserRoleAssignmentId id = new UserRoleAssignmentId(assignmentId);
+		userRoleAssignmentRepository.findById(id).ifPresent(a -> checkTenantAccess(a.getTenantId()));
+		userRoleAssignmentRepository.delete(id);
 	}
 
 	@Override
+	@Transactional(readOnly = true)
 	public List<UserRoleAssignment> getRoleAssignments(UserId userId) {
 		Objects.requireNonNull(userId, "UserId must not be null.");
 		return userRoleAssignmentRepository.findAllByUserId(userId);
 	}
 
 	@Override
+	@Transactional
 	public void addUserToGroup(GroupId groupId, UserId userId) {
 		Objects.requireNonNull(groupId, "GroupId must not be null.");
 		Objects.requireNonNull(userId, "UserId must not be null.");
 
 		getUserById(userId);
-		groupRepository.findById(groupId)
+		Group group = groupRepository.findById(groupId)
 				.orElseThrow(() -> new GroupNotFoundException("Group not found: " + groupId.value()));
+		checkTenantAccess(group.getTenantId());
 
 		if (!userGroupMembershipRepository.existsByGroupIdAndUserId(groupId, userId)) {
 			userGroupMembershipRepository.save(UserGroupMembership.of(groupId, userId));
@@ -239,13 +256,20 @@ public class UserManagementService implements ManageUserUseCase {
 	}
 
 	@Override
+	@Transactional
 	public void removeUserFromGroup(GroupId groupId, UserId userId) {
 		Objects.requireNonNull(groupId, "GroupId must not be null.");
 		Objects.requireNonNull(userId, "UserId must not be null.");
+
+		Group group = groupRepository.findById(groupId)
+				.orElseThrow(() -> new GroupNotFoundException("Group not found: " + groupId.value()));
+		checkTenantAccess(group.getTenantId());
+
 		userGroupMembershipRepository.delete(groupId, userId);
 	}
 
 	@Override
+	@Transactional(readOnly = true)
 	public List<Group> getUserGroups(UserId userId) {
 		Objects.requireNonNull(userId, "UserId must not be null.");
 		List<UserGroupMembership> memberships = userGroupMembershipRepository.findAllByUserId(userId);
@@ -256,9 +280,23 @@ public class UserManagementService implements ManageUserUseCase {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
 	public PagedResult<User> getUsers(UserFilter filter, PageQuery pageQuery) {
 		UserFilter resolvedFilter = filter != null ? filter : UserFilter.empty();
 		return userRepository.findAll(resolvedFilter, pageQuery);
+	}
+
+	private void checkTenantAccess(TenantId targetTenantId) {
+		if (targetTenantId == null || currentActorProvider == null) {
+			return;
+		}
+		currentActorProvider.currentActor().ifPresent(actor -> {
+			if (!actor.isPlatformSuperAdmin()) {
+				if (actor.tenantId() == null || !actor.tenantId().equals(targetTenantId.value())) {
+					throw new AccessDeniedException("Access denied: operation not permitted for a different tenant.");
+				}
+			}
+		});
 	}
 
 	private void revokeUserSessions(UserId userId) {

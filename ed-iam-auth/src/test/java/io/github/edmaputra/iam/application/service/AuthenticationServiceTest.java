@@ -20,6 +20,7 @@ import io.github.edmaputra.iam.application.port.in.RefreshTokenCommand;
 import io.github.edmaputra.iam.application.port.in.SwitchTenantCommand;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProviderRouter;
 import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
+import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
 import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
 import io.github.edmaputra.iam.domain.auth.PasswordAuthCredentials;
 import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
@@ -132,6 +133,72 @@ class AuthenticationServiceTest {
 		assertThatThrownBy(() -> service.refreshToken(new RefreshTokenCommand("refresh-token")))
 				.isInstanceOf(AuthenticationException.class)
 				.hasMessageContaining("deactivated");
+	}
+
+	@Test
+	@DisplayName("Should rotate refresh token and revoke old token id")
+	void shouldRotateRefreshTokenAndRevokeOldTokenId() {
+		UserId userId = UserId.generate();
+		User user = User.create("test@clinic.org", "hash", "Test User", false);
+		Instant expiresAt = Instant.now().plusSeconds(900);
+		RefreshTokenClaims claims = new RefreshTokenClaims(userId, null, Instant.now(), expiresAt, "old-token-id");
+		EffectiveAccess access = new EffectiveAccess(userId, "test@clinic.org", null, false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+
+		TokenRevocationPort tokenRevocationPort = mock(TokenRevocationPort.class);
+		when(tokenRevocationPort.isTokenRevoked("old-token-id")).thenReturn(false);
+
+		AuthenticationService serviceWithRevocation = new AuthenticationService(
+				authRouter,
+				userRepository,
+				effectiveAccessResolver,
+				tokenProvider,
+				null,
+				null,
+				tokenRevocationPort,
+				SessionProperties.defaultProperties(),
+				null);
+
+		when(tokenProvider.parseRefreshToken("valid-refresh")).thenReturn(claims);
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(effectiveAccessResolver.resolve(user, null)).thenReturn(access);
+		when(tokenProvider.createAccessToken(access)).thenReturn("new-access");
+		when(tokenProvider.createRefreshToken(user.getId(), null)).thenReturn("new-refresh");
+
+		TokenResponse response = serviceWithRevocation.refreshToken(new RefreshTokenCommand("valid-refresh"));
+
+		assertThat(response.accessToken()).isEqualTo("new-access");
+		assertThat(response.refreshToken()).isEqualTo("new-refresh");
+		verify(tokenRevocationPort).revokeToken("old-token-id", expiresAt);
+	}
+
+	@Test
+	@DisplayName("Should detect refresh token reuse, revoke all sessions, and reject request")
+	void shouldDetectRefreshTokenReuseAndInvalidateAllSessions() {
+		UserId userId = UserId.generate();
+		Instant expiresAt = Instant.now().plusSeconds(900);
+		RefreshTokenClaims claims = new RefreshTokenClaims(userId, null, Instant.now(), expiresAt, "revoked-token-id");
+
+		TokenRevocationPort tokenRevocationPort = mock(TokenRevocationPort.class);
+		when(tokenRevocationPort.isTokenRevoked("revoked-token-id")).thenReturn(true);
+
+		AuthenticationService serviceWithRevocation = new AuthenticationService(
+				authRouter,
+				userRepository,
+				effectiveAccessResolver,
+				tokenProvider,
+				null,
+				null,
+				tokenRevocationPort,
+				SessionProperties.defaultProperties(),
+				null);
+
+		when(tokenProvider.parseRefreshToken("reused-refresh")).thenReturn(claims);
+
+		assertThatThrownBy(() -> serviceWithRevocation.refreshToken(new RefreshTokenCommand("reused-refresh")))
+				.isInstanceOf(AuthenticationException.class)
+				.hasMessageContaining("Refresh token has been revoked.");
+
+		verify(tokenRevocationPort).revokeAllForUser(any(), any());
 	}
 
 	@Test

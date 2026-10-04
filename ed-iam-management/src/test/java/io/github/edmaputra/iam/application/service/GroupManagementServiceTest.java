@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.AssignGroupRoleCommand;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.CreateGroupCommand;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.UpdateGroupCommand;
+import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
 import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupId;
@@ -28,6 +29,8 @@ import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
+import io.github.edmaputra.iam.domain.security.CurrentActor;
+import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -155,6 +158,9 @@ class GroupManagementServiceTest {
 
 		User user1 = User.create("u1@test.org", "hash", "User One", false);
 
+		Group group = Group.create(TenantId.generate(), "GROUP1", "Group One", "Desc", null);
+		when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+
 		when(userGroupMembershipRepository.findAllByGroupId(groupId)).thenReturn(List.of(
 				UserGroupMembership.of(groupId, userId1),
 				UserGroupMembership.of(groupId, userId2)));
@@ -164,5 +170,70 @@ class GroupManagementServiceTest {
 
 		List<User> members = service.getGroupMembers(groupId);
 		assertThat(members).containsExactly(user1);
+	}
+
+	@Test
+	@DisplayName("Should prevent non-superadmin actor from creating group in a different tenant")
+	void shouldRejectCreatingGroupForDifferentTenantWhenNotSuperAdmin() {
+		TenantId actorTenantId = TenantId.generate();
+		TenantId otherTenantId = TenantId.generate();
+
+		CurrentActorProvider actorProvider = mock(CurrentActorProvider.class);
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.isPlatformSuperAdmin()).thenReturn(false);
+		when(actor.tenantId()).thenReturn(actorTenantId.value());
+		when(actorProvider.currentActor()).thenReturn(Optional.of(actor));
+
+		GroupManagementService securedService = new GroupManagementService(
+				groupRepository, groupRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, userRepository, actorProvider);
+
+		CreateGroupCommand command = new CreateGroupCommand(otherTenantId, "OTHER_GROUP", "Other Group", "Desc", null);
+
+		assertThatThrownBy(() -> securedService.createGroup(command))
+				.isInstanceOf(AccessDeniedException.class)
+				.hasMessageContaining("Access denied: operation not permitted for a different tenant.");
+	}
+
+	@Test
+	@DisplayName("Should prevent non-superadmin actor from reading group of a different tenant")
+	void shouldRejectAccessingGroupFromDifferentTenantWhenNotSuperAdmin() {
+		TenantId actorTenantId = TenantId.generate();
+		TenantId otherTenantId = TenantId.generate();
+		GroupId groupId = GroupId.generate();
+		Group group = Group.create(otherTenantId, "OTHER_GROUP", "Other Group", "Desc", null);
+
+		CurrentActorProvider actorProvider = mock(CurrentActorProvider.class);
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.isPlatformSuperAdmin()).thenReturn(false);
+		when(actor.tenantId()).thenReturn(actorTenantId.value());
+		when(actorProvider.currentActor()).thenReturn(Optional.of(actor));
+
+		GroupManagementService securedService = new GroupManagementService(
+				groupRepository, groupRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, userRepository, actorProvider);
+		when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+
+		assertThatThrownBy(() -> securedService.getGroupById(groupId))
+				.isInstanceOf(AccessDeniedException.class)
+				.hasMessageContaining("Access denied: operation not permitted for a different tenant.");
+	}
+
+	@Test
+	@DisplayName("Should allow superadmin actor to manage groups in any tenant")
+	void shouldAllowSuperAdminToManageGroupsInAnyTenant() {
+		TenantId targetTenantId = TenantId.generate();
+		GroupId groupId = GroupId.generate();
+		Group group = Group.create(targetTenantId, "TARGET_GROUP", "Target Group", "Desc", null);
+
+		CurrentActorProvider actorProvider = mock(CurrentActorProvider.class);
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.isPlatformSuperAdmin()).thenReturn(true);
+		when(actorProvider.currentActor()).thenReturn(Optional.of(actor));
+
+		GroupManagementService securedService = new GroupManagementService(
+				groupRepository, groupRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, userRepository, actorProvider);
+		when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+
+		Group result = securedService.getGroupById(groupId);
+		assertThat(result.getCode()).isEqualTo("TARGET_GROUP");
 	}
 }

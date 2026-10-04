@@ -124,8 +124,10 @@ public class IamManagementAutoConfiguration {
 	 */
 	@Bean
 	@ConditionalOnMissingBean
-	public ManageRoleUseCase manageRoleUseCase(RoleRepository roleRepository) {
-		return new RoleManagementService(roleRepository);
+	public ManageRoleUseCase manageRoleUseCase(
+			RoleRepository roleRepository,
+			ObjectProvider<CurrentActorProvider> currentActorProvider) {
+		return new RoleManagementService(roleRepository, currentActorProvider.getIfAvailable());
 	}
 
 	/**
@@ -136,6 +138,7 @@ public class IamManagementAutoConfiguration {
 	 * @param userGroupMembershipRepository the user group membership repository
 	 * @param roleRepository               the role repository
 	 * @param userRepository               the user repository
+	 * @param currentActorProvider         provider for current actor security context
 	 * @return group management service
 	 */
 	@Bean
@@ -145,13 +148,15 @@ public class IamManagementAutoConfiguration {
 			GroupRoleAssignmentRepository groupRoleAssignmentRepository,
 			UserGroupMembershipRepository userGroupMembershipRepository,
 			RoleRepository roleRepository,
-			UserRepository userRepository) {
+			UserRepository userRepository,
+			ObjectProvider<CurrentActorProvider> currentActorProvider) {
 		return new GroupManagementService(
 				groupRepository,
 				groupRoleAssignmentRepository,
 				userGroupMembershipRepository,
 				roleRepository,
-				userRepository);
+				userRepository,
+				currentActorProvider.getIfAvailable());
 	}
 
 	/**

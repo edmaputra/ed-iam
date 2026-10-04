@@ -1,5 +1,6 @@
 package io.github.edmaputra.iam;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.ApplicationEventPublisher;
@@ -12,6 +13,7 @@ import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.service.ScopeHierarchyService;
 import io.github.edmaputra.iam.application.service.ScopeSubtreeResolver;
 import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
+import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 
 /**
  * Spring Boot auto-configuration for IAM hierarchical scope tree persistence and services.
@@ -51,14 +53,16 @@ public class IamScopeAutoConfiguration {
 	 *
 	 * @param scopeNodeRepository the scope node repository
 	 * @param eventPublisher      the domain event publisher port
+	 * @param currentActorProvider provider for current actor security context
 	 * @return scope hierarchy management service
 	 */
 	@Bean
 	@ConditionalOnMissingBean
 	public ManageScopeUseCase manageScopeUseCase(
 			ScopeNodeRepository scopeNodeRepository,
-			EventPublisherPort eventPublisher) {
-		return new ScopeHierarchyService(scopeNodeRepository, eventPublisher);
+			EventPublisherPort eventPublisher,
+			ObjectProvider<CurrentActorProvider> currentActorProvider) {
+		return new ScopeHierarchyService(scopeNodeRepository, eventPublisher, currentActorProvider.getIfAvailable());
 	}
 
 	/**

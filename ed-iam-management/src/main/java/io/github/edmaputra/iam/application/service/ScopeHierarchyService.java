@@ -18,10 +18,12 @@ import io.github.edmaputra.iam.application.port.in.MoveScopeNodeCommand;
 import io.github.edmaputra.iam.application.port.in.UpdateScopeNodeCommand;
 import io.github.edmaputra.iam.domain.event.IamEvent;
 import io.github.edmaputra.iam.domain.event.IamEventTypes;
+import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
 import io.github.edmaputra.iam.domain.exception.ScopeNodeNotFoundException;
 import io.github.edmaputra.iam.domain.model.ScopeNode;
 import io.github.edmaputra.iam.domain.model.ScopeNodeId;
 import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
+import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 
 /**
  * Application service implementing {@link ManageScopeUseCase}.
@@ -30,16 +32,32 @@ import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
  * @author edmaputra
  * @since 0.0.1
  */
-@RequiredArgsConstructor
 public class ScopeHierarchyService implements ManageScopeUseCase {
 
 	private final ScopeNodeRepository scopeNodeRepository;
 	private final EventPublisherPort eventPublisher;
+	private final CurrentActorProvider currentActorProvider;
+
+	public ScopeHierarchyService(
+			ScopeNodeRepository scopeNodeRepository,
+			EventPublisherPort eventPublisher,
+			CurrentActorProvider currentActorProvider) {
+		this.scopeNodeRepository = Objects.requireNonNull(scopeNodeRepository, "ScopeNodeRepository must not be null.");
+		this.eventPublisher = Objects.requireNonNull(eventPublisher, "EventPublisherPort must not be null.");
+		this.currentActorProvider = currentActorProvider;
+	}
+
+	public ScopeHierarchyService(
+			ScopeNodeRepository scopeNodeRepository,
+			EventPublisherPort eventPublisher) {
+		this(scopeNodeRepository, eventPublisher, null);
+	}
 
 	@Override
 	@Transactional
 	public ScopeNode createScopeNode(CreateScopeNodeCommand command, OperationContext context) {
 		Objects.requireNonNull(command, "Command must not be null.");
+		checkTenantAccess(command.tenantId());
 		validateCodeUniqueness(command.tenantId(), command.code());
 
 		ScopeNode node;
@@ -124,6 +142,7 @@ public class ScopeHierarchyService implements ManageScopeUseCase {
 	@Transactional(readOnly = true)
 	public List<ScopeTreeNode> getScopeTree(TenantId tenantId) {
 		Objects.requireNonNull(tenantId, "TenantId must not be null.");
+		checkTenantAccess(tenantId);
 		List<ScopeNode> nodes = scopeNodeRepository.findAllByTenantId(tenantId);
 		return ScopeTreeNode.from(nodes);
 	}
@@ -132,6 +151,7 @@ public class ScopeHierarchyService implements ManageScopeUseCase {
 	@Transactional(readOnly = true)
 	public List<ScopeNode> getFlatScopeList(TenantId tenantId) {
 		Objects.requireNonNull(tenantId, "TenantId must not be null.");
+		checkTenantAccess(tenantId);
 		return scopeNodeRepository.findAllByTenantId(tenantId);
 	}
 
@@ -140,10 +160,24 @@ public class ScopeHierarchyService implements ManageScopeUseCase {
 	public ScopeNode getById(TenantId tenantId, ScopeNodeId id) {
 		Objects.requireNonNull(tenantId, "TenantId must not be null.");
 		Objects.requireNonNull(id, "ScopeNodeId must not be null.");
+		checkTenantAccess(tenantId);
 
 		return scopeNodeRepository.findById(id)
 				.filter(n -> n.getTenantId().equals(tenantId))
 				.orElseThrow(() -> new ScopeNodeNotFoundException(id));
+	}
+
+	private void checkTenantAccess(TenantId targetTenantId) {
+		if (targetTenantId == null || currentActorProvider == null) {
+			return;
+		}
+		currentActorProvider.currentActor().ifPresent(actor -> {
+			if (!actor.isPlatformSuperAdmin()) {
+				if (actor.tenantId() == null || !actor.tenantId().equals(targetTenantId.value())) {
+					throw new AccessDeniedException("Access denied: operation not permitted for a different tenant.");
+				}
+			}
+		});
 	}
 
 	private void validateCodeUniqueness(TenantId tenantId, String code) {
