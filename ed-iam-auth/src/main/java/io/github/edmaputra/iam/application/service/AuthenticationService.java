@@ -207,6 +207,11 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 
 		RefreshTokenClaims claims = tokenProvider.parseRefreshToken(command.refreshToken());
 
+		if (tokenRevocationPort != null && claims.tokenId() != null && tokenRevocationPort.isTokenRevoked(claims.tokenId())) {
+			logoutAll(claims.userId(), claims.tenantId());
+			throw new AuthenticationException("Refresh token has been revoked.");
+		}
+
 		User user = userRepository.findById(claims.userId())
 				.orElseThrow(() -> new UserNotFoundException(claims.userId()));
 
@@ -226,6 +231,9 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 		}
 		String newRefreshToken = tokenProvider.createRefreshToken(user.getId(), claims.tenantId());
 
+		if (tokenRevocationPort != null && claims.tokenId() != null) {
+			tokenRevocationPort.revokeToken(claims.tokenId(), claims.expiresAt());
+		}
 
 		UserProfileResponse profile = toUserProfileResponse(user, effectiveAccess);
 

@@ -2,6 +2,7 @@ package io.github.edmaputra.iam.application.service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -309,5 +310,59 @@ class UserManagementServiceTest {
 		PagedResult<User> filteredActual = service.getUsers(filter, query);
 		assertThat(filteredActual.content()).containsExactly(user1);
 		verify(userRepository).findAll(filter, query);
+	}
+
+	@Test
+	@DisplayName("Should prevent non-superadmin actor from assigning role in a different tenant")
+	void shouldRejectAssigningRoleInDifferentTenantWhenNotSuperAdmin() {
+		TenantId actorTenantId = TenantId.generate();
+		TenantId otherTenantId = TenantId.generate();
+		UserId userId = UserId.generate();
+		RoleId roleId = RoleId.generate();
+
+		CurrentActorProvider actorProvider = mock(CurrentActorProvider.class);
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.isPlatformSuperAdmin()).thenReturn(false);
+		when(actor.tenantId()).thenReturn(actorTenantId.value());
+		when(actorProvider.currentActor()).thenReturn(Optional.of(actor));
+
+		UserManagementService securedService = new UserManagementService(
+				userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository,
+				roleRepository, groupRepository, null, null, null, actorProvider);
+
+		AssignUserRoleCommand command = new AssignUserRoleCommand(userId, roleId, otherTenantId, null);
+
+		assertThatThrownBy(() -> securedService.assignRole(command))
+				.isInstanceOf(AccessDeniedException.class)
+				.hasMessageContaining("Access denied: operation not permitted for a different tenant.");
+	}
+
+	@Test
+	@DisplayName("Should allow non-superadmin actor to assign role in their own tenant")
+	void shouldAllowAssigningRoleInSameTenant() {
+		TenantId actorTenantId = TenantId.generate();
+		UserId userId = UserId.generate();
+		RoleId roleId = RoleId.generate();
+		User user = User.create("user@test.org", "hash", "User", false);
+		Role role = Role.createCustom(actorTenantId, "ROLE", "Role", "Desc", Set.of());
+
+		CurrentActorProvider actorProvider = mock(CurrentActorProvider.class);
+		CurrentActor actor = mock(CurrentActor.class);
+		when(actor.isPlatformSuperAdmin()).thenReturn(false);
+		when(actor.tenantId()).thenReturn(actorTenantId.value());
+		when(actorProvider.currentActor()).thenReturn(Optional.of(actor));
+
+		UserManagementService securedService = new UserManagementService(
+				userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository,
+				roleRepository, groupRepository, null, null, null, actorProvider);
+
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(roleRepository.findById(roleId)).thenReturn(Optional.of(role));
+		when(userRoleAssignmentRepository.save(any(UserRoleAssignment.class))).thenAnswer(i -> i.getArgument(0));
+
+		AssignUserRoleCommand command = new AssignUserRoleCommand(userId, roleId, actorTenantId, null);
+		UserRoleAssignment assignment = securedService.assignRole(command);
+
+		assertThat(assignment.getTenantId()).isEqualTo(actorTenantId);
 	}
 }
