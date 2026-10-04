@@ -17,6 +17,8 @@ import io.github.edmaputra.iam.domain.exception.GroupNotFoundException;
 import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
 import io.github.edmaputra.iam.domain.model.Group;
+import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
+import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 import io.github.edmaputra.iam.domain.model.GroupId;
 import io.github.edmaputra.iam.domain.model.PageQuery;
 import io.github.edmaputra.iam.domain.model.PagedResult;
@@ -53,6 +55,30 @@ public class UserManagementService implements ManageUserUseCase {
 	private final SessionRegistryPort sessionRegistry;
 	private final TokenRevocationPort tokenRevocationPort;
 	private final UserMfaRepository userMfaRepository;
+	private final CurrentActorProvider currentActorProvider;
+
+	public UserManagementService(
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			UserRoleAssignmentRepository userRoleAssignmentRepository,
+			UserGroupMembershipRepository userGroupMembershipRepository,
+			RoleRepository roleRepository,
+			GroupRepository groupRepository,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			UserMfaRepository userMfaRepository,
+			CurrentActorProvider currentActorProvider) {
+		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
+		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
+		this.userRoleAssignmentRepository = Objects.requireNonNull(userRoleAssignmentRepository, "UserRoleAssignmentRepository must not be null.");
+		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
+		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
+		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
+		this.sessionRegistry = sessionRegistry;
+		this.tokenRevocationPort = tokenRevocationPort;
+		this.userMfaRepository = userMfaRepository;
+		this.currentActorProvider = currentActorProvider;
+	}
 
 	public UserManagementService(
 			UserRepository userRepository,
@@ -64,15 +90,7 @@ public class UserManagementService implements ManageUserUseCase {
 			SessionRegistryPort sessionRegistry,
 			TokenRevocationPort tokenRevocationPort,
 			UserMfaRepository userMfaRepository) {
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
-		this.userRoleAssignmentRepository = Objects.requireNonNull(userRoleAssignmentRepository, "UserRoleAssignmentRepository must not be null.");
-		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
-		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
-		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
-		this.sessionRegistry = sessionRegistry;
-		this.tokenRevocationPort = tokenRevocationPort;
-		this.userMfaRepository = userMfaRepository;
+		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, sessionRegistry, tokenRevocationPort, userMfaRepository, null);
 	}
 
 	public UserManagementService(
@@ -84,7 +102,7 @@ public class UserManagementService implements ManageUserUseCase {
 			GroupRepository groupRepository,
 			SessionRegistryPort sessionRegistry,
 			TokenRevocationPort tokenRevocationPort) {
-		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, sessionRegistry, tokenRevocationPort, null);
+		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, sessionRegistry, tokenRevocationPort, null, null);
 	}
 
 	public UserManagementService(
@@ -94,12 +112,20 @@ public class UserManagementService implements ManageUserUseCase {
 			UserGroupMembershipRepository userGroupMembershipRepository,
 			RoleRepository roleRepository,
 			GroupRepository groupRepository) {
-		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, null, null, null);
+		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, null, null, null, null);
 	}
 
 	@Override
 	public User createUser(CreateUserCommand command) {
 		Objects.requireNonNull(command, "CreateUserCommand must not be null.");
+
+		if (command.platformSuperAdmin() && currentActorProvider != null) {
+			currentActorProvider.currentActor().ifPresent(actor -> {
+				if (!actor.isPlatformSuperAdmin()) {
+					throw new AccessDeniedException("Only platform superadmins can create platform superadmin accounts.");
+				}
+			});
+		}
 
 		if (userRepository.findByEmail(command.email()).isPresent()) {
 			throw new IllegalArgumentException("User with email already exists: " + command.email());

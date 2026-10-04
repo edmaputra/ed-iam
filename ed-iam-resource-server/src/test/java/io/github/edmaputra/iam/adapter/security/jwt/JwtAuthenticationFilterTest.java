@@ -241,6 +241,28 @@ class JwtAuthenticationFilterTest {
 	}
 
 	@Test
+	@DisplayName("Should properly escape quotes, backslashes, and control characters in writeUnauthorized")
+	void shouldEscapeSpecialCharactersInUnauthorizedResponse() throws ServletException, IOException {
+		JwtTokenProvider mockProvider = mock(JwtTokenProvider.class);
+		when(mockProvider.parseAccessToken(any())).thenThrow(new AuthenticationException("Error with \"quotes\", \\backslashes\\ and \nnewlines \t tabs"));
+		JwtAuthenticationFilter testFilter = new JwtAuthenticationFilter(mockProvider, securityContextAccessor, tenantBridgeProvider);
+
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer some.token");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		MockFilterChain chain = new MockFilterChain();
+
+		testFilter.doFilter(request, response, chain);
+
+		assertThat(response.getStatus()).isEqualTo(401);
+		assertThat(response.getContentAsString())
+				.contains("\\\"quotes\\\"")
+				.contains("\\\\backslashes\\\\")
+				.contains("\\nnewlines")
+				.contains("\\t tabs");
+	}
+
+	@Test
 	@DisplayName("Should propagate ServletException and IOException from downstream chain")
 	void shouldPropagateExceptionsFromDownstreamChain() {
 		UUID userId = UUID.randomUUID();

@@ -5,11 +5,14 @@ import java.util.List;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
@@ -26,6 +29,12 @@ import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
  */
 @RestControllerAdvice(basePackages = "io.github.edmaputra.iam")
 public class IamExceptionHandler {
+
+	private static final Logger log = LoggerFactory.getLogger(IamExceptionHandler.class);
+
+	private static final List<String> SENSITIVE_FIELD_NAMES = List.of(
+			"password", "secret", "token", "apikey", "api_key", "credential", "privatekey", "private_key"
+	);
 
 	/**
 	 * Handles authentication exceptions and returns HTTP 401 Unauthorized.
@@ -111,7 +120,9 @@ public class IamExceptionHandler {
 				.map(fe -> Map.<String, Object>of(
 						"field", fe.getField(),
 						"message", fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "",
-						"rejectedValue", fe.getRejectedValue() != null ? fe.getRejectedValue() : "null"
+						"rejectedValue", isSensitiveField(fe.getField())
+								? "[PROTECTED]"
+								: (fe.getRejectedValue() != null ? fe.getRejectedValue() : "null")
 				))
 				.toList();
 
@@ -148,5 +159,58 @@ public class IamExceptionHandler {
 
 	public ProblemDetail handleBadRequest(Exception ex) {
 		return handleBadRequest(ex, null);
+	}
+
+	/**
+	 * Handles Spring web ResponseStatusException, preserving status code and reason.
+	 *
+	 * @param ex      the response status exception
+	 * @param request the optional HTTP servlet request
+	 * @return RFC 9457 problem detail with corresponding status
+	 */
+	@ExceptionHandler(ResponseStatusException.class)
+	public ProblemDetail handleResponseStatus(ResponseStatusException ex, HttpServletRequest request) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatusCode(), ex.getReason());
+		if (request != null) {
+			problem.setInstance(URI.create(request.getRequestURI()));
+		}
+		return problem;
+	}
+
+	public ProblemDetail handleResponseStatus(ResponseStatusException ex) {
+		return handleResponseStatus(ex, null);
+	}
+
+	/**
+	 * Handles unexpected runtime exceptions and returns HTTP 500 Internal Server Error without leaking internal details.
+	 *
+	 * @param ex      the unexpected exception
+	 * @param request the optional HTTP servlet request
+	 * @return RFC 9457 problem detail with HTTP 500
+	 */
+	@ExceptionHandler(Exception.class)
+	public ProblemDetail handleUnexpected(Exception ex, HttpServletRequest request) {
+		log.error("An unexpected error occurred while processing request: {}", ex.getMessage(), ex);
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+				HttpStatus.INTERNAL_SERVER_ERROR,
+				"An unexpected error occurred. Please contact system support.");
+		problem.setTitle("Internal Server Error");
+		problem.setType(URI.create("https://api.edmaputra.github.io/problems/internal-server-error"));
+		if (request != null) {
+			problem.setInstance(URI.create(request.getRequestURI()));
+		}
+		return problem;
+	}
+
+	public ProblemDetail handleUnexpected(Exception ex) {
+		return handleUnexpected(ex, null);
+	}
+
+	private static boolean isSensitiveField(String fieldName) {
+		if (fieldName == null) {
+			return false;
+		}
+		String lower = fieldName.toLowerCase();
+		return SENSITIVE_FIELD_NAMES.stream().anyMatch(lower::contains);
 	}
 }
