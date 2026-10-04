@@ -32,6 +32,7 @@ import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
+import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 
 /**
  * Spring Boot auto-configuration for administrative IAM entity management services
@@ -83,7 +84,7 @@ public class IamManagementAutoConfiguration {
 			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
 			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
 			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
-			ObjectProvider<io.github.edmaputra.iam.domain.security.CurrentActorProvider> currentActorProvider) {
+			ObjectProvider<CurrentActorProvider> currentActorProvider) {
 		return new UserManagementService(
 				userRepository,
 				passwordEncoder,
