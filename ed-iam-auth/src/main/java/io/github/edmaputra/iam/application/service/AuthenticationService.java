@@ -9,6 +9,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.github.edmaputra.iam.adapter.security.session.SessionProperties;
 import io.github.edmaputra.iam.application.model.EffectiveAccess;
 import io.github.edmaputra.iam.application.model.RefreshTokenClaims;
@@ -49,6 +52,8 @@ import io.github.edmaputra.iam.domain.util.UuidV7;
  * @since 0.0.1
  */
 public class AuthenticationService implements AuthenticateUserUseCase {
+
+	private static final Logger log = LoggerFactory.getLogger(AuthenticationService.class);
 
 	private final AuthenticationProviderRouter authRouter;
 	private final UserRepository userRepository;
@@ -117,6 +122,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 		if (loginAttemptTracker != null) {
 			LockoutStatus status = loginAttemptTracker.getLockoutStatus(command.email());
 			if (status != null && status.locked()) {
+				log.warn("Login rejected: account for '{}' is locked until {}", command.email(), status.lockedUntil());
 				throw new AccountLockedException(
 						"Account is temporarily locked due to too many failed attempts until: " + status.lockedUntil(),
 						status.lockedUntil());
@@ -132,11 +138,14 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			}
 		}
 		catch (AuthenticationException ex) {
+			log.warn("Authentication failed for principal '{}': {}", command.email(), ex.getMessage());
 			if (loginAttemptTracker != null) {
 				loginAttemptTracker.recordFailedAttempt(command.email(), Instant.now());
 			}
 			throw ex;
 		}
+
+		log.info("User '{}' successfully authenticated", identity.email());
 
 		User user = userRepository.findById(identity.userId())
 				.orElseThrow(() -> new UserNotFoundException(identity.userId()));
@@ -208,6 +217,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 		RefreshTokenClaims claims = tokenProvider.parseRefreshToken(command.refreshToken());
 
 		if (tokenRevocationPort != null && claims.tokenId() != null && tokenRevocationPort.isTokenRevoked(claims.tokenId())) {
+			log.warn("Detected refresh token reuse for user '{}', token ID '{}'. Invalidation initiated.", claims.userId(), claims.tokenId());
 			logoutAll(claims.userId(), claims.tenantId());
 			throw new AuthenticationException("Refresh token has been revoked.");
 		}
