@@ -70,6 +70,39 @@ public void updateDocument(UUID departmentId, DocumentDto dto) { ... }
 * `hasAllPermissions(String... permissions)`
 * `canAccessScope(UUID scopeNodeId)`
 
+### 2.4 Spring Security Integration & `SecurityFilterChain` Best Practices (SEC-08)
+When a downstream service includes `spring-boot-starter-security`, Spring Security enforces its default filter chain (which defaults to HTTP Basic and session-based protection). To integrate cleanly with `ed-iam`'s stateless JWT architecture, consumers should define a `SecurityFilterChain` bean:
+
+```java
+@Configuration
+@EnableWebSecurity
+public class SecurityConfiguration {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+        return http
+            // 1. Disable CSRF for stateless REST APIs
+            .csrf(AbstractHttpConfigurer::disable)
+            // 2. Set stateless session management (no HTTP sessions)
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            // 3. Configure endpoint authorizations (permit public paths, require auth for protected APIs)
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/magic-link/**").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                .anyRequest().authenticated()
+            )
+            // 4. Place JwtAuthenticationFilter before UsernamePasswordAuthenticationFilter
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .build();
+    }
+}
+```
+
+> [!TIP]
+> Downstream microservices that only validate incoming JWT tokens and do not expose local login endpoints can use `anyRequest().authenticated()` as a baseline default deny policy, relying on `@RequirePermission` or `@PreAuthorize("@iam...")` for granular RBAC.
+
 ---
 
 ## 3. Key Classes & Responsibilities Reference Table
