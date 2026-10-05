@@ -9,11 +9,15 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.util.Optional;
+
 import io.github.edmaputra.iam.adapter.rest.GroupController;
+import io.github.edmaputra.iam.adapter.rest.PasswordPolicyController;
 import io.github.edmaputra.iam.adapter.rest.RoleController;
 import io.github.edmaputra.iam.adapter.rest.ScopeController;
 import io.github.edmaputra.iam.adapter.rest.UserController;
 import io.github.edmaputra.iam.application.port.in.ManageGroupUseCase;
+import io.github.edmaputra.iam.application.port.in.ManagePasswordPolicyUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageRoleUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
 import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
@@ -21,8 +25,12 @@ import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
 import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
+import io.github.edmaputra.iam.domain.repository.PasswordPolicyRepository;
 import io.github.edmaputra.iam.domain.security.DefaultPasswordValidator;
+import io.github.edmaputra.iam.domain.security.PasswordPolicy;
 import io.github.edmaputra.iam.domain.security.PasswordValidator;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
+import io.github.edmaputra.iam.application.service.PasswordPolicyManagementService;
 import io.github.edmaputra.iam.application.service.GroupLifecycleService;
 import io.github.edmaputra.iam.application.service.GroupManagementService;
 import io.github.edmaputra.iam.application.service.GroupRoleAssignmentService;
@@ -72,9 +80,33 @@ public class IamManagementAutoConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnMissingBean
-	public PasswordValidator passwordValidator() {
-		return new DefaultPasswordValidator();
+	@ConditionalOnMissingBean(ManagePasswordPolicyUseCase.class)
+	public PasswordPolicyManagementService passwordPolicyManagementService(
+			ObjectProvider<PasswordPolicyRepository> passwordPolicyRepositoryProvider,
+			ObjectProvider<CurrentActorProvider> currentActorProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
+		PasswordPolicyRepository repository = passwordPolicyRepositoryProvider.getIfAvailable(
+				() -> new PasswordPolicyRepository() {
+					@Override
+					public Optional<PasswordPolicy> findByTenantId(TenantId tenantId) {
+						return Optional.empty();
+					}
+
+					@Override
+					public PasswordPolicy save(TenantId tenantId, PasswordPolicy policy) {
+						return policy;
+					}
+				});
+		return new PasswordPolicyManagementService(
+				repository,
+				currentActorProvider.getIfAvailable(),
+				eventPublisherProvider.getIfAvailable());
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(PasswordValidator.class)
+	public PasswordValidator passwordValidator(PasswordPolicyManagementService passwordPolicyManagementService) {
+		return passwordPolicyManagementService;
 	}
 
 	/**
@@ -257,7 +289,7 @@ public class IamManagementAutoConfiguration {
 	 */
 	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnProperty(prefix = "iam.management.endpoints", name = "enabled", havingValue = "true", matchIfMissing = true)
-	@Import({UserController.class, RoleController.class, GroupController.class, ScopeController.class})
+	@Import({UserController.class, RoleController.class, GroupController.class, ScopeController.class, PasswordPolicyController.class})
 	public static class ManagementEndpointsConfiguration {
 	}
 }

@@ -240,7 +240,7 @@ class UserAccountServiceTest {
 		CreateUserCommand weakCommand = new CreateUserCommand("doctor@hospital.org", "weakpass", "Doctor", false);
 		assertThatThrownBy(() -> validatingService.createUser(weakCommand))
 				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessageContaining("at least 3 of the following categories");
+				.hasMessageContaining("uppercase");
 
 		// Compliant strong password should be accepted
 		when(passwordEncoder.encode("Str0ng!P@ssw0rd#2026")).thenReturn("hashed");

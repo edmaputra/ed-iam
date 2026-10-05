@@ -19,6 +19,11 @@
       "include": {
         "file": "db/changelog/iam/2026100501-alter-iam-user-mfa-secret.json"
       }
+    },
+    {
+      "include": {
+        "file": "db/changelog/iam/2026100502-create-iam-password-policy.json"
+      }
     }
   ]
 }

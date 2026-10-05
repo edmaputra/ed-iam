@@ -36,6 +36,9 @@ import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
+import io.github.edmaputra.iam.adapter.persistence.adapter.PasswordPolicyRepositoryAdapter;
+import io.github.edmaputra.iam.adapter.persistence.repository.PasswordPolicyJpaRepository;
+import io.github.edmaputra.iam.domain.repository.PasswordPolicyRepository;
 import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
@@ -116,5 +119,11 @@ public class IamSecurityAutoConfiguration {
 	@ConditionalOnMissingBean
 	public MagicLinkTokenStorePort magicLinkTokenStorePort(MagicLinkTokenJpaRepository repository) {
 		return new JpaMagicLinkTokenStoreAdapter(repository);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public PasswordPolicyRepository passwordPolicyRepository(PasswordPolicyJpaRepository repository) {
+		return new PasswordPolicyRepositoryAdapter(repository);
 	}
 }

@@ -54,22 +54,22 @@ class DefaultPasswordValidatorTest {
 	}
 
 	@Test
-	@DisplayName("Should reject password lacking character diversity (less than 3 categories)")
+	@DisplayName("Should reject password lacking required character categories")
 	void shouldRejectInsufficientDiversity() {
-		// Only lowercase
+		// Only lowercase (missing uppercase)
 		assertThatThrownBy(() -> validator.validatePassword("alllowercasewords", "user@test.org"))
 				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessageContaining("at least 3 of the following categories");
+				.hasMessageContaining("uppercase letter(s)");
 
-		// Only digits
+		// Only digits (missing uppercase)
 		assertThatThrownBy(() -> validator.validatePassword("123456789012", "user@test.org"))
 				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessageContaining("at least 3 of the following categories");
+				.hasMessageContaining("uppercase letter(s)");
 
-		// Only lowercase and digits (2 categories)
+		// Only lowercase and digits (missing uppercase and special)
 		assertThatThrownBy(() -> validator.validatePassword("password12345", "user@test.org"))
 				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessageContaining("at least 3 of the following categories");
+				.hasMessageContaining("uppercase letter(s)");
 	}
 
 	@Test
@@ -78,5 +78,43 @@ class DefaultPasswordValidatorTest {
 		assertThatThrownBy(() -> validator.validatePassword("Doctor123!Special", "doctor@clinic.org"))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("must not contain the username or email");
+	}
+
+	@Test
+	@DisplayName("Should enforce custom policy min characters per category")
+	void shouldEnforceCustomPolicyCategories() {
+		PasswordPolicy customPolicy = new PasswordPolicy(10, 64, 2, 2, 2, 2, null, null, false);
+		DefaultPasswordValidator customValidator = new DefaultPasswordValidator(customPolicy);
+
+		// Fails: only 1 uppercase
+		assertThatThrownBy(() -> customValidator.validatePassword("Abcde12!!#", "test"))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("at least 2 uppercase");
+
+		// Fails: only 1 special char
+		assertThatThrownBy(() -> customValidator.validatePassword("ABcde12!aa", "test"))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("at least 2 special");
+
+		// Passes: 2 upper, 3 lower, 2 digits, 2 special
+		assertThatCode(() -> customValidator.validatePassword("ABcde12!@#", "test"))
+				.doesNotThrowAnyException();
+	}
+
+	@Test
+	@DisplayName("Should enforce custom regex pattern when specified")
+	void shouldEnforceCustomRegex() {
+		PasswordPolicy regexPolicy = new PasswordPolicy(
+				8, 64, 1, 1, 1, 0, "^[A-Z].*\\$$", "Password must start with uppercase and end with dollar sign", true);
+		DefaultPasswordValidator regexValidator = new DefaultPasswordValidator(regexPolicy);
+
+		// Fails custom regex
+		assertThatThrownBy(() -> regexValidator.validatePassword("Pass1234!", "user"))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("Password must start with uppercase and end with dollar sign");
+
+		// Passes custom regex
+		assertThatCode(() -> regexValidator.validatePassword("Pass1234$", "user"))
+				.doesNotThrowAnyException();
 	}
 }

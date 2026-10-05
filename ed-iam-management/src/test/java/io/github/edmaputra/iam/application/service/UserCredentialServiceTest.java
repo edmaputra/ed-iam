@@ -60,4 +60,17 @@ class UserCredentialServiceTest {
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("Password too weak");
 	}
+
+	@Test
+	@DisplayName("Should validate with tenantId and encode password")
+	void shouldValidateWithTenantIdAndEncode() {
+		io.github.edmaputra.iam.domain.tenancy.TenantId tenantId = io.github.edmaputra.iam.domain.tenancy.TenantId.generate();
+		when(passwordEncoder.encode("TenantPass123!")).thenReturn("hashed-pass");
+
+		String hash = credentialService.preparePasswordHash("TenantPass123!", "user@test.org", tenantId);
+
+		assertThat(hash).isEqualTo("hashed-pass");
+		verify(passwordValidator).validatePassword("TenantPass123!", "user@test.org", tenantId);
+		verify(passwordEncoder).encode("TenantPass123!");
+	}
 }
