@@ -17,6 +17,7 @@ import com.jayway.jsonpath.JsonPath;
 
 import io.github.edmaputra.iam.domain.auth.mfa.TotpGenerator;
 import io.github.edmaputra.iam.playground.seeder.PlaygroundDataSeeder;
+import io.github.edmaputra.iam.playground.service.PlaygroundSimulatedMailService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,7 +35,7 @@ class PlaygroundApplicationTests {
 	private int port;
 
 	@Autowired
-	private io.github.edmaputra.iam.playground.service.PlaygroundSimulatedMailService mailService;
+	private PlaygroundSimulatedMailService mailService;
 
 	private WebTestClient webTestClient;
 
@@ -63,6 +64,8 @@ class PlaygroundApplicationTests {
 					assertThat(html).contains("customLoginForm");
 					assertThat(html).contains("mfaModal");
 					assertThat(html).contains("mfaChallengeModal");
+					assertThat(html).contains("Observability &amp; SIEM Audit");
+					assertThat(html).contains("panelObservability");
 				});
 	}
 
@@ -1171,5 +1174,57 @@ class PlaygroundApplicationTests {
 				.jsonPath("$.tree[0].accessible").isEqualTo(false)
 				.jsonPath("$.tree[0].colorTheme").isEqualTo("red")
 				.jsonPath("$.tree[0].accessStatus").isEqualTo("NO_PERMISSION");
+	}
+
+	@Test
+	@DisplayName("Should expose IAM metrics and capture SIEM audit events in playground")
+	void shouldExposeObservabilityMetricsAndEvents() {
+		// 1. Perform login to trigger metrics and audit event
+		String loginJson = """
+				{
+				    "email": "%s",
+				    "password": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD);
+
+		webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(loginJson)
+				.exchange()
+				.expectStatus().isOk();
+
+		// 2. Verify events endpoint contains captured events
+		webTestClient.get()
+				.uri("/api/v1/playground/observability/events")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.totalCaptured").isNumber()
+				.jsonPath("$.events").isNotEmpty();
+
+		// 3. Verify metrics endpoint contains recorded metrics
+		webTestClient.get()
+				.uri("/api/v1/playground/observability/metrics")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.auth.totalAttempts").isNumber()
+				.jsonPath("$.token.totalValidations").isNumber()
+				.jsonPath("$.accessDenied.totalDenied").isNumber();
+
+		// 4. Clear events
+		webTestClient.delete()
+				.uri("/api/v1/playground/observability/events")
+				.exchange()
+				.expectStatus().isOk();
+
+		webTestClient.get()
+				.uri("/api/v1/playground/observability/events")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.totalCaptured").isEqualTo(0)
+				.jsonPath("$.events").isEmpty();
 	}
 }

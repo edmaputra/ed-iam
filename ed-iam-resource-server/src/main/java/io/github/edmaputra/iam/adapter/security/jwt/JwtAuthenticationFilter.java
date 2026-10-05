@@ -1,6 +1,9 @@
 package io.github.edmaputra.iam.adapter.security.jwt;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.util.Map;
+import java.util.UUID;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -14,6 +17,9 @@ import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import io.github.edmaputra.iam.adapter.security.SecurityContextAccessor;
+import io.github.edmaputra.iam.adapter.security.audit.SecurityAuditRecorder;
+import io.github.edmaputra.iam.adapter.security.telemetry.IamTelemetry;
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
@@ -27,7 +33,6 @@ import io.github.edmaputra.iam.domain.tenancy.TenantContextBridge;
  * @author edmaputra
  * @since 0.0.1
  */
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	/** Standard Bearer authorization header prefix. */
@@ -37,15 +42,59 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	private final SecurityContextAccessor securityContextAccessor;
 	private final ObjectProvider<TenantContextBridge> tenantContextBridgeProvider;
 	private final ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider;
+	private final SecurityAuditRecorder auditRecorder;
 
 	/**
-	 * Backward-compatible constructor without token revocation provider.
+	 * Primary constructor with {@link SecurityAuditRecorder}.
+	 */
+	public JwtAuthenticationFilter(
+			JwtTokenProvider jwtTokenProvider,
+			SecurityContextAccessor securityContextAccessor,
+			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
+			SecurityAuditRecorder auditRecorder) {
+		this.jwtTokenProvider = jwtTokenProvider;
+		this.securityContextAccessor = securityContextAccessor;
+		this.tenantContextBridgeProvider = tenantContextBridgeProvider;
+		this.tokenRevocationPortProvider = tokenRevocationPortProvider;
+		this.auditRecorder = auditRecorder != null ? auditRecorder : SecurityAuditRecorder.noop();
+	}
+
+	/**
+	 * Backward-compatible constructor with telemetry and event publisher object providers.
+	 */
+	public JwtAuthenticationFilter(
+			JwtTokenProvider jwtTokenProvider,
+			SecurityContextAccessor securityContextAccessor,
+			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
+			ObjectProvider<IamTelemetry> telemetryProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
+		this(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider, tokenRevocationPortProvider,
+				new SecurityAuditRecorder(
+						telemetryProvider != null ? telemetryProvider.getIfAvailable() : null,
+						eventPublisherProvider != null ? eventPublisherProvider.getIfAvailable() : null));
+	}
+
+	/**
+	 * Backward-compatible constructor without token revocation provider or telemetry.
 	 */
 	public JwtAuthenticationFilter(
 			JwtTokenProvider jwtTokenProvider,
 			SecurityContextAccessor securityContextAccessor,
 			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider) {
-		this(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider, null);
+		this(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider, null, null, null);
+	}
+
+	/**
+	 * Backward-compatible constructor without telemetry provider.
+	 */
+	public JwtAuthenticationFilter(
+			JwtTokenProvider jwtTokenProvider,
+			SecurityContextAccessor securityContextAccessor,
+			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider) {
+		this(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider, tokenRevocationPortProvider, null, null);
 	}
 
 	@Override
@@ -67,15 +116,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			return;
 		}
 
+		long startTime = System.nanoTime();
+
 		CurrentActor actor;
 		try {
 			actor = jwtTokenProvider.parseAccessToken(token);
 		}
 		catch (AuthenticationException ex) {
+			String status = (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("expired")) ? "expired" : "invalid";
+			auditRecorder.recordTokenValidation(status, startTime);
+			auditRecorder.recordAccessDenied("token_" + status, null, null, "anonymous", request.getRequestURI(),
+					Map.of("error", ex.getMessage() != null ? ex.getMessage() : "Authentication exception"));
 			writeUnauthorized(response, ex.getMessage());
 			return;
 		}
 		catch (Exception ex) {
+			auditRecorder.recordTokenValidation("invalid", startTime);
+			auditRecorder.recordAccessDenied("token_invalid", null, null, "anonymous", request.getRequestURI(), null);
 			writeUnauthorized(response, "Invalid or expired authorization token.");
 			return;
 		}
@@ -83,10 +140,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		if (tokenRevocationPortProvider != null) {
 			TokenRevocationPort revocationPort = tokenRevocationPortProvider.getIfAvailable();
 			if (revocationPort != null && actor.tokenId() != null && revocationPort.isTokenRevoked(actor.tokenId())) {
+				String actorIdStr = actor.userId() != null ? actor.userId().toString() : "anonymous";
+				auditRecorder.recordTokenValidation("revoked", startTime);
+				auditRecorder.recordAccessDenied("token_revoked", null, actor.tenantId(), actorIdStr, request.getRequestURI(),
+						Map.of("tokenId", actor.tokenId()));
 				writeUnauthorized(response, "Token has been revoked.");
 				return;
 			}
 		}
+
+		auditRecorder.recordTokenValidation("valid", startTime);
 
 		try {
 			if (actor.tenantId() != null) {

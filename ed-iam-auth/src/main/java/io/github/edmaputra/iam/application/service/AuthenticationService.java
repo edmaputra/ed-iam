@@ -1,8 +1,10 @@
 package io.github.edmaputra.iam.application.service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -41,6 +43,11 @@ import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
+import io.github.edmaputra.iam.adapter.security.audit.SecurityAuditRecorder;
+import io.github.edmaputra.iam.adapter.security.telemetry.IamTelemetry;
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
+import io.github.edmaputra.iam.domain.event.IamEvent;
+import io.github.edmaputra.iam.domain.event.IamEventTypes;
 import io.github.edmaputra.iam.domain.util.UuidV7;
 
 /**
@@ -64,6 +71,52 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 	private final TokenRevocationPort tokenRevocationPort;
 	private final SessionProperties sessionProperties;
 	private final UserMfaRepository userMfaRepository;
+	private final SecurityAuditRecorder auditRecorder;
+
+	/**
+	 * Canonical constructor with unified security audit recorder.
+	 */
+	public AuthenticationService(
+			AuthenticationProviderRouter authRouter,
+			UserRepository userRepository,
+			EffectiveAccessResolver effectiveAccessResolver,
+			TokenProviderPort tokenProvider,
+			LoginAttemptTrackerPort loginAttemptTracker,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			SessionProperties sessionProperties,
+			UserMfaRepository userMfaRepository,
+			SecurityAuditRecorder auditRecorder) {
+		this.authRouter = Objects.requireNonNull(authRouter, "AuthenticationProviderRouter must not be null.");
+		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
+		this.effectiveAccessResolver = Objects.requireNonNull(effectiveAccessResolver, "EffectiveAccessResolver must not be null.");
+		this.tokenProvider = Objects.requireNonNull(tokenProvider, "TokenProviderPort must not be null.");
+		this.loginAttemptTracker = loginAttemptTracker;
+		this.sessionRegistry = sessionRegistry;
+		this.tokenRevocationPort = tokenRevocationPort;
+		this.sessionProperties = sessionProperties != null ? sessionProperties : SessionProperties.defaultProperties();
+		this.userMfaRepository = userMfaRepository;
+		this.auditRecorder = auditRecorder != null ? auditRecorder : SecurityAuditRecorder.noop();
+	}
+
+	/**
+	 * Full constructor with telemetry and audit event dependencies.
+	 */
+	public AuthenticationService(
+			AuthenticationProviderRouter authRouter,
+			UserRepository userRepository,
+			EffectiveAccessResolver effectiveAccessResolver,
+			TokenProviderPort tokenProvider,
+			LoginAttemptTrackerPort loginAttemptTracker,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			SessionProperties sessionProperties,
+			UserMfaRepository userMfaRepository,
+			IamTelemetry telemetry,
+			EventPublisherPort eventPublisher) {
+		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, loginAttemptTracker, sessionRegistry,
+				tokenRevocationPort, sessionProperties, userMfaRepository, new SecurityAuditRecorder(telemetry, eventPublisher));
+	}
 
 	/**
 	 * Canonical constructor with session, lockout, and MFA dependencies.
@@ -78,15 +131,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			TokenRevocationPort tokenRevocationPort,
 			SessionProperties sessionProperties,
 			UserMfaRepository userMfaRepository) {
-		this.authRouter = Objects.requireNonNull(authRouter, "AuthenticationProviderRouter must not be null.");
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-		this.effectiveAccessResolver = Objects.requireNonNull(effectiveAccessResolver, "EffectiveAccessResolver must not be null.");
-		this.tokenProvider = Objects.requireNonNull(tokenProvider, "TokenProviderPort must not be null.");
-		this.loginAttemptTracker = loginAttemptTracker;
-		this.sessionRegistry = sessionRegistry;
-		this.tokenRevocationPort = tokenRevocationPort;
-		this.sessionProperties = sessionProperties != null ? sessionProperties : SessionProperties.defaultProperties();
-		this.userMfaRepository = userMfaRepository;
+		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, loginAttemptTracker, sessionRegistry, tokenRevocationPort, sessionProperties, userMfaRepository, null, null);
 	}
 
 	/**
@@ -101,7 +146,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			SessionRegistryPort sessionRegistry,
 			TokenRevocationPort tokenRevocationPort,
 			SessionProperties sessionProperties) {
-		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, loginAttemptTracker, sessionRegistry, tokenRevocationPort, sessionProperties, null);
+		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, loginAttemptTracker, sessionRegistry, tokenRevocationPort, sessionProperties, null, null, null);
 	}
 
 	/**
@@ -112,16 +157,19 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			UserRepository userRepository,
 			EffectiveAccessResolver effectiveAccessResolver,
 			TokenProviderPort tokenProvider) {
-		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, null, null, null, SessionProperties.defaultProperties(), null);
+		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, null, null, null, SessionProperties.defaultProperties(), null, null, null);
 	}
 
 	@Override
 	public TokenResponse login(LoginCommand command) {
 		Objects.requireNonNull(command, "LoginCommand must not be null.");
 
+		long startTime = System.nanoTime();
+
 		if (loginAttemptTracker != null) {
 			LockoutStatus status = loginAttemptTracker.getLockoutStatus(command.email());
 			if (status != null && status.locked()) {
+				auditRecorder.recordAccountLocked("password", command.email(), command.tenantId() != null ? command.tenantId().value() : null, status.lockedUntil().toString(), startTime);
 				log.warn("Login rejected: account for '{}' is locked until {}", command.email(), status.lockedUntil());
 				throw new AccountLockedException(
 						"Account is temporarily locked due to too many failed attempts until: " + status.lockedUntil(),
@@ -138,6 +186,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			}
 		}
 		catch (AuthenticationException ex) {
+			auditRecorder.recordLoginFailure("password", command.email(), command.tenantId() != null ? command.tenantId().value() : null, "bad_credentials", ex.getMessage(), command.ipAddress(), startTime);
 			log.warn("Authentication failed for principal '{}': {}", command.email(), ex.getMessage());
 			if (loginAttemptTracker != null) {
 				loginAttemptTracker.recordFailedAttempt(command.email(), Instant.now());
@@ -153,6 +202,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 		if (userMfaRepository != null) {
 			Optional<UserMfa> mfaOpt = userMfaRepository.findByUserId(user.getId());
 			if (mfaOpt.isPresent() && mfaOpt.get().isEnabled()) {
+				auditRecorder.recordMfaRequired("password", command.tenantId() != null ? command.tenantId().value() : null, startTime);
 				String mfaChallengeToken = tokenProvider.createMfaChallengeToken(user.getId(), command.tenantId());
 				return TokenResponse.mfaChallenge(mfaChallengeToken);
 			}
@@ -201,6 +251,16 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			sessionRegistry.registerSession(session);
 		}
 
+		UUID resolvedTenant = effectiveAccess.tenantId() != null ? effectiveAccess.tenantId().value() : null;
+		auditRecorder.recordLoginSuccess("password", user.getEmail(), user.getId().value(), resolvedTenant, command.ipAddress(), startTime);
+		auditRecorder.publish(IamEvent.of(
+				IamEventTypes.SESSION_CREATED,
+				resolvedTenant,
+				user.getId().value(),
+				"SESSION",
+				Map.of("tokenId", tokenId, "ip", command.ipAddress() != null ? command.ipAddress() : "unknown"),
+				user.getEmail()));
+
 		UserProfileResponse profile = toUserProfileResponse(user, effectiveAccess);
 
 		return TokenResponse.of(
@@ -214,11 +274,13 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 	public TokenResponse refreshToken(RefreshTokenCommand command) {
 		Objects.requireNonNull(command, "RefreshTokenCommand must not be null.");
 
+		long startTime = System.nanoTime();
 		RefreshTokenClaims claims = tokenProvider.parseRefreshToken(command.refreshToken());
 
 		if (tokenRevocationPort != null && claims.tokenId() != null && tokenRevocationPort.isTokenRevoked(claims.tokenId())) {
 			log.warn("Detected refresh token reuse for user '{}', token ID '{}'. Invalidation initiated.", claims.userId(), claims.tokenId());
 			logoutAll(claims.userId(), claims.tenantId());
+			auditRecorder.recordLoginFailure("refresh_token", claims.userId().toString(), claims.tenantId() != null ? claims.tenantId().value() : null, "refresh_token_revoked", "Refresh token has been revoked.", null, startTime);
 			throw new AuthenticationException("Refresh token has been revoked.");
 		}
 
@@ -245,6 +307,9 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			tokenRevocationPort.revokeToken(claims.tokenId(), claims.expiresAt());
 		}
 
+		UUID refreshTenant = claims.tenantId() != null ? claims.tenantId().value() : null;
+		auditRecorder.recordLoginSuccess("refresh_token", user.getEmail(), user.getId().value(), refreshTenant, null, startTime);
+
 		UserProfileResponse profile = toUserProfileResponse(user, effectiveAccess);
 
 		return TokenResponse.of(
@@ -266,6 +331,13 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			sessionRegistry.findByTokenIdentifier(tokenIdentifier)
 					.ifPresent(s -> sessionRegistry.revokeSession(s.id()));
 		}
+		auditRecorder.publish(IamEvent.of(
+				IamEventTypes.SESSION_REVOKED,
+				null,
+				new UUID(0L, 0L),
+				"SESSION",
+				Map.of("tokenIdentifier", tokenIdentifier),
+				"anonymous"));
 	}
 
 	@Override
@@ -284,6 +356,13 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 				}
 			}
 		}
+		auditRecorder.publish(IamEvent.of(
+				IamEventTypes.SESSIONS_REVOKED_ALL,
+				tenantId != null ? tenantId.value() : null,
+				userId.value(),
+				"SESSION",
+				Map.of("userId", userId.value().toString()),
+				userId.toString()));
 	}
 
 	@Override
@@ -333,6 +412,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 	public TokenResponse switchTenant(SwitchTenantCommand command) {
 		Objects.requireNonNull(command, "SwitchTenantCommand must not be null.");
 
+		long startTime = System.nanoTime();
 		User user = userRepository.findById(new UserId(command.currentActor().userId()))
 				.orElseThrow(() -> new UserNotFoundException(new UserId(command.currentActor().userId())));
 
@@ -345,6 +425,7 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 
 		EffectiveAccess fullAccess = effectiveAccessResolver.resolve(user, null);
 		if (!user.isPlatformSuperAdmin() && !fullAccess.availableTenants().contains(command.targetTenantId())) {
+			auditRecorder.recordAccessDenied("tenant_switch_forbidden", null, command.targetTenantId().value(), user.getEmail(), "/api/v1/auth/switch-tenant", null);
 			throw new AccessDeniedException("User does not have access to tenant: " + command.targetTenantId().value());
 		}
 
@@ -356,6 +437,16 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 			newAccessToken = tokenProvider.createAccessToken(effectiveAccess);
 		}
 		String newRefreshToken = tokenProvider.createRefreshToken(user.getId(), command.targetTenantId());
+
+		String targetTenantStr = command.targetTenantId().value().toString();
+		auditRecorder.recordLoginSuccess("switch_tenant", user.getEmail(), user.getId().value(), command.targetTenantId().value(), null, startTime);
+		auditRecorder.publish(IamEvent.of(
+				IamEventTypes.LOGIN_SUCCESS,
+				command.targetTenantId().value(),
+				user.getId().value(),
+				"AUTH",
+				Map.of("action", "switch_tenant", "targetTenantId", targetTenantStr, "email", user.getEmail()),
+				user.getEmail()));
 
 
 		UserProfileResponse profile = toUserProfileResponse(user, effectiveAccess);

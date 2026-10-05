@@ -8,12 +8,16 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatusCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
+import io.github.edmaputra.iam.domain.event.IamEvent;
+import io.github.edmaputra.iam.domain.event.IamEventTypes;
 import io.github.edmaputra.iam.domain.exception.GroupNotFoundException;
 import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
@@ -45,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -364,5 +369,41 @@ class UserManagementServiceTest {
 		UserRoleAssignment assignment = securedService.assignRole(command);
 
 		assertThat(assignment.getTenantId()).isEqualTo(actorTenantId);
+	}
+
+	@Test
+	@DisplayName("Should publish audit events for user lifecycle")
+	void shouldPublishAuditEventsForUserLifecycle() {
+		EventPublisherPort publisher = mock(EventPublisherPort.class);
+		UserManagementService eventService = new UserManagementService(
+				userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository,
+				roleRepository, groupRepository, null, null, null, null, publisher);
+
+		when(userRepository.existsByEmail("new@test.org")).thenReturn(false);
+		when(passwordEncoder.encode("secret")).thenReturn("hashed");
+		when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
+
+		User created = eventService.createUser(new CreateUserCommand(
+				"new@test.org", "secret", "New User", false));
+
+		ArgumentCaptor<IamEvent> captor = ArgumentCaptor.forClass(IamEvent.class);
+		verify(publisher).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.USER_CREATED);
+
+		when(userRepository.findById(created.getId())).thenReturn(Optional.of(created));
+		eventService.updateUser(new UpdateUserCommand(
+				created.getId(), "Updated Name"));
+		verify(publisher, times(2)).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.USER_UPDATED);
+
+		eventService.changeUserStatus(new ChangeUserStatusCommand(
+				created.getId(), UserStatus.SUSPENDED));
+		verify(publisher, times(3)).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.USER_STATUS_CHANGED);
+
+		eventService.changeUserStatus(new ChangeUserStatusCommand(
+				created.getId(), UserStatus.DEACTIVATED));
+		verify(publisher, times(5)).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.USER_DEACTIVATED);
 	}
 }

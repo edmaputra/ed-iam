@@ -16,6 +16,7 @@ import io.github.edmaputra.iam.adapter.rest.UserController;
 import io.github.edmaputra.iam.application.port.in.ManageGroupUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageRoleUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
@@ -84,7 +85,8 @@ public class IamManagementAutoConfiguration {
 			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
 			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
 			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
-			ObjectProvider<CurrentActorProvider> currentActorProvider) {
+			ObjectProvider<CurrentActorProvider> currentActorProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
 		return new UserManagementService(
 				userRepository,
 				passwordEncoder,
@@ -95,7 +97,8 @@ public class IamManagementAutoConfiguration {
 				sessionRegistryProvider.getIfAvailable(),
 				tokenRevocationPortProvider.getIfAvailable(),
 				userMfaRepositoryProvider.getIfAvailable(),
-				currentActorProvider.getIfAvailable());
+				currentActorProvider.getIfAvailable(),
+				eventPublisherProvider.getIfAvailable());
 	}
 
 	/**
@@ -107,12 +110,14 @@ public class IamManagementAutoConfiguration {
 			UserRepository userRepository,
 			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
 			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
-			ObjectProvider<LoginAttemptTrackerPort> loginAttemptTrackerProvider) {
+			ObjectProvider<LoginAttemptTrackerPort> loginAttemptTrackerProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
 		return new SessionManagementService(
 				userRepository,
 				sessionRegistryProvider.getIfAvailable(),
 				tokenRevocationPortProvider.getIfAvailable(),
-				loginAttemptTrackerProvider.getIfAvailable());
+				loginAttemptTrackerProvider.getIfAvailable(),
+				eventPublisherProvider.getIfAvailable());
 	}
 
 
@@ -126,8 +131,9 @@ public class IamManagementAutoConfiguration {
 	@ConditionalOnMissingBean
 	public ManageRoleUseCase manageRoleUseCase(
 			RoleRepository roleRepository,
-			ObjectProvider<CurrentActorProvider> currentActorProvider) {
-		return new RoleManagementService(roleRepository, currentActorProvider.getIfAvailable());
+			ObjectProvider<CurrentActorProvider> currentActorProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
+		return new RoleManagementService(roleRepository, currentActorProvider.getIfAvailable(), eventPublisherProvider.getIfAvailable());
 	}
 
 	/**
@@ -149,14 +155,16 @@ public class IamManagementAutoConfiguration {
 			UserGroupMembershipRepository userGroupMembershipRepository,
 			RoleRepository roleRepository,
 			UserRepository userRepository,
-			ObjectProvider<CurrentActorProvider> currentActorProvider) {
+			ObjectProvider<CurrentActorProvider> currentActorProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
 		return new GroupManagementService(
 				groupRepository,
 				groupRoleAssignmentRepository,
 				userGroupMembershipRepository,
 				roleRepository,
 				userRepository,
-				currentActorProvider.getIfAvailable());
+				currentActorProvider.getIfAvailable(),
+				eventPublisherProvider.getIfAvailable());
 	}
 
 	/**

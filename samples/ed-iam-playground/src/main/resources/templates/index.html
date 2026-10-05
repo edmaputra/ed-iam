@@ -511,6 +511,9 @@
         <button id="tabBtnSessions" onclick="switchMgmtTab('sessions')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
           <i class="fa-solid fa-shield-halved"></i> Sessions &amp; Lockout
         </button>
+        <button id="tabBtnObservability" onclick="switchMgmtTab('observability')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-chart-line"></i> Observability &amp; SIEM Audit
+        </button>
       </div>
 
       <!-- TAB 1: USERS & LIFECYCLE -->
@@ -875,6 +878,155 @@
             <div id="adminLockoutResult" class="p-3 bg-slate-950 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto">
               // Click above to check status or unlock
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 7: OBSERVABILITY & SIEM AUDITING -->
+      <div id="panelObservability" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800">
+          <div>
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie text-indigo-400"></i> Observability &amp; SIEM Security Auditing
+              <span class="text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">Phase 4 Active</span>
+            </h3>
+            <p class="text-xs text-slate-400">Real-time Micrometer metrics counters/timers and in-memory SIEM security audit event stream.</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+              <input type="checkbox" id="observabilityAutoRefresh" checked class="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0">
+              <span class="text-[11px] text-slate-400">Auto-refresh (3s)</span>
+            </label>
+            <button onclick="refreshObservability()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition flex items-center gap-1.5 shadow">
+              <i class="fa-solid fa-rotate text-xs"></i> Refresh
+            </button>
+            <button onclick="clearAuditEvents()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition flex items-center gap-1.5">
+              <i class="fa-solid fa-trash-can text-xs"></i> Clear Events
+            </button>
+          </div>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Card 1: Auth Attempts -->
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-xs">
+              <span>Auth Attempts</span>
+              <i class="fa-solid fa-arrow-right-to-bracket text-indigo-400"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-2">
+              <span id="metricAuthAttemptsTotal" class="text-2xl font-bold font-mono text-white">0</span>
+              <span class="text-[11px] text-slate-400">total</span>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+              <span class="text-emerald-400"><i class="fa-solid fa-check mr-1"></i><span id="metricAuthAttemptsSuccess">0</span> pass</span>
+              <span class="text-rose-400"><i class="fa-solid fa-xmark mr-1"></i><span id="metricAuthAttemptsFailure">0</span> fail</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Auth Latency -->
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-xs">
+              <span>Auth Latency</span>
+              <i class="fa-solid fa-stopwatch text-indigo-400"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1">
+              <span id="metricAuthLatencyMean" class="text-2xl font-bold font-mono text-white">0</span>
+              <span class="text-xs text-slate-400 font-mono">ms mean</span>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+              <span class="text-slate-400">Max: <span id="metricAuthLatencyMax" class="font-mono text-slate-300">0</span> ms</span>
+              <span class="text-slate-400">Samples: <span id="metricAuthLatencySamples" class="font-mono text-slate-300">0</span></span>
+            </div>
+          </div>
+
+          <!-- Card 3: Token Validations -->
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-xs">
+              <span>Token Validations</span>
+              <i class="fa-solid fa-shield-halved text-indigo-400"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-2">
+              <span id="metricTokenValidations" class="text-2xl font-bold font-mono text-white">0</span>
+              <span class="text-[11px] text-slate-400">tokens</span>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+              <span class="text-slate-400">Avg: <span id="metricTokenMeanMs" class="font-mono text-slate-300">0</span> ms</span>
+              <span class="text-slate-400">Max: <span id="metricTokenMaxMs" class="font-mono text-slate-300">0</span> ms</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Access Denied -->
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-xs">
+              <span>Access Denials</span>
+              <i class="fa-solid fa-ban text-rose-400"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-2">
+              <span id="metricAccessDeniedTotal" class="text-2xl font-bold font-mono text-rose-400">0</span>
+              <span class="text-[11px] text-slate-400">blocked</span>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+              <span class="text-slate-400">Reasons: <span id="metricAccessDeniedReasonsCount" class="font-mono text-slate-300">0</span></span>
+              <span id="metricAccessDeniedTopReason" class="text-[10px] text-rose-300 truncate max-w-[120px]">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SIEM Audit Events Stream Table -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-list-check text-indigo-400"></i> SIEM Security Audit Events Stream
+              </span>
+              <span id="auditEventCountBadge" class="text-[11px] font-mono bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-full">0 events</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <label for="auditEventTypeFilter" class="text-slate-400 text-xs">Filter by Type:</label>
+              <select id="auditEventTypeFilter" onchange="refreshAuditEvents()" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                <option value="ALL">All Event Types</option>
+                <option value="LOGIN_SUCCESS">LOGIN_SUCCESS</option>
+                <option value="LOGIN_FAILED">LOGIN_FAILED</option>
+                <option value="ACCESS_DENIED">ACCESS_DENIED</option>
+                <option value="ROLE_CREATED">ROLE_CREATED</option>
+                <option value="ROLE_UPDATED">ROLE_UPDATED</option>
+                <option value="ROLE_DELETED">ROLE_DELETED</option>
+                <option value="ROLE_ASSIGNMENT_CREATED">ROLE_ASSIGNMENT_CREATED</option>
+                <option value="ROLE_ASSIGNMENT_REVOKED">ROLE_ASSIGNMENT_REVOKED</option>
+                <option value="USER_CREATED">USER_CREATED</option>
+                <option value="USER_UPDATED">USER_UPDATED</option>
+                <option value="USER_STATUS_CHANGED">USER_STATUS_CHANGED</option>
+                <option value="USER_DEACTIVATED">USER_DEACTIVATED</option>
+                <option value="GROUP_CREATED">GROUP_CREATED</option>
+                <option value="GROUP_DELETED">GROUP_DELETED</option>
+                <option value="GROUP_MEMBERSHIP_ADDED">GROUP_MEMBERSHIP_ADDED</option>
+                <option value="GROUP_MEMBERSHIP_REMOVED">GROUP_MEMBERSHIP_REMOVED</option>
+                <option value="SESSION_CREATED">SESSION_CREATED</option>
+                <option value="SESSION_REVOKED">SESSION_REVOKED</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Events Table -->
+          <div class="overflow-x-auto max-h-[380px] overflow-y-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="bg-slate-950/80 sticky top-0 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3">Time</th>
+                  <th class="py-2.5 px-3">Event Type</th>
+                  <th class="py-2.5 px-3">Tenant ID</th>
+                  <th class="py-2.5 px-3">Entity</th>
+                  <th class="py-2.5 px-3">Actor</th>
+                  <th class="py-2.5 px-3">Payload Details</th>
+                </tr>
+              </thead>
+              <tbody id="auditEventsTableBody" class="divide-y divide-slate-800/60 font-mono text-[11px] text-slate-300">
+                <tr>
+                  <td colspan="6" class="py-8 text-center text-slate-500 italic">No events captured yet. Trigger actions like login or scope queries to see events stream here.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1829,7 +1981,7 @@
 
     function switchMgmtTab(tab) {
       activeMgmtTab = tab;
-      const tabs = ['users', 'roles', 'groups', 'scopes', 'auth', 'sessions'];
+      const tabs = ['users', 'roles', 'groups', 'scopes', 'auth', 'sessions', 'observability'];
       tabs.forEach(t => {
         const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
         const panel = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
@@ -1845,6 +1997,7 @@
       if (tab === 'roles') refreshRoles();
       if (tab === 'groups') refreshGroups();
       if (tab === 'scopes') refreshScopeTree();
+      if (tab === 'observability') refreshObservability();
     }
 
     // --- Central API Call Helper ---
@@ -2986,6 +3139,130 @@
         setTimeout(() => { btn.innerHTML = originalText; }, 2000);
       });
     }
+
+    // =========================================================================
+    // Observability & SIEM Audit Dashboard JavaScript Controller
+    // =========================================================================
+    async function refreshObservability() {
+      await Promise.all([refreshMetrics(), refreshAuditEvents()]);
+    }
+
+    async function refreshMetrics() {
+      try {
+        const res = await fetch('/api/v1/playground/observability/metrics');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // 1. Auth metrics
+        const auth = data.auth || {};
+        const totalAttempts = auth.totalAttempts ?? 0;
+        const successAttempts = auth.successfulAttempts ?? 0;
+        const failedAttempts = auth.failedAttempts ?? 0;
+        const meanLatency = auth.meanLatencyMs ?? 0;
+        const maxLatency = auth.maxLatencyMs ?? 0;
+        const latencySamples = auth.latencySampleCount ?? 0;
+
+        document.getElementById('metricAuthAttemptsTotal').textContent = totalAttempts;
+        document.getElementById('metricAuthAttemptsSuccess').textContent = successAttempts;
+        document.getElementById('metricAuthAttemptsFailure').textContent = failedAttempts;
+        document.getElementById('metricAuthLatencyMean').textContent = meanLatency;
+        document.getElementById('metricAuthLatencyMax').textContent = maxLatency;
+        document.getElementById('metricAuthLatencySamples').textContent = latencySamples;
+
+        // 2. Token metrics
+        const token = data.token || {};
+        document.getElementById('metricTokenValidations').textContent = token.totalValidations ?? 0;
+        document.getElementById('metricTokenMeanMs').textContent = token.meanValidationMs ?? 0;
+        document.getElementById('metricTokenMaxMs').textContent = token.maxValidationMs ?? 0;
+
+        // 3. Access Denied metrics
+        const access = data.accessDenied || {};
+        document.getElementById('metricAccessDeniedTotal').textContent = access.totalDenied ?? 0;
+        const reasons = access.deniedByReason || {};
+        const reasonKeys = Object.keys(reasons);
+        document.getElementById('metricAccessDeniedReasonsCount').textContent = reasonKeys.length;
+        if (reasonKeys.length > 0) {
+          const topReason = reasonKeys.reduce((a, b) => reasons[a] > reasons[b] ? a : b);
+          document.getElementById('metricAccessDeniedTopReason').textContent = `${topReason} (${reasons[topReason]})`;
+        } else {
+          document.getElementById('metricAccessDeniedTopReason').textContent = '-';
+        }
+      } catch (err) {
+        console.error('Failed to refresh IAM metrics:', err);
+      }
+    }
+
+    async function refreshAuditEvents() {
+      try {
+        const filter = document.getElementById('auditEventTypeFilter')?.value || 'ALL';
+        const url = `/api/v1/playground/observability/events?eventType=${encodeURIComponent(filter)}&limit=100`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        const tbody = document.getElementById('auditEventsTableBody');
+        const badge = document.getElementById('auditEventCountBadge');
+        if (badge) badge.textContent = `${data.events?.length || 0} shown (${data.totalCaptured || 0} total)`;
+
+        if (!data.events || data.events.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-500 italic">No events found matching filter. Trigger an action (login, status change, or access denial) to view events.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = data.events.map(e => {
+          let badgeColor = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
+          if (e.eventType.includes('SUCCESS') || e.eventType.includes('CREATED')) {
+            badgeColor = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+          } else if (e.eventType.includes('FAILED') || e.eventType.includes('DENIED') || e.eventType.includes('DELETED')) {
+            badgeColor = 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+          } else if (e.eventType.includes('STATUS') || e.eventType.includes('UPDATED')) {
+            badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+          } else if (e.eventType.includes('SESSION')) {
+            badgeColor = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+          }
+
+          const timeStr = e.occurredAt ? new Date(e.occurredAt).toLocaleTimeString() : '-';
+          const tenantDisplay = e.tenantId ? (e.tenantId.substring(0, 8) + '...') : '<span class="text-slate-500">global</span>';
+          const entityDisplay = e.entityType ? `${e.entityType}:${(e.entityId ? e.entityId.substring(0, 8) + '...' : '')}` : '-';
+          const actorDisplay = e.actor || 'anonymous';
+          const payloadStr = e.payload ? JSON.stringify(e.payload) : '{}';
+
+          return `<tr class="hover:bg-slate-900/80 transition">
+            <td class="py-2 px-3 text-slate-400 whitespace-nowrap">${timeStr}</td>
+            <td class="py-2 px-3 whitespace-nowrap">
+              <span class="text-[10px] px-2 py-0.5 rounded-full border font-mono ${badgeColor}">${e.eventType}</span>
+            </td>
+            <td class="py-2 px-3 text-slate-400 whitespace-nowrap" title="${e.tenantId || 'global'}">${tenantDisplay}</td>
+            <td class="py-2 px-3 text-slate-300 whitespace-nowrap" title="${e.entityId || ''}">${entityDisplay}</td>
+            <td class="py-2 px-3 text-indigo-300 whitespace-nowrap" title="${actorDisplay}">${actorDisplay.length > 22 ? actorDisplay.substring(0, 20) + '...' : actorDisplay}</td>
+            <td class="py-2 px-3 text-slate-400 max-w-xs truncate" title="${payloadStr.replace(/"/g, '&quot;')}">${payloadStr}</td>
+          </tr>`;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to refresh audit events:', err);
+      }
+    }
+
+    async function clearAuditEvents() {
+      try {
+        const res = await fetch('/api/v1/playground/observability/events', { method: 'DELETE' });
+        if (res.ok) {
+          showToast('Audit events cleared successfully', 'info');
+          refreshObservability();
+        } else {
+          showToast('Failed to clear audit events', 'error');
+        }
+      } catch (err) {
+        showToast('Failed to clear audit events: ' + err.message, 'error');
+      }
+    }
+
+    // Auto-refresh interval (every 3s when Observability tab is active)
+    setInterval(() => {
+      const checkbox = document.getElementById('observabilityAutoRefresh');
+      if (activeMgmtTab === 'observability' && checkbox && checkbox.checked) {
+        refreshObservability();
+      }
+    }, 3000);
   </script>
 
   <!-- Active Sessions Modal -->

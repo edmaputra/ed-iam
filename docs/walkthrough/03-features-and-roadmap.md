@@ -108,7 +108,24 @@ This document outlines the operational capabilities available in the current rel
   * `POST /api/v1/auth/mfa/setup`: Generates new Base32 secret, `otpauth://` QR URI, and backup recovery codes.
   * `POST /api/v1/auth/mfa/activate`: Confirms code verification before permanently enabling MFA.
   * `POST /api/v1/auth/mfa/verify`: Validates MFA challenge token using either TOTP code or backup code.
-  * `POST /api/v1/auth/mfa/disable`: Disables MFA verified by TOTP code or user account password.
+### 2.8 Observability, Distributed Tracing & Security Auditing (Phase 4)
+* **OpenTelemetry Distributed Tracing & Native Metrics (`IamTelemetry`, `DefaultIamTelemetry`)**:
+  * Distributed tracing spans: `iam.auth.authenticate`, `iam.token.validate`, and `iam.security.check` with standard OpenTelemetry attributes (`iam.tenant_id`, `iam.auth.type`, `iam.user_id`, `iam.auth.success`, `iam.client_ip`).
+  * Micrometer metrics:
+    * `iam.auth.latency`: Timer measuring authentication latency across auth providers.
+    * `iam.token.validation.time`: Timer measuring JWT validation latency in `JwtAuthenticationFilter`.
+    * `iam.auth.attempts`: Counter tracking login attempts tagged with outcome (`success`/`failure`) and auth type.
+    * `iam.access.denied`: Counter tracking access denials tagged with reason (`missing_permission`, `invalid_token`, `expired_token`, `revoked_token`).
+* **Security Audit Event Publishing (`EventPublisherPort`, `SecurityAuditEventListener`)**:
+  * Standardized domain events (`IamEvent`) published for all security mutations and lifecycle transitions:
+    * Authentication: `LOGIN_SUCCESS`, `LOGIN_FAILED`, `ACCOUNT_LOCKED`, `ACCOUNT_UNLOCKED`
+    * Sessions: `SESSION_CREATED`, `SESSION_REVOKED`, `SESSIONS_REVOKED_ALL`
+    * Authorization: `ACCESS_DENIED`
+    * Role Lifecycle: `ROLE_CREATED`, `ROLE_MODIFIED`, `ROLE_DELETED`
+    * Group Lifecycle: `GROUP_CREATED`, `GROUP_UPDATED`, `GROUP_DELETED`
+    * User Lifecycle: `USER_CREATED`, `USER_UPDATED`, `USER_STATUS_CHANGED`, `USER_DEACTIVATED`
+    * Role Assignments: `ROLE_ASSIGNMENT_CREATED`, `ROLE_ASSIGNMENT_REVOKED`
+  * Structured SLF4J audit logger (`io.github.edmaputra.iam.audit`) outputting machine-parseable log entries for SIEM integration with tenant, actor, entity, and payload details. Configurable via `iam.security.audit.logging-enabled` and `iam.security.audit.logger-name`.
 
 ---
 
@@ -125,13 +142,15 @@ This document outlines the operational capabilities available in the current rel
   │  ✓ Interactive Multi-Tenant Clinical Playground        │
   │  ✓ Token Revocation & Session Management (Phase 3)     │
   │  ✓ RFC 6238 TOTP Multi-Factor Authentication (Phase 1) │
+  │  ✓ Passwordless Magic Link Authentication (Phase 1)    │
+  │  ✓ OpenTelemetry Tracing & Metrics (Phase 4)           │
+  │  ✓ Security Audit Event Trail Publisher (Phase 4)      │
   └───────────────────────────┬────────────────────────────┘
                               │
                               ▼
   ┌────────────────────────────────────────────────────────┐
   │                 PHASE 1: ENTERPRISE AUTH (IN PROGRESS) │
   │  - SAML 2.0 Web SSO Provider                           │
-  │  - Passwordless Magic Link Provider                    │
   └───────────────────────────┬────────────────────────────┘
                               │
                               ▼
@@ -139,13 +158,6 @@ This document outlines the operational capabilities available in the current rel
   │                 PHASE 2: ATTRIBUTE-BASED ACCESS (ABAC) │
   │  - Dynamic Policy Evaluator                            │
   │  - Contextual Constraints (time-of-day, network CIDR)  │
-  └───────────────────────────┬────────────────────────────┘
-                              │
-                              ▼
-  ┌────────────────────────────────────────────────────────┐
-  │                 PHASE 4: OBSERVABILITY & AUDIT         │
-  │  - OpenTelemetry Distributed Tracing & Metrics         │
-  │  - Security Event Audit Trail Publisher                │
   └───────────────────────────┬────────────────────────────┘
                               │
                               ▼
@@ -187,8 +199,8 @@ This document outlines the operational capabilities available in the current rel
 - [x] **Lifecycle Synchronization**: Automatic session termination and token revocation upon user account suspension (`SUSPENDED`/`DEACTIVATED`) or account deletion.
 
 #### Phase 4: Observability & Security Auditing
-- [ ] **OpenTelemetry Metrics & Tracing**: Native metrics for authentication latency, token validation times, and access denial counters.
-- [ ] **Security Audit Event Publisher**: Standardized Spring application event publication for all security mutations (`LOGIN_SUCCESS`, `LOGIN_FAILED`, `ROLE_MODIFIED`, `SCOPE_MOVED`).
+- [x] **OpenTelemetry Metrics & Tracing**: Native metrics for authentication latency (`iam.auth.latency`), token validation times (`iam.token.validation.time`), login attempts (`iam.auth.attempts`), and access denial counters (`iam.access.denied`), along with OpenTelemetry distributed tracing spans (`iam.auth.authenticate`, `iam.token.validate`, `iam.security.check`).
+- [x] **Security Audit Event Publisher**: Standardized Spring application event publication (`IamEvent`) via `EventPublisherPort` for all security mutations and lifecycle transitions (`LOGIN_SUCCESS`, `LOGIN_FAILED`, `ROLE_CREATED`, `ROLE_MODIFIED`, `ROLE_DELETED`, `USER_CREATED`, `USER_UPDATED`, `USER_STATUS_CHANGED`, `USER_DEACTIVATED`, `GROUP_CREATED`, `GROUP_UPDATED`, `GROUP_DELETED`, `ROLE_ASSIGNMENT_CREATED`, `ROLE_ASSIGNMENT_REVOKED`, `SESSION_CREATED`, `SESSION_REVOKED`, `SESSIONS_REVOKED_ALL`, `ACCESS_DENIED`, `ACCOUNT_LOCKED`, `ACCOUNT_UNLOCKED`), with structured SLF4J audit logging (`SecurityAuditEventListener`).
 
 #### Phase 5: Distribution & Developer Experience
 - [x] **GitHub Actions Automated CI/CD**: Automated testing across Java 25.

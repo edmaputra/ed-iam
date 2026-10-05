@@ -32,12 +32,25 @@ import io.github.edmaputra.iam.domain.model.UserMfa;
 import io.github.edmaputra.iam.domain.model.UserStatus;
 import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
+import io.github.edmaputra.iam.adapter.security.audit.SecurityAuditRecorder;
+import io.github.edmaputra.iam.adapter.security.telemetry.IamTelemetry;
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
+import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
+import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
+import io.github.edmaputra.iam.domain.event.IamEvent;
+import io.github.edmaputra.iam.domain.event.IamEventTypes;
+import io.github.edmaputra.iam.domain.exception.AccountLockedException;
+import io.github.edmaputra.iam.domain.model.LockoutStatus;
+import io.github.edmaputra.iam.domain.model.UserSession;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -276,41 +289,37 @@ class AuthenticationServiceTest {
 	@Test
 	@DisplayName("Should block login if account is locked by brute-force tracker")
 	void shouldBlockLoginWhenLocked() {
-		io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort tracker =
-				mock(io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort.class);
-		java.time.Instant lockedUntil = java.time.Instant.now().plusSeconds(600);
+		LoginAttemptTrackerPort tracker = mock(LoginAttemptTrackerPort.class);
+		Instant lockedUntil = Instant.now().plusSeconds(600);
 		when(tracker.getLockoutStatus("locked@clinic.org"))
-				.thenReturn(io.github.edmaputra.iam.domain.model.LockoutStatus.locked(5, lockedUntil));
+				.thenReturn(LockoutStatus.locked(5, lockedUntil));
 
 		AuthenticationService serviceWithTracker = new AuthenticationService(
 				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
-				tracker, null, null, io.github.edmaputra.iam.adapter.security.session.SessionProperties.defaultProperties());
+				tracker, null, null, SessionProperties.defaultProperties());
 
 		LoginCommand command = new LoginCommand("locked@clinic.org", "Pass123!", null);
 
 		assertThatThrownBy(() -> serviceWithTracker.login(command))
-				.isInstanceOf(io.github.edmaputra.iam.domain.exception.AccountLockedException.class)
+				.isInstanceOf(AccountLockedException.class)
 				.hasMessageContaining("temporarily locked");
 	}
 
 	@Test
 	@DisplayName("Should enforce concurrent session limit and terminate oldest session")
 	void shouldTerminateOldestSessionOnLimit() {
-		io.github.edmaputra.iam.application.port.out.SessionRegistryPort registry =
-				mock(io.github.edmaputra.iam.application.port.out.SessionRegistryPort.class);
-		io.github.edmaputra.iam.application.port.out.TokenRevocationPort revocation =
-				mock(io.github.edmaputra.iam.application.port.out.TokenRevocationPort.class);
+		SessionRegistryPort registry = mock(SessionRegistryPort.class);
+		TokenRevocationPort revocation = mock(TokenRevocationPort.class);
 
-		io.github.edmaputra.iam.adapter.security.session.SessionProperties props =
-				new io.github.edmaputra.iam.adapter.security.session.SessionProperties(
-						1, io.github.edmaputra.iam.adapter.security.session.SessionProperties.SessionLimitStrategy.TERMINATE_OLDEST, 5, 900);
+		SessionProperties props = new SessionProperties(
+				1, SessionProperties.SessionLimitStrategy.TERMINATE_OLDEST, 5, 900);
 
 		AuthenticationService serviceWithSession = new AuthenticationService(
 				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
 				null, registry, revocation, props);
 
 		UserId userId = UserId.generate();
-		User user = new User(userId, "test@clinic.org", "hash", "Test User", io.github.edmaputra.iam.domain.model.UserStatus.ACTIVE, false, java.time.Instant.now(), java.time.Instant.now());
+		User user = new User(userId, "test@clinic.org", "hash", "Test User", UserStatus.ACTIVE, false, Instant.now(), Instant.now());
 		AuthenticatedIdentity identity = new AuthenticatedIdentity(userId, "test@clinic.org", "Test User", false, ProviderType.LOCAL);
 		EffectiveAccess access = new EffectiveAccess(userId, "test@clinic.org", null, false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
 
@@ -320,32 +329,30 @@ class AuthenticationServiceTest {
 		when(tokenProvider.createAccessToken(access)).thenReturn("new-token");
 		when(tokenProvider.createRefreshToken(user.getId(), null)).thenReturn("new-refresh-token");
 
-		io.github.edmaputra.iam.domain.model.UserSession existingSession = io.github.edmaputra.iam.domain.model.UserSession.create(
+		UserSession existingSession = UserSession.create(
 				userId, null, "old-token-jti", 3600, "127.0.0.1", "Old-Agent");
-		when(registry.findActiveSessions(userId, null)).thenReturn(java.util.List.of(existingSession));
+		when(registry.findActiveSessions(userId, null)).thenReturn(List.of(existingSession));
 
 		TokenResponse response = serviceWithSession.login(new LoginCommand("test@clinic.org", "Pass123!", null));
 
 		assertThat(response.accessToken()).isNotNull();
 		verify(registry).revokeSession(existingSession.id());
 		verify(revocation).revokeToken(org.mockito.ArgumentMatchers.eq("old-token-jti"), any());
-		verify(registry).registerSession(any(io.github.edmaputra.iam.domain.model.UserSession.class));
+		verify(registry).registerSession(any(UserSession.class));
 	}
 
 	@Test
 	@DisplayName("Should handle logout and logout-all")
 	void shouldHandleLogoutAndLogoutAll() {
-		io.github.edmaputra.iam.application.port.out.SessionRegistryPort registry =
-				mock(io.github.edmaputra.iam.application.port.out.SessionRegistryPort.class);
-		io.github.edmaputra.iam.application.port.out.TokenRevocationPort revocation =
-				mock(io.github.edmaputra.iam.application.port.out.TokenRevocationPort.class);
+		SessionRegistryPort registry = mock(SessionRegistryPort.class);
+		TokenRevocationPort revocation = mock(TokenRevocationPort.class);
 
 		AuthenticationService serviceWithSession = new AuthenticationService(
 				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
-				null, registry, revocation, io.github.edmaputra.iam.adapter.security.session.SessionProperties.defaultProperties());
+				null, registry, revocation, SessionProperties.defaultProperties());
 
 		UserId userId = UserId.generate();
-		io.github.edmaputra.iam.domain.model.UserSession session = io.github.edmaputra.iam.domain.model.UserSession.create(
+		UserSession session = UserSession.create(
 				userId, null, "logout-jti", 3600, null, null);
 		when(registry.findByTokenIdentifier("logout-jti")).thenReturn(Optional.of(session));
 
@@ -385,6 +392,88 @@ class AuthenticationServiceTest {
 		assertThat(response.mfaRequired()).isTrue();
 		assertThat(response.mfaToken()).isEqualTo("mfa-challenge-jwt");
 		assertThat(response.accessToken()).isNull();
+	}
+
+	@Test
+	@DisplayName("Should record telemetry and publish audit events on successful and failed login")
+	void shouldRecordTelemetryAndPublishAuditEvents() {
+		IamTelemetry telemetry = mock(IamTelemetry.class);
+		EventPublisherPort publisher = mock(EventPublisherPort.class);
+
+		AuthenticationService serviceWithTelemetry = new AuthenticationService(
+				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
+				null, null, null, SessionProperties.defaultProperties(),
+				null, telemetry, publisher);
+
+		UserId userId = UserId.generate();
+		User user = new User(userId, "audit@clinic.org", "hash", "Audit User", UserStatus.ACTIVE, false, Instant.now(), Instant.now());
+		AuthenticatedIdentity identity = new AuthenticatedIdentity(userId, "audit@clinic.org", "Audit User", false, ProviderType.LOCAL);
+		EffectiveAccess effectiveAccess = new EffectiveAccess(userId, "audit@clinic.org", null, false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+
+		when(authRouter.authenticate(any(PasswordAuthCredentials.class))).thenReturn(identity);
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(effectiveAccessResolver.resolve(user, null)).thenReturn(effectiveAccess);
+		when(tokenProvider.createAccessToken(any(), any())).thenReturn("access-token-123");
+		when(tokenProvider.createRefreshToken(any(), any())).thenReturn("refresh-token-123");
+
+		TokenResponse response = serviceWithTelemetry.login(LoginCommand.of("audit@clinic.org", "Secret123!"));
+		assertThat(response.accessToken()).isEqualTo("access-token-123");
+
+		verify(telemetry).recordAuthenticationLatency(eq("password"), eq("success"), any(), any());
+		verify(telemetry).recordAuthenticationAttempt(eq("password"), eq("success"), any());
+		verify(publisher, atLeastOnce()).publish(argThat(event ->
+				event.eventType().equals(IamEventTypes.LOGIN_SUCCESS) &&
+						event.actor().equals("audit@clinic.org")));
+
+		// Now test failure
+		when(authRouter.authenticate(any(PasswordAuthCredentials.class)))
+				.thenThrow(new AuthenticationException("Bad credentials"));
+
+		assertThatThrownBy(() -> serviceWithTelemetry.login(LoginCommand.of("fail@clinic.org", "wrong")))
+				.isInstanceOf(AuthenticationException.class);
+
+		verify(telemetry).recordAuthenticationLatency(eq("password"), eq("failure"), any(), any());
+		verify(telemetry).recordAuthenticationAttempt(eq("password"), eq("failure"), any());
+		verify(telemetry).recordAccessDenied(eq("bad_credentials"), any(), any(), eq("fail@clinic.org"));
+		verify(publisher).publish(argThat(event ->
+				event.eventType().equals(IamEventTypes.LOGIN_FAILED) &&
+						event.actor().equals("fail@clinic.org")));
+	}
+
+	@Test
+	@DisplayName("Should use SecurityAuditRecorder directly on login success and failure")
+	void shouldUseSecurityAuditRecorderDirectly() {
+		SecurityAuditRecorder recorder = mock(SecurityAuditRecorder.class);
+
+		AuthenticationService service = new AuthenticationService(
+				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
+				null, null, null, SessionProperties.defaultProperties(),
+				null, recorder);
+
+		UserId userId = UserId.generate();
+		User user = new User(userId, "rec@clinic.org", "hash", "Recorder User", UserStatus.ACTIVE, false, Instant.now(), Instant.now());
+		AuthenticatedIdentity identity = new AuthenticatedIdentity(userId, "rec@clinic.org", "Recorder User", false, ProviderType.LOCAL);
+		EffectiveAccess effectiveAccess = new EffectiveAccess(userId, "rec@clinic.org", null, false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+
+		when(authRouter.authenticate(any(PasswordAuthCredentials.class))).thenReturn(identity);
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(effectiveAccessResolver.resolve(user, null)).thenReturn(effectiveAccess);
+		when(tokenProvider.createAccessToken(any(), any())).thenReturn("access-token-rec");
+		when(tokenProvider.createRefreshToken(any(), any())).thenReturn("refresh-token-rec");
+
+		TokenResponse response = service.login(LoginCommand.of("rec@clinic.org", "Secret123!"));
+		assertThat(response.accessToken()).isEqualTo("access-token-rec");
+		assertThat(response.refreshToken()).isEqualTo("refresh-token-rec");
+
+		verify(recorder).recordLoginSuccess(eq("password"), eq("rec@clinic.org"), eq(userId.value()), eq(null), any(), any(Long.class));
+
+		when(authRouter.authenticate(any(PasswordAuthCredentials.class)))
+				.thenThrow(new AuthenticationException("Invalid password"));
+
+		assertThatThrownBy(() -> service.login(LoginCommand.of("fail-rec@clinic.org", "bad")))
+				.isInstanceOf(AuthenticationException.class);
+
+		verify(recorder).recordLoginFailure(eq("password"), eq("fail-rec@clinic.org"), eq(null), eq("bad_credentials"), eq("Invalid password"), any(), any(Long.class));
 	}
 }
 

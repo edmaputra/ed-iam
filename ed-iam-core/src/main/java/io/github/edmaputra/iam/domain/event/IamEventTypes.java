@@ -20,6 +20,7 @@ public final class IamEventTypes {
 	// Role Events
 	public static final String ROLE_CREATED = "ROLE_CREATED";
 	public static final String ROLE_UPDATED = "ROLE_UPDATED";
+	public static final String ROLE_MODIFIED = "ROLE_MODIFIED";
 	public static final String ROLE_DELETED = "ROLE_DELETED";
 
 	// Scope Events
@@ -45,5 +46,8 @@ public final class IamEventTypes {
 	public static final String SESSIONS_REVOKED_ALL = "SESSIONS_REVOKED_ALL";
 	public static final String ACCOUNT_LOCKED = "ACCOUNT_LOCKED";
 	public static final String ACCOUNT_UNLOCKED = "ACCOUNT_UNLOCKED";
+	public static final String LOGIN_SUCCESS = "LOGIN_SUCCESS";
+	public static final String LOGIN_FAILED = "LOGIN_FAILED";
+	public static final String ACCESS_DENIED = "ACCESS_DENIED";
 }
 
