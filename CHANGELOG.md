@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-04
+
+### Security
+- **JWT Cryptographic Hardening & Claim Validation**:
+  - Enforced mandatory, non-blank secret key with a minimum 256-bit (32 bytes) requirement for HMAC-SHA256 in `JwtProperties`, eliminating insecure default secret fallback ([#23](https://github.com/edmaputra/ed-iam/pull/23)).
+  - Added configurable token issuer (`iss`) and audience (`aud`) verification with safe defaults (`ed-iam`, `ed-iam-api`), enforcing validation during token parsing in `JwtTokenProvider` ([#23](https://github.com/edmaputra/ed-iam/pull/23)).
+  - Embedded unique token identifier (`jti`), `iss`, and `aud` claims across access tokens, refresh tokens, and MFA challenge tokens ([#23](https://github.com/edmaputra/ed-iam/pull/23)).
+  - Escaped control characters, quotes, and backslashes in unauthorized error JSON responses within `JwtAuthenticationFilter` to prevent JSON injection ([#24](https://github.com/edmaputra/ed-iam/pull/24)).
+- **Account Enumeration & Timing Side-Channel Defense**:
+  - Implemented constant-time password verification in `LocalPasswordAuthProvider` using a pre-computed dummy BCrypt hash (`DUMMY_BCRYPT_HASH`) when user does not exist or has no local password hash, defeating timing side-channel probes ([#26](https://github.com/edmaputra/ed-iam/pull/26)).
+  - Standardized generic `"Invalid credentials."` error responses across missing user, missing password hash, and invalid password scenarios to eliminate account enumeration ([#26](https://github.com/edmaputra/ed-iam/pull/26)).
+  - Deferred account status verification (`isSuspended()`, `isDeactivated()`) until after credentials are authenticated, preventing attackers from probing account states without valid credentials ([#26](https://github.com/edmaputra/ed-iam/pull/26)).
+- **Refresh Token Rotation & Reuse Detection**:
+  - Implemented single-use Refresh Token Rotation (RTR) revoking consumed refresh tokens upon new token pair issuance ([#25](https://github.com/edmaputra/ed-iam/pull/25)).
+  - Added token reuse detection in `AuthenticationService`: replaying an already-revoked refresh token immediately invalidates all active sessions for the user (`logoutAll`) and rejects the request ([#25](https://github.com/edmaputra/ed-iam/pull/25)).
+- **Cross-Tenant Authorization & Privilege Escalation Guards**:
+  - Enforced tenant boundary checks across `UserManagementService`, `GroupManagementService`, `RoleManagementService`, and `ScopeHierarchyService` via `CurrentActorProvider`, blocking cross-tenant entity modification or access by non-superadmins ([#25](https://github.com/edmaputra/ed-iam/pull/25)).
+  - Restricted platform superadmin user creation exclusively to existing platform superadmins in `UserManagementService.createUser()` ([#24](https://github.com/edmaputra/ed-iam/pull/24)).
+  - Blocked modification and deletion of immutable system roles in `RoleManagementService` ([#24](https://github.com/edmaputra/ed-iam/pull/24)).
+- **Input Bounding & Information Disclosure Protection**:
+  - Enforced 128-character maximum length constraint on passwords in `LoginRequest` and `UserManagementDtos.CreateUserRequest` to protect BCrypt hashing routines against resource exhaustion / DoS attacks ([#24](https://github.com/edmaputra/ed-iam/pull/24)).
+  - Masked rejected values for sensitive fields (`password`, `secret`, `token`, `apikey`, `credential`, `privatekey`) with `[PROTECTED]` in validation error responses within `IamExceptionHandler` ([#24](https://github.com/edmaputra/ed-iam/pull/24)).
+  - Added centralized catch-all handler in `IamExceptionHandler` returning generic RFC 9457 HTTP 500 Problem Details to prevent internal exception leakage ([#24](https://github.com/edmaputra/ed-iam/pull/24)).
+- **Authentication & Security Audit Logging**:
+  - Added structured SLF4J security audit logs in `AuthenticationService` and `LocalPasswordAuthProvider` for successful logins, failed attempts, account lockouts, suspended/deactivated account rejections, and refresh token reuse events ([#26](https://github.com/edmaputra/ed-iam/pull/26)).
+
+### Added
+- Added `tokenId` property and `optionalTokenId()` accessor to `RefreshTokenClaims` in `ed-iam-core` ([#23](https://github.com/edmaputra/ed-iam/pull/23)).
+- Added Spring Security `SecurityFilterChain` integration guide and architecture best practices in `docs/walkthrough/modules/02-resource-server.md` ([#27](https://github.com/edmaputra/ed-iam/pull/27)).
+- Added explicit `@Transactional` and `@Transactional(readOnly = true)` annotations across management services to ensure transactional consistency ([#25](https://github.com/edmaputra/ed-iam/pull/25)).
+- Added environment variable overrides (`IAM_JWT_SECRET`, `IAM_JWT_ISSUER`, `IAM_JWT_AUDIENCE`) and security advisory notes in Playground configuration ([#23](https://github.com/edmaputra/ed-iam/pull/23)).
+
+---
+
 ## [0.7.0] - 2026-10-02
 
 ### Added
@@ -185,7 +219,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automated CI/CD**:
   - GitHub Actions automated release pipeline publishing signed artifacts to Maven Central via Sonatype Central Portal.
 
-[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/edmaputra/ed-iam/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/edmaputra/ed-iam/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/edmaputra/ed-iam/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/edmaputra/ed-iam/compare/v0.4.0...v0.5.0
