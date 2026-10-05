@@ -21,10 +21,15 @@ import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
 import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
+import io.github.edmaputra.iam.application.service.GroupLifecycleService;
 import io.github.edmaputra.iam.application.service.GroupManagementService;
+import io.github.edmaputra.iam.application.service.GroupRoleAssignmentService;
 import io.github.edmaputra.iam.application.service.RoleManagementService;
 import io.github.edmaputra.iam.application.service.SessionManagementService;
+import io.github.edmaputra.iam.application.service.UserAccountService;
+import io.github.edmaputra.iam.application.service.UserGroupMembershipService;
 import io.github.edmaputra.iam.application.service.UserManagementService;
+import io.github.edmaputra.iam.application.service.UserRoleAssignmentService;
 
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
@@ -75,30 +80,61 @@ public class IamManagementAutoConfiguration {
 	 */
 	@Bean
 	@ConditionalOnMissingBean
-	public ManageUserUseCase manageUserUseCase(
+	public UserAccountService userAccountService(
 			UserRepository userRepository,
 			PasswordEncoderPort passwordEncoder,
-			UserRoleAssignmentRepository userRoleAssignmentRepository,
-			UserGroupMembershipRepository userGroupMembershipRepository,
-			RoleRepository roleRepository,
-			GroupRepository groupRepository,
 			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
 			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
 			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
 			ObjectProvider<CurrentActorProvider> currentActorProvider,
 			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
-		return new UserManagementService(
+		return new UserAccountService(
 				userRepository,
 				passwordEncoder,
-				userRoleAssignmentRepository,
-				userGroupMembershipRepository,
-				roleRepository,
-				groupRepository,
 				sessionRegistryProvider.getIfAvailable(),
 				tokenRevocationPortProvider.getIfAvailable(),
 				userMfaRepositoryProvider.getIfAvailable(),
 				currentActorProvider.getIfAvailable(),
 				eventPublisherProvider.getIfAvailable());
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public UserRoleAssignmentService userRoleAssignmentService(
+			UserRepository userRepository,
+			RoleRepository roleRepository,
+			UserRoleAssignmentRepository userRoleAssignmentRepository,
+			ObjectProvider<CurrentActorProvider> currentActorProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
+		return new UserRoleAssignmentService(
+				userRepository,
+				roleRepository,
+				userRoleAssignmentRepository,
+				currentActorProvider.getIfAvailable(),
+				eventPublisherProvider.getIfAvailable());
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public UserGroupMembershipService userGroupMembershipService(
+			UserRepository userRepository,
+			GroupRepository groupRepository,
+			UserGroupMembershipRepository userGroupMembershipRepository,
+			ObjectProvider<CurrentActorProvider> currentActorProvider) {
+		return new UserGroupMembershipService(
+				userRepository,
+				groupRepository,
+				userGroupMembershipRepository,
+				currentActorProvider.getIfAvailable());
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public ManageUserUseCase manageUserUseCase(
+			UserAccountService userAccountService,
+			UserRoleAssignmentService userRoleAssignmentService,
+			UserGroupMembershipService userGroupMembershipService) {
+		return new UserManagementService(userAccountService, userRoleAssignmentService, userGroupMembershipService);
 	}
 
 	/**
@@ -149,22 +185,39 @@ public class IamManagementAutoConfiguration {
 	 */
 	@Bean
 	@ConditionalOnMissingBean
-	public ManageGroupUseCase manageGroupUseCase(
+	public GroupLifecycleService groupLifecycleService(
 			GroupRepository groupRepository,
-			GroupRoleAssignmentRepository groupRoleAssignmentRepository,
-			UserGroupMembershipRepository userGroupMembershipRepository,
-			RoleRepository roleRepository,
-			UserRepository userRepository,
 			ObjectProvider<CurrentActorProvider> currentActorProvider,
 			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
-		return new GroupManagementService(
+		return new GroupLifecycleService(
 				groupRepository,
-				groupRoleAssignmentRepository,
-				userGroupMembershipRepository,
-				roleRepository,
-				userRepository,
 				currentActorProvider.getIfAvailable(),
 				eventPublisherProvider.getIfAvailable());
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public GroupRoleAssignmentService groupRoleAssignmentService(
+			GroupRepository groupRepository,
+			RoleRepository roleRepository,
+			GroupRoleAssignmentRepository groupRoleAssignmentRepository,
+			ObjectProvider<CurrentActorProvider> currentActorProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
+		return new GroupRoleAssignmentService(
+				groupRepository,
+				roleRepository,
+				groupRoleAssignmentRepository,
+				currentActorProvider.getIfAvailable(),
+				eventPublisherProvider.getIfAvailable());
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public ManageGroupUseCase manageGroupUseCase(
+			GroupLifecycleService groupLifecycleService,
+			GroupRoleAssignmentService groupRoleAssignmentService,
+			UserGroupMembershipService userGroupMembershipService) {
+		return new GroupManagementService(groupLifecycleService, groupRoleAssignmentService, userGroupMembershipService);
 	}
 
 	/**

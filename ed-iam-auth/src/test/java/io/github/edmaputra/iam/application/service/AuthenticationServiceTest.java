@@ -475,5 +475,44 @@ class AuthenticationServiceTest {
 
 		verify(recorder).recordLoginFailure(eq("password"), eq("fail-rec@clinic.org"), eq(null), eq("bad_credentials"), eq("Invalid password"), any(), any(Long.class));
 	}
+
+	@Test
+	@DisplayName("Should successfully login when instantiated via canonical decomposed constructor")
+	void shouldLoginUsingCanonicalConstructor() {
+		CredentialAuthService credentialAuthService = mock(CredentialAuthService.class);
+		UserTokenService userTokenService = mock(UserTokenService.class);
+		AuthSessionService authSessionService = mock(AuthSessionService.class);
+		SecurityAuditRecorder recorder = mock(SecurityAuditRecorder.class);
+
+		AuthenticationService decomposedService = new AuthenticationService(
+				userRepository,
+				credentialAuthService,
+				userTokenService,
+				authSessionService,
+				recorder);
+
+		User user = User.create("decomposed@clinic.org", "hash", "Decomposed User", false);
+		UserId userId = user.getId();
+		AuthenticatedIdentity identity = new AuthenticatedIdentity(userId, "decomposed@clinic.org", "Decomposed User", false, ProviderType.LOCAL);
+
+		when(credentialAuthService.authenticatePassword(eq("decomposed@clinic.org"), eq("Pass123!"), any(), eq("127.0.0.1"), any(Long.class)))
+				.thenReturn(identity);
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(userTokenService.checkMfaRequired(eq(user), any(), eq("password"), any(Long.class))).thenReturn(Optional.empty());
+
+		UserProfileResponse profile = new UserProfileResponse(userId.value(), "decomposed@clinic.org", "Decomposed User", null, false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+		EffectiveAccess access = new EffectiveAccess(userId, "decomposed@clinic.org", null, false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+		UserTokenService.TokenIssueResult issueResult = new UserTokenService.TokenIssueResult("acc-token", "ref-token", "jti-1", profile, access);
+
+		when(userTokenService.issueTokens(user, null)).thenReturn(issueResult);
+		when(userTokenService.getAccessTokenExpirationSeconds()).thenReturn(3600L);
+
+		TokenResponse response = decomposedService.login(new LoginCommand("decomposed@clinic.org", "Pass123!", null, "127.0.0.1", "test-agent"));
+
+		assertThat(response.accessToken()).isEqualTo("acc-token");
+		assertThat(response.refreshToken()).isEqualTo("ref-token");
+		verify(authSessionService).registerSession(eq(userId), any(), eq("jti-1"), eq(3600L), eq("127.0.0.1"), eq("test-agent"));
+		verify(recorder).recordLoginSuccess(eq("password"), eq("decomposed@clinic.org"), eq(userId.value()), any(), any(), any(Long.class));
+	}
 }
 

@@ -406,4 +406,35 @@ class UserManagementServiceTest {
 		verify(publisher, times(5)).publish(captor.capture());
 		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.USER_DEACTIVATED);
 	}
+
+	@Test
+	@DisplayName("Should construct facade with sub-services and delegate successfully")
+	void shouldDelegateToSubServicesWhenConstructedWithSpecializedServices() {
+		UserAccountService accountService = mock(UserAccountService.class);
+		UserRoleAssignmentService roleAssignmentService = mock(UserRoleAssignmentService.class);
+		UserGroupMembershipService groupMembershipService = mock(UserGroupMembershipService.class);
+
+		UserManagementService facade = new UserManagementService(accountService, roleAssignmentService, groupMembershipService);
+
+		UserId userId = UserId.generate();
+		User user = User.create("facade@test.org", "hash", "Facade User", false);
+		when(accountService.getUserById(userId)).thenReturn(user);
+
+		User result = facade.getUserById(userId);
+		assertThat(result).isSameAs(user);
+		verify(accountService).getUserById(userId);
+
+		// Null validations
+		assertThatThrownBy(() -> new UserManagementService(null, roleAssignmentService, groupMembershipService))
+				.isInstanceOf(NullPointerException.class)
+				.hasMessageContaining("UserAccountService must not be null.");
+
+		assertThatThrownBy(() -> new UserManagementService(accountService, null, groupMembershipService))
+				.isInstanceOf(NullPointerException.class)
+				.hasMessageContaining("UserRoleAssignmentService must not be null.");
+
+		assertThatThrownBy(() -> new UserManagementService(accountService, roleAssignmentService, null))
+				.isInstanceOf(NullPointerException.class)
+				.hasMessageContaining("UserGroupMembershipService must not be null.");
+	}
 }

@@ -44,11 +44,15 @@ import io.github.edmaputra.iam.application.port.out.MagicLinkNotifierPort;
 import io.github.edmaputra.iam.application.port.out.MagicLinkTokenStorePort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
+import io.github.edmaputra.iam.application.service.AuthSessionService;
 import io.github.edmaputra.iam.application.service.AuthenticationService;
+import io.github.edmaputra.iam.application.service.CredentialAuthService;
 import io.github.edmaputra.iam.application.service.EffectiveAccessResolver;
 import io.github.edmaputra.iam.application.service.FederatedIdentityService;
+import io.github.edmaputra.iam.application.service.MagicLinkDispatchService;
 import io.github.edmaputra.iam.application.service.MagicLinkService;
 import io.github.edmaputra.iam.application.service.MfaService;
+import io.github.edmaputra.iam.application.service.UserTokenService;
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
@@ -140,28 +144,57 @@ public class IamAuthAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	public AuthenticateUserUseCase authenticateUserUseCase(
+	public CredentialAuthService credentialAuthService(
 			AuthenticationProviderRouter authRouter,
-			UserRepository userRepository,
+			ObjectProvider<LoginAttemptTrackerPort> loginAttemptTrackerProvider,
+			ObjectProvider<SecurityAuditRecorder> auditRecorderProvider) {
+		return new CredentialAuthService(
+				authRouter,
+				loginAttemptTrackerProvider.getIfAvailable(),
+				auditRecorderProvider.getIfAvailable(SecurityAuditRecorder::noop));
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public UserTokenService userTokenService(
 			EffectiveAccessResolver effectiveAccessResolver,
 			TokenProviderPort tokenProvider,
-			ObjectProvider<LoginAttemptTrackerPort> loginAttemptTrackerProvider,
+			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
+			ObjectProvider<SecurityAuditRecorder> auditRecorderProvider) {
+		return new UserTokenService(
+				effectiveAccessResolver,
+				tokenProvider,
+				userMfaRepositoryProvider.getIfAvailable(),
+				auditRecorderProvider.getIfAvailable(SecurityAuditRecorder::noop));
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public AuthSessionService authSessionService(
 			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
 			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
 			ObjectProvider<SessionProperties> sessionPropertiesProvider,
-			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
 			ObjectProvider<SecurityAuditRecorder> auditRecorderProvider) {
-
-		return new AuthenticationService(
-				authRouter,
-				userRepository,
-				effectiveAccessResolver,
-				tokenProvider,
-				loginAttemptTrackerProvider.getIfAvailable(),
+		return new AuthSessionService(
 				sessionRegistryProvider.getIfAvailable(),
 				tokenRevocationPortProvider.getIfAvailable(),
 				sessionPropertiesProvider.getIfAvailable(SessionProperties::defaultProperties),
-				userMfaRepositoryProvider.getIfAvailable(),
+				auditRecorderProvider.getIfAvailable(SecurityAuditRecorder::noop));
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public AuthenticateUserUseCase authenticateUserUseCase(
+			UserRepository userRepository,
+			CredentialAuthService credentialAuthService,
+			UserTokenService userTokenService,
+			AuthSessionService authSessionService,
+			ObjectProvider<SecurityAuditRecorder> auditRecorderProvider) {
+		return new AuthenticationService(
+				userRepository,
+				credentialAuthService,
+				userTokenService,
+				authSessionService,
 				auditRecorderProvider.getIfAvailable(SecurityAuditRecorder::noop));
 	}
 
@@ -210,31 +243,34 @@ public class IamAuthAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
+	public MagicLinkDispatchService magicLinkDispatchService(
+			MagicLinkProperties magicLinkProperties,
+			MagicLinkTokenStorePort magicLinkTokenStore,
+			MagicLinkNotifierPort magicLinkNotifier) {
+		return new MagicLinkDispatchService(
+				magicLinkProperties,
+				magicLinkTokenStore,
+				magicLinkNotifier);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
 	public ManageMagicLinkUseCase manageMagicLinkUseCase(
 			MagicLinkProperties magicLinkProperties,
 			UserRepository userRepository,
+			MagicLinkDispatchService magicLinkDispatchService,
 			MagicLinkTokenStorePort magicLinkTokenStore,
-			MagicLinkNotifierPort magicLinkNotifier,
 			AuthenticationProviderRouter authRouter,
-			EffectiveAccessResolver effectiveAccessResolver,
-			TokenProviderPort tokenProvider,
-			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
-			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
-			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
-			ObjectProvider<SessionProperties> sessionPropertiesProvider) {
-
+			UserTokenService userTokenService,
+			AuthSessionService authSessionService) {
 		return new MagicLinkService(
 				magicLinkProperties,
 				userRepository,
+				magicLinkDispatchService,
 				magicLinkTokenStore,
-				magicLinkNotifier,
 				authRouter,
-				effectiveAccessResolver,
-				tokenProvider,
-				userMfaRepositoryProvider.getIfAvailable(),
-				sessionRegistryProvider.getIfAvailable(),
-				tokenRevocationPortProvider.getIfAvailable(),
-				sessionPropertiesProvider.getIfAvailable(SessionProperties::defaultProperties));
+				userTokenService,
+				authSessionService);
 	}
 
 	@Configuration(proxyBeanMethods = false)
