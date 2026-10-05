@@ -14,6 +14,11 @@
       "include": {
         "file": "db/changelog/iam/2026092902-create-iam-magic-link-token.json"
       }
+    },
+    {
+      "include": {
+        "file": "db/changelog/iam/2026100501-alter-iam-user-mfa-secret.json"
+      }
     }
   ]
 }

@@ -31,7 +31,7 @@ public class UserMfaJpaEntity {
 	@Column(name = "user_id", nullable = false)
 	private UUID userId;
 
-	@Column(name = "secret", nullable = false, length = 64)
+	@Column(name = "secret", nullable = false, length = 255)
 	private String secret;
 
 	@Column(name = "enabled", nullable = false)

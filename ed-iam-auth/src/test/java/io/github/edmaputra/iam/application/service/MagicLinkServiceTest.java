@@ -95,7 +95,7 @@ class MagicLinkServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		properties = new MagicLinkProperties(true, 900L, "http://localhost:8080");
+		properties = new MagicLinkProperties(true, 900L, "http://localhost:8080", java.util.List.of("app.example.com"));
 		sessionProperties = SessionProperties.defaultProperties();
 		service = new MagicLinkService(
 				properties,
@@ -164,7 +164,7 @@ class MagicLinkServiceTest {
 	@Test
 	@DisplayName("Should throw AuthenticationException when magic link feature is disabled")
 	void shouldThrowWhenFeatureDisabled() {
-		MagicLinkProperties disabledProps = new MagicLinkProperties(false, 900L, "http://localhost:8080");
+		MagicLinkProperties disabledProps = new MagicLinkProperties(false, 900L, "http://localhost:8080", List.of());
 		MagicLinkService disabledService = new MagicLinkService(
 				disabledProps, userRepository, tokenStore, notifier, authRouter,
 				effectiveAccessResolver, tokenProvider);

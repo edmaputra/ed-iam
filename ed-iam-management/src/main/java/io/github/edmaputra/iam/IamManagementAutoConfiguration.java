@@ -21,15 +21,19 @@ import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
 import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
+import io.github.edmaputra.iam.domain.security.DefaultPasswordValidator;
+import io.github.edmaputra.iam.domain.security.PasswordValidator;
 import io.github.edmaputra.iam.application.service.GroupLifecycleService;
 import io.github.edmaputra.iam.application.service.GroupManagementService;
 import io.github.edmaputra.iam.application.service.GroupRoleAssignmentService;
 import io.github.edmaputra.iam.application.service.RoleManagementService;
 import io.github.edmaputra.iam.application.service.SessionManagementService;
 import io.github.edmaputra.iam.application.service.UserAccountService;
+import io.github.edmaputra.iam.application.service.UserCredentialService;
 import io.github.edmaputra.iam.application.service.UserGroupMembershipService;
 import io.github.edmaputra.iam.application.service.UserManagementService;
 import io.github.edmaputra.iam.application.service.UserRoleAssignmentService;
+import io.github.edmaputra.iam.application.service.UserSessionRevocationService;
 
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
@@ -67,32 +71,56 @@ public class IamManagementAutoConfiguration {
 		};
 	}
 
+	@Bean
+	@ConditionalOnMissingBean
+	public PasswordValidator passwordValidator() {
+		return new DefaultPasswordValidator();
+	}
+
 	/**
 	 * Registers the {@link ManageUserUseCase} bean.
 	 *
 	 * @param userRepository               the user repository
 	 * @param passwordEncoder              the password encoder
-	 * @param userRoleAssignmentRepository the user role assignment repository
-	 * @param userGroupMembershipRepository the user group membership repository
-	 * @param roleRepository               the role repository
-	 * @param groupRepository              the group repository
-	 * @return user management service
+	 * @param sessionRegistryProvider      session registry provider
+	 * @param tokenRevocationPortProvider  token revocation provider
+	 * @param userMfaRepositoryProvider    user MFA provider
+	 * @param currentActorProvider         current actor provider
+	 * @param eventPublisherProvider       event publisher provider
+	 * @param passwordValidatorProvider    password validator provider
+	 * @return user account service
 	 */
+	@Bean
+	@ConditionalOnMissingBean
+	public UserCredentialService userCredentialService(
+			PasswordEncoderPort passwordEncoder,
+			ObjectProvider<PasswordValidator> passwordValidatorProvider) {
+		return new UserCredentialService(passwordEncoder, passwordValidatorProvider.getIfAvailable());
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public UserSessionRevocationService userSessionRevocationService(
+			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider) {
+		return new UserSessionRevocationService(
+				sessionRegistryProvider.getIfAvailable(),
+				tokenRevocationPortProvider.getIfAvailable());
+	}
+
 	@Bean
 	@ConditionalOnMissingBean
 	public UserAccountService userAccountService(
 			UserRepository userRepository,
-			PasswordEncoderPort passwordEncoder,
-			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
-			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
+			UserCredentialService credentialService,
+			UserSessionRevocationService sessionRevocationService,
 			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
 			ObjectProvider<CurrentActorProvider> currentActorProvider,
 			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
 		return new UserAccountService(
 				userRepository,
-				passwordEncoder,
-				sessionRegistryProvider.getIfAvailable(),
-				tokenRevocationPortProvider.getIfAvailable(),
+				credentialService,
+				sessionRevocationService,
 				userMfaRepositoryProvider.getIfAvailable(),
 				currentActorProvider.getIfAvailable(),
 				eventPublisherProvider.getIfAvailable());

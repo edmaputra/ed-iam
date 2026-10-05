@@ -49,11 +49,24 @@ public class MfaService implements ManageMfaUseCase {
 	private final UserMfaRepository userMfaRepository;
 	private final UserRepository userRepository;
 	private final PasswordEncoderPort passwordEncoder;
-	private final TokenProviderPort tokenProvider;
-	private final EffectiveAccessResolver effectiveAccessResolver;
-	private final SessionRegistryPort sessionRegistry;
-	private final TokenRevocationPort tokenRevocationPort;
-	private final SessionProperties sessionProperties;
+	private final UserTokenService userTokenService;
+	private final AuthSessionService authSessionService;
+
+	/**
+	 * Canonical constructor delegating token and session orchestration to collaborator services.
+	 */
+	public MfaService(
+			UserMfaRepository userMfaRepository,
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			UserTokenService userTokenService,
+			AuthSessionService authSessionService) {
+		this.userMfaRepository = userMfaRepository;
+		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
+		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
+		this.userTokenService = Objects.requireNonNull(userTokenService, "UserTokenService must not be null.");
+		this.authSessionService = authSessionService;
+	}
 
 	public MfaService(
 			UserMfaRepository userMfaRepository,
@@ -64,14 +77,11 @@ public class MfaService implements ManageMfaUseCase {
 			SessionRegistryPort sessionRegistry,
 			TokenRevocationPort tokenRevocationPort,
 			SessionProperties sessionProperties) {
-		this.userMfaRepository = userMfaRepository;
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
-		this.tokenProvider = Objects.requireNonNull(tokenProvider, "TokenProviderPort must not be null.");
-		this.effectiveAccessResolver = Objects.requireNonNull(effectiveAccessResolver, "EffectiveAccessResolver must not be null.");
-		this.sessionRegistry = sessionRegistry;
-		this.tokenRevocationPort = tokenRevocationPort;
-		this.sessionProperties = sessionProperties != null ? sessionProperties : SessionProperties.defaultProperties();
+		this(userMfaRepository,
+				userRepository,
+				passwordEncoder,
+				new UserTokenService(effectiveAccessResolver, tokenProvider, userMfaRepository, null),
+				new AuthSessionService(sessionRegistry, tokenRevocationPort, sessionProperties, null));
 	}
 
 	public MfaService(
@@ -181,7 +191,7 @@ public class MfaService implements ManageMfaUseCase {
 		Objects.requireNonNull(command, "MfaLoginVerifyCommand must not be null.");
 		requireUserMfaRepository();
 
-		MfaChallengeClaims claims = tokenProvider.parseMfaChallengeToken(command.mfaToken());
+		MfaChallengeClaims claims = userTokenService.parseMfaChallengeToken(command.mfaToken());
 		User user = userRepository.findById(claims.userId())
 				.orElseThrow(() -> new UserNotFoundException(claims.userId()));
 
@@ -213,81 +223,28 @@ public class MfaService implements ManageMfaUseCase {
 			throw new InvalidTotpException("Invalid TOTP code or backup recovery code.");
 		}
 
-		EffectiveAccess effectiveAccess = effectiveAccessResolver.resolve(user, claims.tenantId());
+		UserTokenService.TokenIssueResult issueResult = userTokenService.issueTokens(user, claims.tenantId());
 
-		String tokenId = UuidV7.generate().toString();
-		String accessToken = tokenProvider.createAccessToken(effectiveAccess, tokenId);
-		if (accessToken == null) {
-			accessToken = tokenProvider.createAccessToken(effectiveAccess);
-		}
-		String refreshToken = tokenProvider.createRefreshToken(user.getId(), claims.tenantId());
-
-		if (sessionRegistry != null) {
-			int maxConcurrent = sessionProperties.maxConcurrentSessions();
-			if (maxConcurrent > 0) {
-				List<UserSession> activeSessions = sessionRegistry.findActiveSessions(user.getId(), effectiveAccess.tenantId());
-				if (activeSessions.size() >= maxConcurrent) {
-					if (sessionProperties.sessionLimitStrategy() == SessionProperties.SessionLimitStrategy.REJECT_NEW) {
-						throw new AuthenticationException("Maximum concurrent active sessions (" + maxConcurrent + ") exceeded.");
-					}
-					else {
-						int excess = activeSessions.size() - maxConcurrent + 1;
-						activeSessions.stream()
-								.sorted(Comparator.comparing(UserSession::createdAt))
-								.limit(excess)
-								.forEach(oldSession -> {
-									sessionRegistry.revokeSession(oldSession.id());
-									if (tokenRevocationPort != null && oldSession.tokenIdentifier() != null) {
-										tokenRevocationPort.revokeToken(oldSession.tokenIdentifier(), oldSession.expiresAt());
-									}
-								});
-					}
-				}
-			}
-
-			long ttl = tokenProvider.getAccessTokenExpirationSeconds();
-			UserSession session = UserSession.create(
+		if (authSessionService != null) {
+			authSessionService.registerSession(
 					user.getId(),
-					effectiveAccess.tenantId(),
-					tokenId,
-					ttl,
+					issueResult.effectiveAccess().tenantId(),
+					issueResult.tokenId(),
+					userTokenService.getAccessTokenExpirationSeconds(),
 					command.ipAddress(),
 					command.userAgent());
-			sessionRegistry.registerSession(session);
 		}
 
-		UserProfileResponse profile = toUserProfileResponse(user, effectiveAccess);
-
 		return TokenResponse.of(
-				accessToken,
-				refreshToken,
-				tokenProvider.getAccessTokenExpirationSeconds(),
-				profile);
+				issueResult.accessToken(),
+				issueResult.refreshToken(),
+				userTokenService.getAccessTokenExpirationSeconds(),
+				issueResult.profile());
 	}
 
 	private void requireUserMfaRepository() {
 		if (userMfaRepository == null) {
 			throw new IllegalStateException("UserMfaRepository bean is not available in the current context.");
 		}
-	}
-
-	private UserProfileResponse toUserProfileResponse(User user, EffectiveAccess access) {
-		Set<UUID> availableTenantIds = access.availableTenants().stream()
-				.map(tenantId -> tenantId.value())
-				.collect(Collectors.toSet());
-
-		return new UserProfileResponse(
-				user.getId().value(),
-				user.getEmail(),
-				user.getFullName(),
-				access.tenantId() == null ? null : access.tenantId().value(),
-				access.platformSuperAdmin(),
-				access.tenantWide(),
-				availableTenantIds,
-				access.groups(),
-				access.roles(),
-				access.permissions(),
-				access.accessibleScopeNodeIds(),
-				access.accessibleScopePaths());
 	}
 }

@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import io.github.edmaputra.iam.adapter.security.audit.SecurityAuditRecorder;
 import io.github.edmaputra.iam.application.model.EffectiveAccess;
+import io.github.edmaputra.iam.application.model.MfaChallengeClaims;
 import io.github.edmaputra.iam.application.model.RefreshTokenClaims;
 import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.model.UserProfileResponse;
@@ -87,6 +88,10 @@ public class UserTokenService {
 
 	public RefreshTokenClaims parseRefreshToken(String refreshToken) {
 		return tokenProvider.parseRefreshToken(refreshToken);
+	}
+
+	public MfaChallengeClaims parseMfaChallengeToken(String mfaChallengeToken) {
+		return tokenProvider.parseMfaChallengeToken(mfaChallengeToken);
 	}
 
 	public long getAccessTokenExpirationSeconds() {

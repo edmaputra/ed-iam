@@ -1,22 +1,27 @@
 package io.github.edmaputra.iam.application.service;
 
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import io.github.edmaputra.iam.adapter.security.properties.MagicLinkProperties;
+import io.github.edmaputra.iam.adapter.security.redirect.DefaultAllowedRedirectHostResolver;
 import io.github.edmaputra.iam.application.model.MagicLinkRequestResponse;
 import io.github.edmaputra.iam.application.port.in.MagicLinkRequestCommand;
+import io.github.edmaputra.iam.application.port.out.AllowedRedirectHostResolverPort;
 import io.github.edmaputra.iam.application.port.out.MagicLinkNotifierPort;
 import io.github.edmaputra.iam.application.port.out.MagicLinkTokenStorePort;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 import io.github.edmaputra.iam.domain.model.MagicLinkToken;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 /**
  * Focused application service responsible for issuing, storing, and dispatching magic link tokens.
@@ -32,15 +37,27 @@ public class MagicLinkDispatchService {
 	private final MagicLinkProperties magicLinkProperties;
 	private final MagicLinkTokenStorePort magicLinkTokenStore;
 	private final MagicLinkNotifierPort magicLinkNotifier;
+	private final AllowedRedirectHostResolverPort allowedRedirectHostResolver;
 	private final SecureRandom secureRandom = new SecureRandom();
 
 	public MagicLinkDispatchService(
 			MagicLinkProperties magicLinkProperties,
 			MagicLinkTokenStorePort magicLinkTokenStore,
-			MagicLinkNotifierPort magicLinkNotifier) {
+			MagicLinkNotifierPort magicLinkNotifier,
+			AllowedRedirectHostResolverPort allowedRedirectHostResolver) {
 		this.magicLinkProperties = magicLinkProperties != null ? magicLinkProperties : MagicLinkProperties.defaultProperties();
 		this.magicLinkTokenStore = Objects.requireNonNull(magicLinkTokenStore, "MagicLinkTokenStorePort must not be null.");
 		this.magicLinkNotifier = Objects.requireNonNull(magicLinkNotifier, "MagicLinkNotifierPort must not be null.");
+		this.allowedRedirectHostResolver = allowedRedirectHostResolver != null
+				? allowedRedirectHostResolver
+				: new DefaultAllowedRedirectHostResolver(this.magicLinkProperties);
+	}
+
+	public MagicLinkDispatchService(
+			MagicLinkProperties magicLinkProperties,
+			MagicLinkTokenStorePort magicLinkTokenStore,
+			MagicLinkNotifierPort magicLinkNotifier) {
+		this(magicLinkProperties, magicLinkTokenStore, magicLinkNotifier, null);
 	}
 
 	public MagicLinkRequestResponse requestMagicLink(MagicLinkRequestCommand command, UserRepository userRepository) {
@@ -85,11 +102,70 @@ public class MagicLinkDispatchService {
 		}
 		String verificationUrl = base + "/api/v1/auth/magic-link/verify?token=" + token;
 		if (command.redirectUrl() != null && !command.redirectUrl().isBlank()) {
-			verificationUrl += "&redirect=" + URLEncoder.encode(command.redirectUrl(), StandardCharsets.UTF_8);
+			validateRedirectUrl(command.redirectUrl(), command.tenantId());
+			verificationUrl += "&redirect=" + URLEncoder.encode(command.redirectUrl().trim(), StandardCharsets.UTF_8);
 		}
 
 		magicLinkNotifier.sendMagicLink(magicLinkToken, verificationUrl);
 
 		return MagicLinkRequestResponse.of(GENERIC_DISPATCH_MESSAGE);
+	}
+
+	/**
+	 * Validates the requested redirect URL against dangerous schemes, protocol-relative bypasses,
+	 * and unlisted external target hosts (OWASP A10 / CWE-601 Open Redirect prevention).
+	 *
+	 * @param redirectUrl candidate redirect URL
+	 * @param tenantId    tenant context, or {@code null} if un-scoped
+	 * @throws IllegalArgumentException if the redirect URL is untrusted, malformed, or targets an external host
+	 */
+	void validateRedirectUrl(String redirectUrl, TenantId tenantId) {
+		if (redirectUrl == null || redirectUrl.isBlank()) {
+			return;
+		}
+
+		String trimmed = redirectUrl.trim();
+		String lower = trimmed.toLowerCase();
+
+		if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) {
+			throw new IllegalArgumentException("Dangerous or unsupported redirect URL scheme: " + redirectUrl);
+		}
+
+		// Relative path: Must start with single '/', NOT '//' or '/\' (protocol-relative / backslash tricks)
+		if (trimmed.startsWith("/")) {
+			if (trimmed.startsWith("//") || trimmed.startsWith("/\\") || trimmed.contains("\\")) {
+				throw new IllegalArgumentException("Malformed relative redirect URL: " + redirectUrl);
+			}
+			return;
+		}
+
+		try {
+			URI uri = URI.create(trimmed);
+			String scheme = uri.getScheme();
+			if (scheme == null || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))) {
+				throw new IllegalArgumentException("Redirect URL must use HTTP or HTTPS: " + redirectUrl);
+			}
+
+			String targetHost = uri.getHost();
+			if (targetHost == null || targetHost.isBlank()) {
+				throw new IllegalArgumentException("Redirect URL must specify a valid host: " + redirectUrl);
+			}
+
+			if (allowedRedirectHostResolver.isAllowedHost(targetHost, tenantId)) {
+				return;
+			}
+
+			throw new IllegalArgumentException("Redirect URL host '" + targetHost + "' is not in the allowed redirect hosts list.");
+		}
+		catch (IllegalArgumentException ex) {
+			throw ex;
+		}
+		catch (Exception ex) {
+			throw new IllegalArgumentException("Invalid redirect URL: " + redirectUrl, ex);
+		}
+	}
+
+	void validateRedirectUrl(String redirectUrl) {
+		validateRedirectUrl(redirectUrl, null);
 	}
 }
