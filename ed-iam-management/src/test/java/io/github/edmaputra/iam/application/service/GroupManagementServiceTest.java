@@ -272,4 +272,35 @@ class GroupManagementServiceTest {
 		verify(publisher, times(3)).publish(captor.capture());
 		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.GROUP_DELETED);
 	}
+
+	@Test
+	@DisplayName("Should construct facade with sub-services and delegate successfully")
+	void shouldDelegateToSubServicesWhenConstructedWithSpecializedServices() {
+		GroupLifecycleService lifecycleService = mock(GroupLifecycleService.class);
+		GroupRoleAssignmentService roleAssignmentService = mock(GroupRoleAssignmentService.class);
+		UserGroupMembershipService membershipService = mock(UserGroupMembershipService.class);
+
+		GroupManagementService facade = new GroupManagementService(lifecycleService, roleAssignmentService, membershipService);
+
+		GroupId groupId = GroupId.generate();
+		Group group = Group.create(TenantId.generate(), "FACADE_GRP", "Facade Group", "Desc", null);
+		when(lifecycleService.getGroupById(groupId)).thenReturn(group);
+
+		Group result = facade.getGroupById(groupId);
+		assertThat(result).isSameAs(group);
+		verify(lifecycleService).getGroupById(groupId);
+
+		// Null checks
+		assertThatThrownBy(() -> new GroupManagementService(null, roleAssignmentService, membershipService))
+				.isInstanceOf(NullPointerException.class)
+				.hasMessageContaining("GroupLifecycleService must not be null.");
+
+		assertThatThrownBy(() -> new GroupManagementService(lifecycleService, null, membershipService))
+				.isInstanceOf(NullPointerException.class)
+				.hasMessageContaining("GroupRoleAssignmentService must not be null.");
+
+		assertThatThrownBy(() -> new GroupManagementService(lifecycleService, roleAssignmentService, null))
+				.isInstanceOf(NullPointerException.class)
+				.hasMessageContaining("UserGroupMembershipService must not be null.");
+	}
 }

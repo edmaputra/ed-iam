@@ -20,6 +20,7 @@ import io.github.edmaputra.iam.adapter.security.session.SessionProperties;
 import io.github.edmaputra.iam.application.model.EffectiveAccess;
 import io.github.edmaputra.iam.application.model.MagicLinkRequestResponse;
 import io.github.edmaputra.iam.application.model.TokenResponse;
+import io.github.edmaputra.iam.application.model.UserProfileResponse;
 import io.github.edmaputra.iam.application.port.in.MagicLinkRequestCommand;
 import io.github.edmaputra.iam.application.port.in.MagicLinkVerifyCommand;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProviderRouter;
@@ -48,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -282,5 +284,56 @@ class MagicLinkServiceTest {
 
 		verify(sessionRegistry).revokeSession(oldSession.id());
 		verify(tokenRevocationPort).revokeToken(oldSession.tokenIdentifier(), oldSession.expiresAt());
+	}
+
+	@Test
+	@DisplayName("Should successfully request and verify when instantiated via canonical decomposed constructor")
+	void shouldDelegateToSubServicesWhenInstantiatedViaCanonicalConstructor() {
+		MagicLinkDispatchService dispatchService = mock(MagicLinkDispatchService.class);
+		UserTokenService userTokenService = mock(UserTokenService.class);
+		AuthSessionService authSessionService = mock(AuthSessionService.class);
+
+		MagicLinkService decomposedService = new MagicLinkService(
+				properties,
+				userRepository,
+				dispatchService,
+				tokenStore,
+				authRouter,
+				userTokenService,
+				authSessionService);
+
+		// 1. Test request delegating to dispatchService
+		MagicLinkRequestCommand reqCmd = MagicLinkRequestCommand.of("canonical@test.com");
+		MagicLinkRequestResponse expectedReqResp = MagicLinkRequestResponse.of("Sent!");
+		when(dispatchService.requestMagicLink(reqCmd, userRepository)).thenReturn(expectedReqResp);
+
+		MagicLinkRequestResponse actualReqResp = decomposedService.requestMagicLink(reqCmd);
+		assertThat(actualReqResp).isEqualTo(expectedReqResp);
+
+		// 2. Test verify delegating to authRouter, userTokenService, and authSessionService
+		UserId userId = UserId.generate();
+		TenantId tenantId = TenantId.generate();
+		Instant now = Instant.now();
+		MagicLinkToken token = MagicLinkToken.issue("canon-tok", userId, tenantId, "canonical@test.com", now.plusSeconds(300), now);
+		User user = new User(userId, "canonical@test.com", "hash", "Canon User", UserStatus.ACTIVE, false, now, now);
+		AuthenticatedIdentity identity = new AuthenticatedIdentity(userId, "canonical@test.com", "Canon User", false, ProviderType.MAGIC_LINK);
+
+		when(tokenStore.findByToken("canon-tok")).thenReturn(Optional.of(token));
+		when(authRouter.authenticate(new MagicLinkAuthCredentials("canon-tok"))).thenReturn(identity);
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(userTokenService.checkMfaRequired(eq(user), eq(tenantId), eq("magic_link"), any(Long.class))).thenReturn(Optional.empty());
+
+		UserProfileResponse profile = new UserProfileResponse(userId.value(), "canonical@test.com", "Canon User", tenantId.value(), false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+		EffectiveAccess access = new EffectiveAccess(userId, "canonical@test.com", tenantId, false, false, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+		UserTokenService.TokenIssueResult issueResult = new UserTokenService.TokenIssueResult("canon-access", "canon-refresh", "jti-canon", profile, access);
+
+		when(userTokenService.issueTokens(user, tenantId)).thenReturn(issueResult);
+		when(userTokenService.getAccessTokenExpirationSeconds()).thenReturn(1800L);
+
+		TokenResponse verifyResp = decomposedService.verifyMagicLink(MagicLinkVerifyCommand.of("canon-tok", "127.0.0.1", "curl"));
+
+		assertThat(verifyResp.accessToken()).isEqualTo("canon-access");
+		assertThat(verifyResp.refreshToken()).isEqualTo("canon-refresh");
+		verify(authSessionService).registerSession(eq(userId), eq(tenantId), eq("jti-canon"), eq(1800L), eq("127.0.0.1"), eq("curl"));
 	}
 }
