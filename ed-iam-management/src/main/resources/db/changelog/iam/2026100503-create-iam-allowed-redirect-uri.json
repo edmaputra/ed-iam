@@ -1,0 +1,93 @@
+{
+  "databaseChangeLog": [
+    {
+      "changeSet": {
+        "id": "2026100503-create-iam-allowed-redirect-uri",
+        "author": "edmaputra",
+        "changes": [
+          {
+            "createTable": {
+              "tableName": "iam_allowed_redirect_uri",
+              "columns": [
+                {
+                  "column": {
+                    "name": "id",
+                    "type": "UUID",
+                    "constraints": {
+                      "primaryKey": true,
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "tenant_id",
+                    "type": "UUID"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "uri",
+                    "type": "VARCHAR(500)",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "created_at",
+                    "type": "TIMESTAMP WITH TIME ZONE",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "updated_at",
+                    "type": "TIMESTAMP WITH TIME ZONE",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "createIndex": {
+              "tableName": "iam_allowed_redirect_uri",
+              "indexName": "idx_iam_redirect_uri_tenant",
+              "columns": [
+                {
+                  "column": {
+                    "name": "tenant_id"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "createIndex": {
+              "tableName": "iam_allowed_redirect_uri",
+              "indexName": "idx_iam_redirect_uri_tenant_uri",
+              "columns": [
+                {
+                  "column": {
+                    "name": "tenant_id"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "uri"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

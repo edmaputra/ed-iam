@@ -37,8 +37,11 @@ import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
 import io.github.edmaputra.iam.adapter.persistence.adapter.PasswordPolicyRepositoryAdapter;
+import io.github.edmaputra.iam.adapter.persistence.adapter.RedirectUriRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.repository.PasswordPolicyJpaRepository;
+import io.github.edmaputra.iam.adapter.persistence.repository.RedirectUriJpaRepository;
 import io.github.edmaputra.iam.domain.repository.PasswordPolicyRepository;
+import io.github.edmaputra.iam.domain.repository.RedirectUriRepository;
 import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
@@ -125,5 +128,11 @@ public class IamSecurityAutoConfiguration {
 	@ConditionalOnMissingBean
 	public PasswordPolicyRepository passwordPolicyRepository(PasswordPolicyJpaRepository repository) {
 		return new PasswordPolicyRepositoryAdapter(repository);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public RedirectUriRepository redirectUriRepository(RedirectUriJpaRepository repository) {
+		return new RedirectUriRepositoryAdapter(repository);
 	}
 }

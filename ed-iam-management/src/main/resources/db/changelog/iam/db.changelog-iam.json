@@ -24,6 +24,11 @@
       "include": {
         "file": "db/changelog/iam/2026100502-create-iam-password-policy.json"
       }
+    },
+    {
+      "include": {
+        "file": "db/changelog/iam/2026100503-create-iam-allowed-redirect-uri.json"
+      }
     }
   ]
 }
