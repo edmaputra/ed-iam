@@ -58,6 +58,9 @@ import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
 import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
+import io.github.edmaputra.iam.adapter.security.audit.SecurityAuditRecorder;
+import io.github.edmaputra.iam.adapter.security.telemetry.IamTelemetry;
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -146,7 +149,8 @@ public class IamAuthAutoConfiguration {
 			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
 			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
 			ObjectProvider<SessionProperties> sessionPropertiesProvider,
-			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider) {
+			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
+			ObjectProvider<SecurityAuditRecorder> auditRecorderProvider) {
 
 		return new AuthenticationService(
 				authRouter,
@@ -157,7 +161,8 @@ public class IamAuthAutoConfiguration {
 				sessionRegistryProvider.getIfAvailable(),
 				tokenRevocationPortProvider.getIfAvailable(),
 				sessionPropertiesProvider.getIfAvailable(SessionProperties::defaultProperties),
-				userMfaRepositoryProvider.getIfAvailable());
+				userMfaRepositoryProvider.getIfAvailable(),
+				auditRecorderProvider.getIfAvailable(SecurityAuditRecorder::noop));
 	}
 
 	@Bean

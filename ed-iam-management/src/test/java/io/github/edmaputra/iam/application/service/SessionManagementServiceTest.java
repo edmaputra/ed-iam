@@ -20,12 +20,18 @@ import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserSession;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
+import org.mockito.ArgumentCaptor;
+
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
+import io.github.edmaputra.iam.domain.event.IamEvent;
+import io.github.edmaputra.iam.domain.event.IamEventTypes;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -147,5 +153,31 @@ class SessionManagementServiceTest {
 		service.unlockUser(userId);
 
 		verify(loginAttemptTracker).unlock("admin@test.org");
+	}
+
+	@Test
+	@DisplayName("Should publish audit events for session and unlock operations")
+	void shouldPublishAuditEventsForSessionAndUnlockOperations() {
+		EventPublisherPort publisher = mock(EventPublisherPort.class);
+		SessionManagementService eventService = new SessionManagementService(
+				userRepository, sessionRegistry, tokenRevocationPort, loginAttemptTracker, publisher);
+
+		UserSession sess = UserSession.create(userId, null, "tok", 1800, "127.0.0.1", "Agent");
+		SessionId sid = sess.id();
+		when(sessionRegistry.findSession(sid)).thenReturn(Optional.of(sess));
+
+		eventService.terminateSession(userId, sid);
+		ArgumentCaptor<IamEvent> captor = ArgumentCaptor.forClass(IamEvent.class);
+		verify(publisher).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.SESSION_REVOKED);
+
+		when(sessionRegistry.findActiveSessions(userId, null)).thenReturn(List.of(sess));
+		eventService.terminateAllUserSessions(userId, null);
+		verify(publisher, times(2)).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.SESSIONS_REVOKED_ALL);
+
+		eventService.unlockUser(userId);
+		verify(publisher, times(3)).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.ACCOUNT_UNLOCKED);
 	}
 }

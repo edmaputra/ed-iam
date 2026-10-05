@@ -2,14 +2,18 @@ package io.github.edmaputra.iam.application.service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 import io.github.edmaputra.iam.application.port.in.ManageLockoutUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageSessionUseCase;
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
 import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
 import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
+import io.github.edmaputra.iam.domain.event.IamEvent;
+import io.github.edmaputra.iam.domain.event.IamEventTypes;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
 import io.github.edmaputra.iam.domain.model.LockoutStatus;
 import io.github.edmaputra.iam.domain.model.SessionId;
@@ -32,16 +36,27 @@ public class SessionManagementService implements ManageSessionUseCase, ManageLoc
 	private final SessionRegistryPort sessionRegistry;
 	private final TokenRevocationPort tokenRevocationPort;
 	private final LoginAttemptTrackerPort loginAttemptTracker;
+	private final EventPublisherPort eventPublisher;
+
+	public SessionManagementService(
+			UserRepository userRepository,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			LoginAttemptTrackerPort loginAttemptTracker,
+			EventPublisherPort eventPublisher) {
+		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
+		this.sessionRegistry = sessionRegistry;
+		this.tokenRevocationPort = tokenRevocationPort;
+		this.loginAttemptTracker = loginAttemptTracker;
+		this.eventPublisher = eventPublisher;
+	}
 
 	public SessionManagementService(
 			UserRepository userRepository,
 			SessionRegistryPort sessionRegistry,
 			TokenRevocationPort tokenRevocationPort,
 			LoginAttemptTrackerPort loginAttemptTracker) {
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-		this.sessionRegistry = sessionRegistry;
-		this.tokenRevocationPort = tokenRevocationPort;
-		this.loginAttemptTracker = loginAttemptTracker;
+		this(userRepository, sessionRegistry, tokenRevocationPort, loginAttemptTracker, null);
 	}
 
 	@Override
@@ -71,6 +86,15 @@ public class SessionManagementService implements ManageSessionUseCase, ManageLoc
 				if (tokenRevocationPort != null && session.tokenIdentifier() != null) {
 					tokenRevocationPort.revokeToken(session.tokenIdentifier(), session.expiresAt());
 				}
+				if (eventPublisher != null) {
+					eventPublisher.publish(IamEvent.of(
+							IamEventTypes.SESSION_REVOKED,
+							session.tenantId() != null ? session.tenantId().value() : null,
+							userId.value(),
+							"SESSION",
+							Map.of("sessionId", sessionId.value().toString()),
+							userId.toString()));
+				}
 			}
 		}
 	}
@@ -92,6 +116,15 @@ public class SessionManagementService implements ManageSessionUseCase, ManageLoc
 				}
 			}
 		}
+		if (eventPublisher != null) {
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.SESSIONS_REVOKED_ALL,
+					tenantId != null ? tenantId.value() : null,
+					userId.value(),
+					"SESSION",
+					Map.of("userId", userId.value().toString()),
+					userId.toString()));
+		}
 	}
 
 	@Override
@@ -110,6 +143,15 @@ public class SessionManagementService implements ManageSessionUseCase, ManageLoc
 		User user = verifyUserExists(userId);
 		if (loginAttemptTracker != null) {
 			loginAttemptTracker.unlock(user.getEmail());
+		}
+		if (eventPublisher != null) {
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.ACCOUNT_UNLOCKED,
+					null,
+					userId.value(),
+					"USER",
+					Map.of("email", user.getEmail()),
+					user.getEmail()));
 		}
 	}
 

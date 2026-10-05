@@ -53,4 +53,32 @@ class IamEventTest {
 		assertThatThrownBy(() -> IamEvent.of("   ", id, id, "USER", null, "actor", null))
 				.isInstanceOf(IllegalArgumentException.class);
 	}
+
+	@Test
+	@DisplayName("Should create IamEvent with actor string and verify Phase 4 event types")
+	void shouldCreateIamEventWithActorString() {
+		UUID tenantId = UUID.randomUUID();
+		UUID entityId = UUID.randomUUID();
+
+		IamEvent event = IamEvent.of(
+				IamEventTypes.LOGIN_SUCCESS,
+				tenantId,
+				entityId,
+				"AUTH",
+				"details",
+				"user@example.com");
+
+		assertThat(event.eventType()).isEqualTo(IamEventTypes.LOGIN_SUCCESS);
+		assertThat(event.tenantId()).isEqualTo(tenantId);
+		assertThat(event.entityId()).isEqualTo(entityId);
+		assertThat(event.entityType()).isEqualTo("AUTH");
+		assertThat(event.payload()).isEqualTo("details");
+		assertThat(event.actor()).isEqualTo("user@example.com");
+		assertThat(event.correlationId()).isNull();
+		assertThat(event.occurredAt()).isNotNull();
+
+		assertThat(IamEventTypes.LOGIN_FAILED).isEqualTo("LOGIN_FAILED");
+		assertThat(IamEventTypes.ROLE_MODIFIED).isEqualTo("ROLE_MODIFIED");
+		assertThat(IamEventTypes.ACCESS_DENIED).isEqualTo("ACCESS_DENIED");
+	}
 }

@@ -72,6 +72,24 @@ public record IamEvent(
 				Instant.now());
 	}
 
+	public static IamEvent of(
+			String eventType,
+			UUID tenantId,
+			UUID entityId,
+			String entityType,
+			Object payload,
+			String actor) {
+		return new IamEvent(
+				eventType,
+				tenantId,
+				entityId,
+				entityType,
+				payload,
+				actor,
+				null,
+				Instant.now());
+	}
+
 	public Optional<UUID> optionalTenantId() {
 		return Optional.ofNullable(tenantId);
 	}

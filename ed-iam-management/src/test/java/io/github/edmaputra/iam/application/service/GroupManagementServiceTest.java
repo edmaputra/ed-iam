@@ -33,10 +33,17 @@ import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
+import org.mockito.ArgumentCaptor;
+
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
+import io.github.edmaputra.iam.domain.event.IamEvent;
+import io.github.edmaputra.iam.domain.event.IamEventTypes;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -235,5 +242,34 @@ class GroupManagementServiceTest {
 
 		Group result = securedService.getGroupById(groupId);
 		assertThat(result.getCode()).isEqualTo("TARGET_GROUP");
+	}
+
+	@Test
+	@DisplayName("Should publish audit events for group lifecycle")
+	void shouldPublishAuditEventsForGroupLifecycle() {
+		TenantId tenantId = TenantId.generate();
+		EventPublisherPort publisher = mock(EventPublisherPort.class);
+		GroupManagementService eventService = new GroupManagementService(
+				groupRepository, groupRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, userRepository, null, publisher);
+
+		when(groupRepository.existsByTenantIdAndCode(tenantId, "SEC_GRP")).thenReturn(false);
+		when(groupRepository.save(any(Group.class))).thenAnswer(i -> i.getArgument(0));
+
+		Group group = eventService.createGroup(new CreateGroupCommand(
+				tenantId, "SEC_GRP", "Security Group", "Desc", null));
+
+		ArgumentCaptor<IamEvent> captor = ArgumentCaptor.forClass(IamEvent.class);
+		verify(publisher).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.GROUP_CREATED);
+
+		when(groupRepository.findById(group.getId())).thenReturn(Optional.of(group));
+		eventService.updateGroup(new UpdateGroupCommand(
+				group.getId(), "Updated Name", "Updated Desc", null));
+		verify(publisher, times(2)).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.GROUP_UPDATED);
+
+		eventService.deleteGroup(group.getId());
+		verify(publisher, times(3)).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.GROUP_DELETED);
 	}
 }

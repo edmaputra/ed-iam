@@ -1,6 +1,7 @@
 package io.github.edmaputra.iam.application.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -11,6 +12,9 @@ import io.github.edmaputra.iam.application.port.in.GroupCommands.AssignGroupRole
 import io.github.edmaputra.iam.application.port.in.GroupCommands.CreateGroupCommand;
 import io.github.edmaputra.iam.application.port.in.GroupCommands.UpdateGroupCommand;
 import io.github.edmaputra.iam.application.port.in.ManageGroupUseCase;
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
+import io.github.edmaputra.iam.domain.event.IamEvent;
+import io.github.edmaputra.iam.domain.event.IamEventTypes;
 import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
 import io.github.edmaputra.iam.domain.exception.GroupNotFoundException;
 import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
@@ -43,6 +47,24 @@ public class GroupManagementService implements ManageGroupUseCase {
 	private final RoleRepository roleRepository;
 	private final UserRepository userRepository;
 	private final CurrentActorProvider currentActorProvider;
+	private final EventPublisherPort eventPublisher;
+
+	public GroupManagementService(
+			GroupRepository groupRepository,
+			GroupRoleAssignmentRepository groupRoleAssignmentRepository,
+			UserGroupMembershipRepository userGroupMembershipRepository,
+			RoleRepository roleRepository,
+			UserRepository userRepository,
+			CurrentActorProvider currentActorProvider,
+			EventPublisherPort eventPublisher) {
+		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
+		this.groupRoleAssignmentRepository = Objects.requireNonNull(groupRoleAssignmentRepository, "GroupRoleAssignmentRepository must not be null.");
+		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
+		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
+		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
+		this.currentActorProvider = currentActorProvider;
+		this.eventPublisher = eventPublisher;
+	}
 
 	public GroupManagementService(
 			GroupRepository groupRepository,
@@ -51,12 +73,7 @@ public class GroupManagementService implements ManageGroupUseCase {
 			RoleRepository roleRepository,
 			UserRepository userRepository,
 			CurrentActorProvider currentActorProvider) {
-		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
-		this.groupRoleAssignmentRepository = Objects.requireNonNull(groupRoleAssignmentRepository, "GroupRoleAssignmentRepository must not be null.");
-		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
-		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-		this.currentActorProvider = currentActorProvider;
+		this(groupRepository, groupRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, userRepository, currentActorProvider, null);
 	}
 
 	public GroupManagementService(
@@ -65,7 +82,7 @@ public class GroupManagementService implements ManageGroupUseCase {
 			UserGroupMembershipRepository userGroupMembershipRepository,
 			RoleRepository roleRepository,
 			UserRepository userRepository) {
-		this(groupRepository, groupRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, userRepository, null);
+		this(groupRepository, groupRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, userRepository, null, null);
 	}
 
 	@Override
@@ -85,7 +102,18 @@ public class GroupManagementService implements ManageGroupUseCase {
 				command.description(),
 				command.externalIdpGroupName());
 
-		return groupRepository.save(group);
+		Group saved = groupRepository.save(group);
+		if (eventPublisher != null) {
+			String actorStr = resolveActor();
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.GROUP_CREATED,
+					saved.getTenantId() != null ? saved.getTenantId().value() : null,
+					saved.getId().value(),
+					"GROUP",
+					Map.of("code", saved.getCode(), "name", saved.getName()),
+					actorStr));
+		}
+		return saved;
 	}
 
 	@Override
@@ -112,15 +140,36 @@ public class GroupManagementService implements ManageGroupUseCase {
 		Objects.requireNonNull(command, "UpdateGroupCommand must not be null.");
 		Group group = getGroupById(command.groupId());
 		group.updateDetails(command.name(), command.description(), command.externalIdpGroupName());
-		return groupRepository.save(group);
+		Group saved = groupRepository.save(group);
+		if (eventPublisher != null) {
+			String actorStr = resolveActor();
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.GROUP_UPDATED,
+					saved.getTenantId() != null ? saved.getTenantId().value() : null,
+					saved.getId().value(),
+					"GROUP",
+					Map.of("code", saved.getCode(), "name", saved.getName()),
+					actorStr));
+		}
+		return saved;
 	}
 
 	@Override
 	@Transactional
 	public void deleteGroup(GroupId id) {
 		Objects.requireNonNull(id, "GroupId must not be null.");
-		getGroupById(id);
+		Group group = getGroupById(id);
 		groupRepository.delete(id);
+		if (eventPublisher != null) {
+			String actorStr = resolveActor();
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.GROUP_DELETED,
+					group.getTenantId() != null ? group.getTenantId().value() : null,
+					group.getId().value(),
+					"GROUP",
+					Map.of("code", group.getCode()),
+					actorStr));
+		}
 	}
 
 	@Override
@@ -138,7 +187,18 @@ public class GroupManagementService implements ManageGroupUseCase {
 				? GroupRoleAssignment.create(command.groupId(), role.getId(), command.tenantId(), command.scopeNodeId(), true)
 				: GroupRoleAssignment.createTenantWide(command.groupId(), role.getId(), command.tenantId());
 
-		return groupRoleAssignmentRepository.save(assignment);
+		GroupRoleAssignment saved = groupRoleAssignmentRepository.save(assignment);
+		if (eventPublisher != null) {
+			String actorStr = resolveActor();
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.ROLE_ASSIGNMENT_CREATED,
+					saved.getTenantId() != null ? saved.getTenantId().value() : null,
+					saved.getId().value(),
+					"ROLE_ASSIGNMENT",
+					Map.of("groupId", saved.getGroupId().value().toString(), "roleId", saved.getRoleId().value().toString()),
+					actorStr));
+		}
+		return saved;
 	}
 
 	@Override
@@ -146,8 +206,28 @@ public class GroupManagementService implements ManageGroupUseCase {
 	public void revokeRole(UUID assignmentId) {
 		Objects.requireNonNull(assignmentId, "AssignmentId must not be null.");
 		GroupRoleAssignmentId id = new GroupRoleAssignmentId(assignmentId);
-		groupRoleAssignmentRepository.findById(id).ifPresent(a -> checkTenantAccess(a.getTenantId()));
+		GroupRoleAssignment assignment = groupRoleAssignmentRepository.findById(id).orElse(null);
+		if (assignment != null) {
+			checkTenantAccess(assignment.getTenantId());
+		}
 		groupRoleAssignmentRepository.delete(id);
+		if (eventPublisher != null && assignment != null) {
+			String actorStr = resolveActor();
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.ROLE_ASSIGNMENT_REVOKED,
+					assignment.getTenantId() != null ? assignment.getTenantId().value() : null,
+					assignment.getId().value(),
+					"ROLE_ASSIGNMENT",
+					Map.of("groupId", assignment.getGroupId().value().toString(), "roleId", assignment.getRoleId().value().toString()),
+					actorStr));
+		}
+	}
+
+	private String resolveActor() {
+		return currentActorProvider != null && currentActorProvider.currentActor().isPresent() &&
+				currentActorProvider.currentActor().get().userId() != null
+				? currentActorProvider.currentActor().get().userId().toString()
+				: "system";
 	}
 
 	@Override

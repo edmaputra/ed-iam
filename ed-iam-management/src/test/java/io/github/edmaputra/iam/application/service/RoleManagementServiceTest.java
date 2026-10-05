@@ -18,11 +18,17 @@ import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
+import org.mockito.ArgumentCaptor;
+
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
+import io.github.edmaputra.iam.domain.event.IamEvent;
+import io.github.edmaputra.iam.domain.event.IamEventTypes;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -185,5 +191,31 @@ class RoleManagementServiceTest {
 
 		Role result = securedService.getRoleById(roleId);
 		assertThat(result.getCode()).isEqualTo("SYS_ROLE");
+	}
+
+	@Test
+	@DisplayName("Should publish audit events for role lifecycle")
+	void shouldPublishAuditEventsForRoleLifecycle() {
+		TenantId tenantId = TenantId.generate();
+		EventPublisherPort publisher = mock(EventPublisherPort.class);
+		RoleManagementService eventService = new RoleManagementService(roleRepository, null, publisher);
+
+		when(roleRepository.existsByTenantIdAndCode(tenantId, "TEST_ROLE")).thenReturn(false);
+		when(roleRepository.save(any(Role.class))).thenAnswer(i -> i.getArgument(0));
+
+		Role role = eventService.createRole(new CreateRoleCommand(tenantId, "TEST_ROLE", "Test Role", "Desc", Set.of("READ")));
+		ArgumentCaptor<IamEvent> captor = ArgumentCaptor.forClass(IamEvent.class);
+		verify(publisher).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.ROLE_CREATED);
+		assertThat(captor.getValue().entityId()).isEqualTo(role.getId().value());
+
+		when(roleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+		eventService.updateRole(new UpdateRoleCommand(role.getId(), "Updated Name", "Updated Desc", Set.of("WRITE")));
+		verify(publisher, times(2)).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.ROLE_MODIFIED);
+
+		eventService.deleteRole(role.getId());
+		verify(publisher, times(3)).publish(captor.capture());
+		assertThat(captor.getValue().eventType()).isEqualTo(IamEventTypes.ROLE_DELETED);
 	}
 }

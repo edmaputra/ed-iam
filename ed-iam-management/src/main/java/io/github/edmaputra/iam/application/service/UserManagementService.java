@@ -2,6 +2,7 @@ package io.github.edmaputra.iam.application.service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -12,15 +13,17 @@ import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCo
 import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatusCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
+import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
 import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
+import io.github.edmaputra.iam.domain.event.IamEvent;
+import io.github.edmaputra.iam.domain.event.IamEventTypes;
+import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
 import io.github.edmaputra.iam.domain.exception.GroupNotFoundException;
 import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
 import io.github.edmaputra.iam.domain.model.Group;
-import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
-import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 import io.github.edmaputra.iam.domain.model.GroupId;
 import io.github.edmaputra.iam.domain.model.PageQuery;
 import io.github.edmaputra.iam.domain.model.PagedResult;
@@ -38,6 +41,7 @@ import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
+import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 
 /**
@@ -59,6 +63,32 @@ public class UserManagementService implements ManageUserUseCase {
 	private final TokenRevocationPort tokenRevocationPort;
 	private final UserMfaRepository userMfaRepository;
 	private final CurrentActorProvider currentActorProvider;
+	private final EventPublisherPort eventPublisher;
+
+	public UserManagementService(
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			UserRoleAssignmentRepository userRoleAssignmentRepository,
+			UserGroupMembershipRepository userGroupMembershipRepository,
+			RoleRepository roleRepository,
+			GroupRepository groupRepository,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			UserMfaRepository userMfaRepository,
+			CurrentActorProvider currentActorProvider,
+			EventPublisherPort eventPublisher) {
+		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
+		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
+		this.userRoleAssignmentRepository = Objects.requireNonNull(userRoleAssignmentRepository, "UserRoleAssignmentRepository must not be null.");
+		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
+		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
+		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
+		this.sessionRegistry = sessionRegistry;
+		this.tokenRevocationPort = tokenRevocationPort;
+		this.userMfaRepository = userMfaRepository;
+		this.currentActorProvider = currentActorProvider;
+		this.eventPublisher = eventPublisher;
+	}
 
 	public UserManagementService(
 			UserRepository userRepository,
@@ -71,16 +101,7 @@ public class UserManagementService implements ManageUserUseCase {
 			TokenRevocationPort tokenRevocationPort,
 			UserMfaRepository userMfaRepository,
 			CurrentActorProvider currentActorProvider) {
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
-		this.userRoleAssignmentRepository = Objects.requireNonNull(userRoleAssignmentRepository, "UserRoleAssignmentRepository must not be null.");
-		this.userGroupMembershipRepository = Objects.requireNonNull(userGroupMembershipRepository, "UserGroupMembershipRepository must not be null.");
-		this.roleRepository = Objects.requireNonNull(roleRepository, "RoleRepository must not be null.");
-		this.groupRepository = Objects.requireNonNull(groupRepository, "GroupRepository must not be null.");
-		this.sessionRegistry = sessionRegistry;
-		this.tokenRevocationPort = tokenRevocationPort;
-		this.userMfaRepository = userMfaRepository;
-		this.currentActorProvider = currentActorProvider;
+		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, sessionRegistry, tokenRevocationPort, userMfaRepository, currentActorProvider, null);
 	}
 
 	public UserManagementService(
@@ -93,7 +114,7 @@ public class UserManagementService implements ManageUserUseCase {
 			SessionRegistryPort sessionRegistry,
 			TokenRevocationPort tokenRevocationPort,
 			UserMfaRepository userMfaRepository) {
-		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, sessionRegistry, tokenRevocationPort, userMfaRepository, null);
+		this(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, sessionRegistry, tokenRevocationPort, userMfaRepository, null, null);
 	}
 
 	public UserManagementService(
@@ -145,7 +166,18 @@ public class UserManagementService implements ManageUserUseCase {
 				command.fullName(),
 				command.platformSuperAdmin());
 
-		return userRepository.save(user);
+		User saved = userRepository.save(user);
+		if (eventPublisher != null) {
+			String actorStr = resolveActor();
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.USER_CREATED,
+					null,
+					saved.getId().value(),
+					"USER",
+					Map.of("email", saved.getEmail(), "fullName", saved.getFullName()),
+					actorStr));
+		}
+		return saved;
 	}
 
 	@Override
@@ -170,7 +202,18 @@ public class UserManagementService implements ManageUserUseCase {
 		Objects.requireNonNull(command, "UpdateUserCommand must not be null.");
 		User user = getUserById(command.userId());
 		user.updateProfile(command.fullName());
-		return userRepository.save(user);
+		User saved = userRepository.save(user);
+		if (eventPublisher != null) {
+			String actorStr = resolveActor();
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.USER_UPDATED,
+					null,
+					saved.getId().value(),
+					"USER",
+					Map.of("email", saved.getEmail(), "fullName", saved.getFullName()),
+					actorStr));
+		}
+		return saved;
 	}
 
 	@Override
@@ -191,18 +234,49 @@ public class UserManagementService implements ManageUserUseCase {
 			}
 		}
 
-		return userRepository.save(user);
+		User saved = userRepository.save(user);
+		if (eventPublisher != null) {
+			String actorStr = resolveActor();
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.USER_STATUS_CHANGED,
+					null,
+					saved.getId().value(),
+					"USER",
+					Map.of("email", saved.getEmail(), "status", saved.getStatus().name()),
+					actorStr));
+			if (saved.isDeactivated()) {
+				eventPublisher.publish(IamEvent.of(
+						IamEventTypes.USER_DEACTIVATED,
+						null,
+						saved.getId().value(),
+						"USER",
+						Map.of("email", saved.getEmail()),
+						actorStr));
+			}
+		}
+		return saved;
 	}
 
 	@Override
 	@Transactional
 	public void deleteUser(UserId id) {
 		Objects.requireNonNull(id, "UserId must not be null.");
+		User user = userRepository.findById(id).orElse(null);
 		revokeUserSessions(id);
 		if (userMfaRepository != null) {
 			userMfaRepository.deleteByUserId(id);
 		}
 		userRepository.delete(id);
+		if (eventPublisher != null && user != null) {
+			String actorStr = resolveActor();
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.USER_DEACTIVATED,
+					null,
+					id.value(),
+					"USER",
+					Map.of("email", user.getEmail()),
+					actorStr));
+		}
 	}
 
 	@Override
@@ -220,7 +294,18 @@ public class UserManagementService implements ManageUserUseCase {
 				? UserRoleAssignment.create(command.userId(), role.getId(), command.tenantId(), command.scopeNodeId(), true)
 				: UserRoleAssignment.createTenantWide(command.userId(), role.getId(), command.tenantId());
 
-		return userRoleAssignmentRepository.save(assignment);
+		UserRoleAssignment saved = userRoleAssignmentRepository.save(assignment);
+		if (eventPublisher != null) {
+			String actorStr = resolveActor();
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.ROLE_ASSIGNMENT_CREATED,
+					saved.getTenantId() != null ? saved.getTenantId().value() : null,
+					saved.getId().value(),
+					"ROLE_ASSIGNMENT",
+					Map.of("userId", saved.getUserId().value().toString(), "roleId", saved.getRoleId().value().toString()),
+					actorStr));
+		}
+		return saved;
 	}
 
 	@Override
@@ -228,8 +313,21 @@ public class UserManagementService implements ManageUserUseCase {
 	public void revokeRole(UUID assignmentId) {
 		Objects.requireNonNull(assignmentId, "AssignmentId must not be null.");
 		UserRoleAssignmentId id = new UserRoleAssignmentId(assignmentId);
-		userRoleAssignmentRepository.findById(id).ifPresent(a -> checkTenantAccess(a.getTenantId()));
+		UserRoleAssignment assignment = userRoleAssignmentRepository.findById(id).orElse(null);
+		if (assignment != null) {
+			checkTenantAccess(assignment.getTenantId());
+		}
 		userRoleAssignmentRepository.delete(id);
+		if (eventPublisher != null && assignment != null) {
+			String actorStr = resolveActor();
+			eventPublisher.publish(IamEvent.of(
+					IamEventTypes.ROLE_ASSIGNMENT_REVOKED,
+					assignment.getTenantId() != null ? assignment.getTenantId().value() : null,
+					assignment.getId().value(),
+					"ROLE_ASSIGNMENT",
+					Map.of("userId", assignment.getUserId().value().toString(), "roleId", assignment.getRoleId().value().toString()),
+					actorStr));
+		}
 	}
 
 	@Override
@@ -312,6 +410,13 @@ public class UserManagementService implements ManageUserUseCase {
 				}
 			}
 		}
+	}
+
+	private String resolveActor() {
+		return currentActorProvider != null && currentActorProvider.currentActor().isPresent() &&
+				currentActorProvider.currentActor().get().userId() != null
+				? currentActorProvider.currentActor().get().userId().toString()
+				: "system";
 	}
 }
 
