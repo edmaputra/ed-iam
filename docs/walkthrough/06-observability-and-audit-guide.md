@@ -8,11 +8,11 @@ This guide details the architecture, SIEM security audit event catalog, Micromet
 
 `ed-iam` delivers enterprise-grade observability and security compliance following strict hexagonal design principles:
 
-* **Pure Domain Events (`ed-iam-core`)**: Standardized [`IamEvent`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/implement_phase_four/ed-iam-core/src/main/java/io/github/edmaputra/iam/domain/event/IamEvent.java) records representing business and security state changes.
-* **Invariant Validation & Sanitization (`ed-iam-core`)**: The [`IamEventValidator`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/implement_phase_four/ed-iam-core/src/main/java/io/github/edmaputra/iam/domain/event/IamEventValidator.java) and [`ValidatingEventPublisher`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/implement_phase_four/ed-iam-core/src/main/java/io/github/edmaputra/iam/application/port/out/ValidatingEventPublisher.java) enforce structural constraints and scrub sensitive keys (`password`, `secret`, `token`, `credentials`) to `"[PROTECTED]"` before events can be emitted.
-* **Structured SIEM Audit Logging (`ed-iam-resource-server`)**: [`SecurityAuditEventListener`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/implement_phase_four/ed-iam-resource-server/src/main/java/io/github/edmaputra/iam/adapter/security/audit/SecurityAuditEventListener.java) formats events as either standard key-value logs or JSON payloads to a dedicated `io.github.edmaputra.iam.audit` logger, populating SLF4J MDC context for downstream SIEM ingestion (Splunk, Datadog, Elastic/Logstash, AWS CloudWatch).
-* **Native Micrometer Metrics & OpenTelemetry Tracing (`ed-iam-resource-server`)**: [`IamTelemetry`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/implement_phase_four/ed-iam-resource-server/src/main/java/io/github/edmaputra/iam/adapter/security/telemetry/IamTelemetry.java) instruments authentication latency, attempt rates, JWT validation duration, and access denials with multi-tenant dimensional tags.
-* **Unified Facade (`ed-iam-resource-server`)**: [`SecurityAuditRecorder`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/implement_phase_four/ed-iam-resource-server/src/main/java/io/github/edmaputra/iam/adapter/security/audit/SecurityAuditRecorder.java) coordinates metrics recording and audit event publishing through clean one-line calls across authentication and security components.
+* **Pure Domain Events (`ed-iam-core`)**: Standardized `IamEvent` records representing business and security state changes.
+* **Invariant Validation & Sanitization (`ed-iam-core`)**: The `IamEventValidator` and `ValidatingEventPublisher` enforce structural constraints and scrub sensitive keys (`password`, `secret`, `token`, `credentials`) to `"[PROTECTED]"` before events can be emitted.
+* **Structured SIEM Audit Logging (`ed-iam-resource-server`)**: `SecurityAuditEventListener` formats events as either standard key-value logs or JSON payloads to a dedicated `io.github.edmaputra.iam.audit` logger, populating SLF4J MDC context for downstream SIEM ingestion (Splunk, Datadog, Elastic/Logstash, AWS CloudWatch).
+* **Native Micrometer Metrics & OpenTelemetry Tracing (`ed-iam-resource-server`)**: `IamTelemetry` instruments authentication latency, attempt rates, JWT validation duration, and access denials with multi-tenant dimensional tags.
+* **Unified Facade (`ed-iam-resource-server`)**: `SecurityAuditRecorder` coordinates metrics recording and audit event publishing through clean one-line calls across authentication and security components.
 
 ```
        ┌────────────────────────────────────────────────────────┐
@@ -44,12 +44,12 @@ This guide details the architecture, SIEM security audit event catalog, Micromet
 
 ## 2. SIEM Security Audit Event Catalog
 
-All security audit events conform to the immutable record [`IamEvent`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/implement_phase_four/ed-iam-core/src/main/java/io/github/edmaputra/iam/domain/event/IamEvent.java):
+All security audit events conform to the immutable record `IamEvent`:
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
 | `eventId` | `UUID` | Unique UUIDv7 / UUIDv4 identifier for the audit record. |
-| `eventType` | `String` | Type constant defined in [`IamEventTypes`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/implement_phase_four/ed-iam-core/src/main/java/io/github/edmaputra/iam/domain/event/IamEventTypes.java). |
+| `eventType` | `String` | Type constant defined in `IamEventTypes`. |
 | `tenantId` | `UUID` | Target tenant identifier (`null` for global/system operations). |
 | `entityType` | `String` | Domain entity category (`USER`, `ROLE`, `GROUP`, `SCOPE_NODE`, `ROLE_ASSIGNMENT`, `AUTH`, `SESSION`, `SECURITY`). |
 | `entityId` | `UUID` | Primary key of the affected entity (or `00000000-0000-0000-0000-000000000000` for system events). |
@@ -120,7 +120,7 @@ All security audit events conform to the immutable record [`IamEvent`](file:///U
 
 ## 3. Credential Sanitization & Invariant Protection
 
-To guarantee that credentials or API tokens never leak into SIEM log streams, [`IamEventValidator`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/implement_phase_four/ed-iam-core/src/main/java/io/github/edmaputra/iam/domain/event/IamEventValidator.java) automatically sanitizes event payloads.
+To guarantee that credentials or API tokens never leak into SIEM log streams, `IamEventValidator` automatically sanitizes event payloads.
 
 ### Scrubbed Payload Keys
 Any payload key matching (case-insensitively):
@@ -166,7 +166,7 @@ All metrics are registered with Spring Boot's standard `MeterRegistry` under the
 ### Metric 3: JWT Token Validation Timer
 * **Meter Name**: `iam.token.validation.time`
 * **Type**: `Timer`
-* **Description**: Time taken by [`JwtAuthenticationFilter`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/implement_phase_four/ed-iam-resource-server/src/main/java/io/github/edmaputra/iam/adapter/security/jwt/JwtAuthenticationFilter.java) to parse, cryptographically verify, check revocation status, and establish the `ScopedValue` context.
+* **Description**: Time taken by `JwtAuthenticationFilter` to parse, cryptographically verify, check revocation status, and establish the `ScopedValue` context.
 * **Tags**:
   * `status`: Validation result:
     * `valid`: Signature verified, unexpired, and not revoked.
@@ -188,7 +188,7 @@ All metrics are registered with Spring Boot's standard `MeterRegistry` under the
 
 ## 5. OpenTelemetry Distributed Tracing
 
-[`IamTelemetry`](file:///Users/bangun.saputra/.gemini/antigravity/worktrees/ed-iam/implement_phase_four/ed-iam-resource-server/src/main/java/io/github/edmaputra/iam/adapter/security/telemetry/IamTelemetry.java) integrates with standard OpenTelemetry tracers via the instrumentation scope:
+`IamTelemetry` integrates with standard OpenTelemetry tracers via the instrumentation scope:
 ```
 io.github.edmaputra.iam
 ```
