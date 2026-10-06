@@ -1,5 +1,6 @@
 package io.github.edmaputra.iam;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
@@ -7,6 +8,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
+import io.github.edmaputra.iam.adapter.persistence.crypto.AesGcmEncryptor;
+import io.github.edmaputra.iam.adapter.security.jwt.JwtProperties;
 import io.github.edmaputra.iam.adapter.persistence.adapter.GroupRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.GroupRoleAssignmentRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.JpaMagicLinkTokenStoreAdapter;
@@ -33,6 +36,12 @@ import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
+import io.github.edmaputra.iam.adapter.persistence.adapter.PasswordPolicyRepositoryAdapter;
+import io.github.edmaputra.iam.adapter.persistence.adapter.RedirectUriRepositoryAdapter;
+import io.github.edmaputra.iam.adapter.persistence.repository.PasswordPolicyJpaRepository;
+import io.github.edmaputra.iam.adapter.persistence.repository.RedirectUriJpaRepository;
+import io.github.edmaputra.iam.domain.repository.PasswordPolicyRepository;
+import io.github.edmaputra.iam.domain.repository.RedirectUriRepository;
 import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
@@ -93,13 +102,37 @@ public class IamSecurityAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	public UserMfaRepository userMfaRepository(UserMfaJpaRepository repository) {
-		return new UserMfaRepositoryAdapter(repository);
+	public AesGcmEncryptor aesGcmEncryptor(ObjectProvider<JwtProperties> jwtPropertiesProvider) {
+		JwtProperties jwtProperties = jwtPropertiesProvider.getIfAvailable();
+		String secret = (jwtProperties != null && jwtProperties.secret() != null)
+				? jwtProperties.secret()
+				: "iam-default-fallback-mfa-encryption-key-for-credentials-at-rest!";
+		return new AesGcmEncryptor(secret);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public UserMfaRepository userMfaRepository(
+			UserMfaJpaRepository repository,
+			ObjectProvider<AesGcmEncryptor> encryptorProvider) {
+		return new UserMfaRepositoryAdapter(repository, encryptorProvider.getIfAvailable());
 	}
 
 	@Bean
 	@ConditionalOnMissingBean
 	public MagicLinkTokenStorePort magicLinkTokenStorePort(MagicLinkTokenJpaRepository repository) {
 		return new JpaMagicLinkTokenStoreAdapter(repository);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public PasswordPolicyRepository passwordPolicyRepository(PasswordPolicyJpaRepository repository) {
+		return new PasswordPolicyRepositoryAdapter(repository);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public RedirectUriRepository redirectUriRepository(RedirectUriJpaRepository repository) {
+		return new RedirectUriRepositoryAdapter(repository);
 	}
 }

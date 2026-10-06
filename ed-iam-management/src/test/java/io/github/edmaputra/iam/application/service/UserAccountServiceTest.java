@@ -217,4 +217,38 @@ class UserAccountServiceTest {
 		PagedResult<User> actual = service.getUsers(null, query);
 		assertThat(actual).isSameAs(expected);
 	}
+
+	@Test
+	@DisplayName("Should enforce password policy when PasswordValidatorPort is configured (OWASP A07)")
+	void shouldEnforcePasswordPolicyWhenConfigured() {
+		io.github.edmaputra.iam.domain.security.DefaultPasswordValidator validator =
+				new io.github.edmaputra.iam.domain.security.DefaultPasswordValidator();
+
+		UserAccountService validatingService = new UserAccountService(
+				userRepository,
+				passwordEncoder,
+				sessionRegistry,
+				tokenRevocationPort,
+				userMfaRepository,
+				currentActorProvider,
+				eventPublisher,
+				validator);
+
+		when(userRepository.findByEmail("doctor@hospital.org")).thenReturn(Optional.empty());
+
+		// Weak password (only lowercase) should be rejected
+		CreateUserCommand weakCommand = new CreateUserCommand("doctor@hospital.org", "weakpass", "Doctor", false);
+		assertThatThrownBy(() -> validatingService.createUser(weakCommand))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("uppercase");
+
+		// Compliant strong password should be accepted
+		when(passwordEncoder.encode("Str0ng!P@ssw0rd#2026")).thenReturn("hashed");
+		when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
+
+		CreateUserCommand strongCommand = new CreateUserCommand("doctor@hospital.org", "Str0ng!P@ssw0rd#2026", "Doctor", false);
+		User created = validatingService.createUser(strongCommand);
+		assertThat(created).isNotNull();
+		assertThat(created.getEmail()).isEqualTo("doctor@hospital.org");
+	}
 }

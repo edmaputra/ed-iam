@@ -99,4 +99,34 @@ class UserMfaRepositoryAdapterTest {
 		assertThatThrownBy(() -> adapter.save(null)).isInstanceOf(NullPointerException.class);
 		assertThatThrownBy(() -> adapter.deleteByUserId(null)).isInstanceOf(NullPointerException.class);
 	}
+
+	@Test
+	@DisplayName("Should encrypt TOTP secret on save and decrypt on find with AesGcmEncryptor (OWASP A02)")
+	void shouldEncryptSecretWithAesGcmEncryptor() {
+		io.github.edmaputra.iam.adapter.persistence.crypto.AesGcmEncryptor encryptor =
+				new io.github.edmaputra.iam.adapter.persistence.crypto.AesGcmEncryptor("test-key-for-mfa-repository-adapter-test-256!");
+		UserMfaRepositoryAdapter cryptoAdapter = new UserMfaRepositoryAdapter(jpaRepository, encryptor);
+
+		UserId userId = UserId.generate();
+		UserMfa mfa = UserMfa.create(userId, "PLAIN_SECRET_BASE32", List.of("hash1"));
+
+		when(jpaRepository.save(any(UserMfaJpaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+		UserMfa saved = cryptoAdapter.save(mfa);
+		assertThat(saved.getSecret()).isEqualTo("PLAIN_SECRET_BASE32");
+
+		ArgumentCaptor<UserMfaJpaEntity> captor = ArgumentCaptor.forClass(UserMfaJpaEntity.class);
+		verify(jpaRepository).save(captor.capture());
+		UserMfaJpaEntity savedEntity = captor.getValue();
+
+		// Entity secret stored in DB must be encrypted
+		assertThat(savedEntity.getSecret()).startsWith("enc:v1:");
+		assertThat(savedEntity.getSecret()).isNotEqualTo("PLAIN_SECRET_BASE32");
+
+		// Decrypt when retrieving from entity
+		when(jpaRepository.findById(userId.value())).thenReturn(Optional.of(savedEntity));
+		Optional<UserMfa> foundOpt = cryptoAdapter.findByUserId(userId);
+		assertThat(foundOpt).isPresent();
+		assertThat(foundOpt.get().getSecret()).isEqualTo("PLAIN_SECRET_BASE32");
+	}
 }

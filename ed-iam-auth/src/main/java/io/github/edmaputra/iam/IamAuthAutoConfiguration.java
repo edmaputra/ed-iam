@@ -29,6 +29,7 @@ import io.github.edmaputra.iam.adapter.security.BCryptPasswordEncoderAdapter;
 import io.github.edmaputra.iam.adapter.security.IamResourceServerAutoConfiguration;
 import io.github.edmaputra.iam.adapter.security.notifier.LoggingMagicLinkNotifier;
 import io.github.edmaputra.iam.adapter.security.properties.MagicLinkProperties;
+import io.github.edmaputra.iam.adapter.security.redirect.DefaultAllowedRedirectHostResolver;
 import io.github.edmaputra.iam.adapter.security.provider.ApiKeyAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.LocalPasswordAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.MagicLinkAuthProvider;
@@ -37,6 +38,7 @@ import io.github.edmaputra.iam.adapter.security.store.InMemoryMagicLinkTokenStor
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageMagicLinkUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageMfaUseCase;
+import io.github.edmaputra.iam.application.port.out.AllowedRedirectHostResolverPort;
 import io.github.edmaputra.iam.application.port.out.ApiKeyValidatorPort;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProvider;
 import io.github.edmaputra.iam.application.port.out.AuthenticationProviderRouter;
@@ -204,21 +206,15 @@ public class IamAuthAutoConfiguration {
 			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
 			UserRepository userRepository,
 			PasswordEncoderPort passwordEncoder,
-			TokenProviderPort tokenProvider,
-			EffectiveAccessResolver effectiveAccessResolver,
-			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
-			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
-			ObjectProvider<SessionProperties> sessionPropertiesProvider) {
+			UserTokenService userTokenService,
+			AuthSessionService authSessionService) {
 
 		return new MfaService(
 				userMfaRepositoryProvider.getIfAvailable(),
 				userRepository,
 				passwordEncoder,
-				tokenProvider,
-				effectiveAccessResolver,
-				sessionRegistryProvider.getIfAvailable(),
-				tokenRevocationPortProvider.getIfAvailable(),
-				sessionPropertiesProvider.getIfAvailable(SessionProperties::defaultProperties));
+				userTokenService,
+				authSessionService);
 	}
 
 	@Bean
@@ -242,15 +238,25 @@ public class IamAuthAutoConfiguration {
 	}
 
 	@Bean
+	@ConditionalOnMissingBean(AllowedRedirectHostResolverPort.class)
+	public AllowedRedirectHostResolverPort allowedRedirectHostResolver(MagicLinkProperties magicLinkProperties) {
+		return new DefaultAllowedRedirectHostResolver(magicLinkProperties);
+	}
+
+	@Bean
 	@ConditionalOnMissingBean
 	public MagicLinkDispatchService magicLinkDispatchService(
 			MagicLinkProperties magicLinkProperties,
 			MagicLinkTokenStorePort magicLinkTokenStore,
-			MagicLinkNotifierPort magicLinkNotifier) {
+			MagicLinkNotifierPort magicLinkNotifier,
+			ObjectProvider<AllowedRedirectHostResolverPort> allowedRedirectHostResolverProvider) {
+		AllowedRedirectHostResolverPort resolver = allowedRedirectHostResolverProvider.getIfAvailable(
+				() -> new DefaultAllowedRedirectHostResolver(magicLinkProperties));
 		return new MagicLinkDispatchService(
 				magicLinkProperties,
 				magicLinkTokenStore,
-				magicLinkNotifier);
+				magicLinkNotifier,
+				resolver);
 	}
 
 	@Bean

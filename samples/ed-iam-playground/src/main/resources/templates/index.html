@@ -514,6 +514,9 @@
         <button id="tabBtnObservability" onclick="switchMgmtTab('observability')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
           <i class="fa-solid fa-chart-line"></i> Observability &amp; SIEM Audit
         </button>
+        <button id="tabBtnPolicies" onclick="switchMgmtTab('policies')" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-sliders"></i> Security Policies
+        </button>
       </div>
 
       <!-- TAB 1: USERS & LIFECYCLE -->
@@ -1028,6 +1031,146 @@
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- TAB 8: SECURITY POLICIES (PASSWORD POLICY & ALLOWED REDIRECT URIS) -->
+      <div id="panelPolicies" class="hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <!-- CARD 1: RUNTIME PASSWORD POLICY -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-key text-indigo-400 text-lg"></i>
+                <div>
+                  <h3 class="font-semibold text-white text-sm">Tenant Password Policy</h3>
+                  <p class="text-[11px] text-slate-400">Configure and test runtime credential strength requirements.</p>
+                </div>
+              </div>
+              <button onclick="refreshPasswordPolicy()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition flex items-center gap-1">
+                <i class="fa-solid fa-arrows-rotate"></i> Reload
+              </button>
+            </div>
+
+            <!-- Policy Form -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Min Length</label>
+                <input id="polMinLength" type="number" min="8" max="128" value="8" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:ring-1 focus:ring-indigo-500 font-mono">
+              </div>
+              <div>
+                <label class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Min Uppercase</label>
+                <input id="polMinUpper" type="number" min="0" max="10" value="0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:ring-1 focus:ring-indigo-500 font-mono">
+              </div>
+              <div>
+                <label class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Min Lowercase</label>
+                <input id="polMinLower" type="number" min="0" max="10" value="0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:ring-1 focus:ring-indigo-500 font-mono">
+              </div>
+              <div>
+                <label class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Min Digits</label>
+                <input id="polMinDigits" type="number" min="0" max="10" value="0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:ring-1 focus:ring-indigo-500 font-mono">
+              </div>
+              <div>
+                <label class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Min Special Chars</label>
+                <input id="polMinSpecial" type="number" min="0" max="10" value="0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:ring-1 focus:ring-indigo-500 font-mono">
+              </div>
+              <div class="flex items-center pt-5">
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                  <input id="polDisallowCommon" type="checkbox" checked class="rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-indigo-500">
+                  <span>Disallow Common</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Custom Regex Pattern (Optional)</label>
+              <input id="polCustomRegex" type="text" placeholder="e.g. ^[A-Za-z0-9!@#\\$%\\^&*]+$" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:ring-1 focus:ring-indigo-500 font-mono">
+            </div>
+
+            <div class="flex items-center justify-between pt-2">
+              <span id="polStatusMsg" class="text-xs font-mono text-slate-400"></span>
+              <button onclick="savePasswordPolicy()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow transition flex items-center gap-1.5">
+                <i class="fa-solid fa-floppy-disk"></i> Save Policy
+              </button>
+            </div>
+
+            <!-- Interactive Password Validator Sandbox -->
+            <div class="mt-4 pt-4 border-t border-slate-800 space-y-2">
+              <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <i class="fa-solid fa-vial-circle-check text-emerald-400"></i> Live Password Strength Tester
+              </span>
+              <div class="flex gap-2">
+                <input id="testPasswordInput" type="text" placeholder="Type a password candidate to evaluate..."
+                  oninput="testPasswordCandidate()"
+                  class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:ring-1 focus:ring-indigo-500 font-mono">
+              </div>
+              <div id="testPasswordResult" class="text-xs font-mono p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400">
+                Enter candidate to evaluate against current policy criteria.
+              </div>
+            </div>
+          </div>
+
+          <!-- CARD 2: RUNTIME ALLOWED REDIRECT URLS -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-compass text-teal-400 text-lg"></i>
+                <div>
+                  <h3 class="font-semibold text-white text-sm">Allowed Redirect URLs (Open Redirect Protection)</h3>
+                  <p class="text-[11px] text-slate-400">Manage allowed callback destinations for magic link authentication.</p>
+                </div>
+              </div>
+              <button onclick="refreshRedirectUris()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition flex items-center gap-1">
+                <i class="fa-solid fa-arrows-rotate"></i> Reload
+              </button>
+            </div>
+
+            <!-- Add New Redirect URI -->
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input id="newRedirectUriInput" type="text" placeholder="https://portal.metro.org/auth/callback or *.metro.org"
+                class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:ring-1 focus:ring-teal-500 font-mono">
+              <button onclick="addRedirectUri()" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-semibold shadow transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Add URL
+              </button>
+            </div>
+
+            <!-- Redirect URIs List -->
+            <div class="overflow-x-auto max-h-48 overflow-y-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="bg-slate-950/80 sticky top-0 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                  <tr>
+                    <th class="py-2 px-3">Allowed URL / Wildcard Pattern</th>
+                    <th class="py-2 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="redirectUrisTableBody" class="divide-y divide-slate-800/60 font-mono text-[11px] text-slate-300">
+                  <tr>
+                    <td colspan="2" class="py-4 text-center text-slate-500 italic">Loading allowed redirect URLs...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Interactive Redirect URI Tester Sandbox -->
+            <div class="mt-4 pt-4 border-t border-slate-800 space-y-2">
+              <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <i class="fa-solid fa-shield-virus text-amber-400"></i> Open Redirect URL Validator Tester
+              </span>
+              <p class="text-[11px] text-slate-400">Test candidate URLs against the configured whitelist (including wildcard matching and protocol validation).</p>
+              <div class="flex gap-2">
+                <input id="testRedirectUriInput" type="text" placeholder="https://evil.attacker.com or https://portal.metro.org/auth/callback"
+                  class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:ring-1 focus:ring-teal-500 font-mono">
+                <button onclick="testRedirectUri()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-check-double"></i> Validate
+                </button>
+              </div>
+              <div id="testRedirectResult" class="text-xs font-mono p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400">
+                Enter candidate redirect URL to test authorization status.
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -1981,7 +2124,7 @@
 
     function switchMgmtTab(tab) {
       activeMgmtTab = tab;
-      const tabs = ['users', 'roles', 'groups', 'scopes', 'auth', 'sessions', 'observability'];
+      const tabs = ['users', 'roles', 'groups', 'scopes', 'auth', 'sessions', 'observability', 'policies'];
       tabs.forEach(t => {
         const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
         const panel = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
@@ -1998,6 +2141,7 @@
       if (tab === 'groups') refreshGroups();
       if (tab === 'scopes') refreshScopeTree();
       if (tab === 'observability') refreshObservability();
+      if (tab === 'policies') refreshPolicies();
     }
 
     // --- Central API Call Helper ---
@@ -3253,6 +3397,290 @@
         }
       } catch (err) {
         showToast('Failed to clear audit events: ' + err.message, 'error');
+      }
+    }
+
+    // =========================================================================
+    // Security Policies Management (Password Policies & Allowed Redirect URLs)
+    // =========================================================================
+
+    function refreshPolicies() {
+      refreshPasswordPolicy();
+      refreshRedirectUris();
+    }
+
+    async function refreshPasswordPolicy() {
+      const statusEl = document.getElementById('polStatusMsg');
+      if (statusEl) statusEl.textContent = 'Loading policy...';
+      try {
+        const res = await executeApiCall('GET', '/api/v1/password-policy');
+        if (res.status === 200 && res.data) {
+          const p = res.data;
+          document.getElementById('polMinLength').value = p.minLength ?? 8;
+          document.getElementById('polMinUpper').value = p.minUppercase ?? 0;
+          document.getElementById('polMinLower').value = p.minLowercase ?? 0;
+          document.getElementById('polMinDigits').value = p.minNumbers ?? 0;
+          document.getElementById('polMinSpecial').value = p.minSpecialCharacters ?? 0;
+          document.getElementById('polDisallowCommon').checked = p.disallowUsername !== false;
+          document.getElementById('polCustomRegex').value = p.customRegex ?? '';
+          if (statusEl) {
+            statusEl.textContent = 'Policy synced: Active';
+            statusEl.className = 'text-xs font-mono text-emerald-400';
+          }
+          testPasswordCandidate();
+        } else {
+          if (statusEl) {
+            statusEl.textContent = 'Failed to load policy (' + res.status + ')';
+            statusEl.className = 'text-xs font-mono text-red-400';
+          }
+        }
+      } catch (err) {
+        if (statusEl) {
+          statusEl.textContent = 'Error: ' + err.message;
+          statusEl.className = 'text-xs font-mono text-red-400';
+        }
+      }
+    }
+
+    async function savePasswordPolicy() {
+      const statusEl = document.getElementById('polStatusMsg');
+      if (statusEl) {
+        statusEl.textContent = 'Saving policy...';
+        statusEl.className = 'text-xs font-mono text-slate-400';
+      }
+
+      const body = {
+        minLength: parseInt(document.getElementById('polMinLength').value, 10) || 8,
+        minUppercase: parseInt(document.getElementById('polMinUpper').value, 10) || 0,
+        minLowercase: parseInt(document.getElementById('polMinLower').value, 10) || 0,
+        minNumbers: parseInt(document.getElementById('polMinDigits').value, 10) || 0,
+        minSpecialCharacters: parseInt(document.getElementById('polMinSpecial').value, 10) || 0,
+        disallowUsername: document.getElementById('polDisallowCommon').checked,
+        customRegex: document.getElementById('polCustomRegex').value.trim() || null
+      };
+
+      try {
+        const res = await executeApiCall('PUT', '/api/v1/password-policy', body);
+        if (res.status === 200) {
+          showToast('Password policy updated successfully', 'success');
+          if (statusEl) {
+            statusEl.textContent = 'Policy saved successfully!';
+            statusEl.className = 'text-xs font-mono text-emerald-400';
+          }
+          testPasswordCandidate();
+        } else {
+          const errMsg = res.data?.message || ('HTTP ' + res.status);
+          showToast('Failed to save policy: ' + errMsg, 'error');
+          if (statusEl) {
+            statusEl.textContent = 'Error: ' + errMsg;
+            statusEl.className = 'text-xs font-mono text-red-400';
+          }
+        }
+      } catch (err) {
+        showToast('Failed to save policy: ' + err.message, 'error');
+        if (statusEl) {
+          statusEl.textContent = 'Error: ' + err.message;
+          statusEl.className = 'text-xs font-mono text-red-400';
+        }
+      }
+    }
+
+    function testPasswordCandidate() {
+      const pwd = document.getElementById('testPasswordInput').value;
+      const resEl = document.getElementById('testPasswordResult');
+      if (!resEl) return;
+
+      if (!pwd) {
+        resEl.innerHTML = '<span class="text-slate-500">Enter candidate to evaluate against current policy criteria.</span>';
+        resEl.className = 'text-xs font-mono p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400';
+        return;
+      }
+
+      const minLen = parseInt(document.getElementById('polMinLength').value, 10) || 8;
+      const minUpper = parseInt(document.getElementById('polMinUpper').value, 10) || 0;
+      const minLower = parseInt(document.getElementById('polMinLower').value, 10) || 0;
+      const minDigits = parseInt(document.getElementById('polMinDigits').value, 10) || 0;
+      const minSpecial = parseInt(document.getElementById('polMinSpecial').value, 10) || 0;
+      const regexStr = document.getElementById('polCustomRegex').value.trim();
+
+      const violations = [];
+      if (pwd.length < minLen) violations.push(`Length < ${minLen} (actual: ${pwd.length})`);
+      
+      const upperCount = (pwd.match(/[A-Z]/g) || []).length;
+      if (upperCount < minUpper) violations.push(`Uppercase < ${minUpper} (actual: ${upperCount})`);
+
+      const lowerCount = (pwd.match(/[a-z]/g) || []).length;
+      if (lowerCount < minLower) violations.push(`Lowercase < ${minLower} (actual: ${lowerCount})`);
+
+      const digitCount = (pwd.match(/[0-9]/g) || []).length;
+      if (digitCount < minDigits) violations.push(`Digits < ${minDigits} (actual: ${digitCount})`);
+
+      const specialCount = (pwd.match(/[^A-Za-z0-9]/g) || []).length;
+      if (specialCount < minSpecial) violations.push(`Special chars < ${minSpecial} (actual: ${specialCount})`);
+
+      if (regexStr) {
+        try {
+          const reg = new RegExp(regexStr);
+          if (!reg.test(pwd)) violations.push('Does not match custom regex pattern');
+        } catch (e) {
+          violations.push('Invalid regex pattern defined in form');
+        }
+      }
+
+      if (violations.length === 0) {
+        resEl.innerHTML = '<span class="text-emerald-400 font-semibold"><i class="fa-solid fa-circle-check mr-1.5"></i> PASS: Password satisfies all policy constraints</span>';
+        resEl.className = 'text-xs font-mono p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300';
+      } else {
+        resEl.innerHTML = `<span class="text-red-400 font-semibold block mb-1"><i class="fa-solid fa-circle-xmark mr-1.5"></i> REJECTED: ${violations.length} violation(s)</span><ul class="list-disc list-inside text-red-300 space-y-0.5">${violations.map(v => `<li>${escapeHtml(v)}</li>`).join('')}</ul>`;
+        resEl.className = 'text-xs font-mono p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300';
+      }
+    }
+
+    let loadedRedirectUris = [];
+
+    async function refreshRedirectUris() {
+      const tbody = document.getElementById('redirectUrisTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="2" class="py-4 text-center text-slate-500 italic">Loading allowed redirect URLs...</td></tr>';
+
+      try {
+        const res = await executeApiCall('GET', '/api/v1/redirect-uris');
+        if (res.status === 200 && res.data) {
+          const uris = Array.isArray(res.data) ? res.data : (res.data.allowedUris || []);
+          loadedRedirectUris = Array.from(uris);
+          renderRedirectUrisTable(loadedRedirectUris);
+        } else {
+          tbody.innerHTML = `<tr><td colspan="2" class="py-4 text-center text-red-400 italic">Failed to load URIs (${res.status})</td></tr>`;
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="2" class="py-4 text-center text-red-400 italic">Error: ${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    function renderRedirectUrisTable(uris) {
+      const tbody = document.getElementById('redirectUrisTableBody');
+      if (!tbody) return;
+
+      if (!uris || uris.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="2" class="py-4 text-center text-slate-500 italic">No allowed redirect URIs configured.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = uris.map(u => `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="py-2.5 px-3">
+            <span class="text-teal-300 font-semibold">${escapeHtml(u)}</span>
+            ${u.includes('*') ? '<span class="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-400 border border-teal-500/30">Wildcard</span>' : ''}
+          </td>
+          <td class="py-2.5 px-3 text-right">
+            <button onclick="removeRedirectUri('${escapeQuotes(u)}')" class="px-2 py-1 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 text-[11px] transition">
+              <i class="fa-solid fa-trash-can mr-1"></i> Remove
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function addRedirectUri() {
+      const input = document.getElementById('newRedirectUriInput');
+      const uri = (input.value || '').trim();
+      if (!uri) {
+        showToast('Please enter a valid URI or wildcard pattern', 'warning');
+        return;
+      }
+
+      try {
+        const res = await executeApiCall('POST', '/api/v1/redirect-uris', { uri: uri });
+        if (res.status === 200 || res.status === 201) {
+          showToast(`Redirect URI '${uri}' allowed`, 'success');
+          input.value = '';
+          if (res.data) {
+            const uris = Array.isArray(res.data) ? res.data : (res.data.allowedUris || []);
+            loadedRedirectUris = Array.from(uris);
+            renderRedirectUrisTable(loadedRedirectUris);
+          } else {
+            refreshRedirectUris();
+          }
+        } else {
+          const errMsg = res.data?.message || ('HTTP ' + res.status);
+          showToast('Failed to add URI: ' + errMsg, 'error');
+        }
+      } catch (err) {
+        showToast('Failed to add URI: ' + err.message, 'error');
+      }
+    }
+
+    async function removeRedirectUri(uri) {
+      if (!confirm(`Are you sure you want to remove '${uri}' from allowed redirect URIs?`)) {
+        return;
+      }
+
+      try {
+        const url = `/api/v1/redirect-uris?uri=${encodeURIComponent(uri)}`;
+        const res = await executeApiCall('DELETE', url);
+        if (res.status === 200 || res.status === 204) {
+          showToast(`Redirect URI '${uri}' removed`, 'info');
+          if (res.data) {
+            const uris = Array.isArray(res.data) ? res.data : (res.data.allowedUris || []);
+            loadedRedirectUris = Array.from(uris);
+            renderRedirectUrisTable(loadedRedirectUris);
+          } else {
+            refreshRedirectUris();
+          }
+        } else {
+          const errMsg = res.data?.message || ('HTTP ' + res.status);
+          showToast('Failed to remove URI: ' + errMsg, 'error');
+        }
+      } catch (err) {
+        showToast('Failed to remove URI: ' + err.message, 'error');
+      }
+    }
+
+    function testRedirectUri() {
+      const candidate = (document.getElementById('testRedirectUriInput').value || '').trim();
+      const resEl = document.getElementById('testRedirectResult');
+      if (!resEl) return;
+
+      if (!candidate) {
+        resEl.innerHTML = '<span class="text-slate-500">Enter candidate redirect URL to test authorization status.</span>';
+        resEl.className = 'text-xs font-mono p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400';
+        return;
+      }
+
+      // Basic client-side validation imitating backend OpenRedirectValidator
+      let isValidProtocol = false;
+      let parsedUrl = null;
+      try {
+        parsedUrl = new URL(candidate);
+        isValidProtocol = (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:');
+      } catch (e) {
+        isValidProtocol = false;
+      }
+
+      if (!isValidProtocol || candidate.startsWith('//')) {
+        resEl.innerHTML = `<span class="text-red-400 font-semibold block mb-1"><i class="fa-solid fa-ban mr-1.5"></i> REJECTED: Invalid or dangerous scheme</span><span class="text-slate-400">Must be absolute http:// or https:// URL without protocol-relative bypass.</span>`;
+        resEl.className = 'text-xs font-mono p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300';
+        return;
+      }
+
+      const host = parsedUrl.hostname.toLowerCase();
+      const isAllowed = loadedRedirectUris.some(pattern => {
+        const p = pattern.trim().toLowerCase();
+        if (candidate.toLowerCase() === p) return true;
+        if (candidate.toLowerCase().startsWith(p.endsWith('/') ? p : p + '/')) return true;
+        if (p.startsWith('*.')) {
+          const domain = p.substring(2);
+          return host === domain || host.endsWith('.' + domain);
+        }
+        return false;
+      });
+
+      if (isAllowed) {
+        resEl.innerHTML = `<span class="text-emerald-400 font-semibold block mb-1"><i class="fa-solid fa-circle-check mr-1.5"></i> ALLOWED: Destination matches whitelist</span><span class="text-slate-400">Target host: <b>${escapeHtml(host)}</b> authorized for magic link redirection.</span>`;
+        resEl.className = 'text-xs font-mono p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300';
+      } else {
+        resEl.innerHTML = `<span class="text-red-400 font-semibold block mb-1"><i class="fa-solid fa-triangle-exclamation mr-1.5"></i> BLOCKED: Untrusted Destination</span><span class="text-slate-400">Host <b>${escapeHtml(host)}</b> is not in tenant allowed redirect URIs whitelist. Potential Open Redirect vulnerability mitigated!</span>`;
+        resEl.className = 'text-xs font-mono p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300';
       }
     }
 

@@ -49,5 +49,9 @@ public final class IamEventTypes {
 	public static final String LOGIN_SUCCESS = "LOGIN_SUCCESS";
 	public static final String LOGIN_FAILED = "LOGIN_FAILED";
 	public static final String ACCESS_DENIED = "ACCESS_DENIED";
+	public static final String PASSWORD_POLICY_UPDATED = "PASSWORD_POLICY_UPDATED";
+	public static final String REDIRECT_URI_POLICY_UPDATED = "REDIRECT_URI_POLICY_UPDATED";
+	public static final String REDIRECT_URI_ADDED = "REDIRECT_URI_ADDED";
+	public static final String REDIRECT_URI_REMOVED = "REDIRECT_URI_REMOVED";
 }
 

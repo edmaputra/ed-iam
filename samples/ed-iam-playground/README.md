@@ -62,11 +62,14 @@ All pre-seeded accounts share the default password: **`P@ssw0rd123!`**
    - **Groups & Teams**: Manage user groups and group-level role inheritance.
    - **Scopes & Tree Hierarchy**: Visualize organizational scope trees and subtree navigation.
    - **Auth & Tokens**: Inspect JWT claims, access tokens, and refresh tokens.
+   - **Security Policies**: Runtime configurable tenant password complexity policies (length, case, digits, special characters, regex) and Allowed Redirect URLs whitelist for Open Redirect protection.
 2. **1-Click Demo Scenarios**:
    - Scope Boundary Enforcement (Cardiology vs Oncology record isolation).
    - Group Role Inheritance (`Surgical Team` -> `SURGICAL_NURSE` role).
    - Account Suspension Safeguards.
    - Dynamic Multi-Tenant Context Switching.
+   - Dynamic Password Policy Enforcement and Live Sandbox Tester.
+   - Open Redirect Defense and Allowed Callback URLs Management.
 3. **Container Readiness & Monitoring**:
    - Production health probe: `GET /actuator/health`
    - Application info: `GET /actuator/info`

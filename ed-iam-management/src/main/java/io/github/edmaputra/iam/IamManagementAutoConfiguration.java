@@ -9,27 +9,45 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.util.Optional;
+
 import io.github.edmaputra.iam.adapter.rest.GroupController;
+import io.github.edmaputra.iam.adapter.rest.PasswordPolicyController;
+import io.github.edmaputra.iam.adapter.rest.RedirectUriController;
 import io.github.edmaputra.iam.adapter.rest.RoleController;
 import io.github.edmaputra.iam.adapter.rest.ScopeController;
 import io.github.edmaputra.iam.adapter.rest.UserController;
 import io.github.edmaputra.iam.application.port.in.ManageGroupUseCase;
+import io.github.edmaputra.iam.application.port.in.ManagePasswordPolicyUseCase;
+import io.github.edmaputra.iam.application.port.in.ManageRedirectUriUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageRoleUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
+import io.github.edmaputra.iam.application.port.out.AllowedRedirectHostResolverPort;
 import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
 import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
+import io.github.edmaputra.iam.domain.repository.PasswordPolicyRepository;
+import io.github.edmaputra.iam.domain.repository.RedirectUriRepository;
+import io.github.edmaputra.iam.domain.security.DefaultPasswordValidator;
+import io.github.edmaputra.iam.domain.security.PasswordPolicy;
+import io.github.edmaputra.iam.domain.security.PasswordValidator;
+import io.github.edmaputra.iam.domain.security.RedirectUriPolicy;
+import io.github.edmaputra.iam.domain.tenancy.TenantId;
+import io.github.edmaputra.iam.application.service.PasswordPolicyManagementService;
+import io.github.edmaputra.iam.application.service.RedirectUriManagementService;
 import io.github.edmaputra.iam.application.service.GroupLifecycleService;
 import io.github.edmaputra.iam.application.service.GroupManagementService;
 import io.github.edmaputra.iam.application.service.GroupRoleAssignmentService;
 import io.github.edmaputra.iam.application.service.RoleManagementService;
 import io.github.edmaputra.iam.application.service.SessionManagementService;
 import io.github.edmaputra.iam.application.service.UserAccountService;
+import io.github.edmaputra.iam.application.service.UserCredentialService;
 import io.github.edmaputra.iam.application.service.UserGroupMembershipService;
 import io.github.edmaputra.iam.application.service.UserManagementService;
 import io.github.edmaputra.iam.application.service.UserRoleAssignmentService;
+import io.github.edmaputra.iam.application.service.UserSessionRevocationService;
 
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
@@ -67,32 +85,120 @@ public class IamManagementAutoConfiguration {
 		};
 	}
 
+	@Bean
+	@ConditionalOnMissingBean(ManagePasswordPolicyUseCase.class)
+	public PasswordPolicyManagementService passwordPolicyManagementService(
+			ObjectProvider<PasswordPolicyRepository> passwordPolicyRepositoryProvider,
+			ObjectProvider<CurrentActorProvider> currentActorProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
+		PasswordPolicyRepository repository = passwordPolicyRepositoryProvider.getIfAvailable(
+				() -> new PasswordPolicyRepository() {
+					@Override
+					public Optional<PasswordPolicy> findByTenantId(TenantId tenantId) {
+						return Optional.empty();
+					}
+
+					@Override
+					public PasswordPolicy save(TenantId tenantId, PasswordPolicy policy) {
+						return policy;
+					}
+				});
+		return new PasswordPolicyManagementService(
+				repository,
+				currentActorProvider.getIfAvailable(),
+				eventPublisherProvider.getIfAvailable());
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(PasswordValidator.class)
+	public PasswordValidator passwordValidator(PasswordPolicyManagementService passwordPolicyManagementService) {
+		return passwordPolicyManagementService;
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(ManageRedirectUriUseCase.class)
+	public RedirectUriManagementService redirectUriManagementService(
+			ObjectProvider<RedirectUriRepository> redirectUriRepositoryProvider,
+			@org.springframework.beans.factory.annotation.Qualifier("allowedRedirectHostResolver")
+			ObjectProvider<AllowedRedirectHostResolverPort> fallbackResolverProvider,
+			ObjectProvider<CurrentActorProvider> currentActorProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
+		RedirectUriRepository repository = redirectUriRepositoryProvider.getIfAvailable(
+				() -> new RedirectUriRepository() {
+					@Override
+					public RedirectUriPolicy findByTenantId(TenantId tenantId) {
+						return RedirectUriPolicy.empty();
+					}
+
+					@Override
+					public RedirectUriPolicy save(TenantId tenantId, RedirectUriPolicy policy) {
+						return policy;
+					}
+
+					@Override
+					public void addUri(TenantId tenantId, String uri) {}
+
+					@Override
+					public void removeUri(TenantId tenantId, String uri) {}
+				});
+		return new RedirectUriManagementService(
+				repository,
+				fallbackResolverProvider.getIfAvailable(),
+				currentActorProvider.getIfAvailable(),
+				eventPublisherProvider.getIfAvailable());
+	}
+
+	@Bean
+	@org.springframework.context.annotation.Primary
+	public AllowedRedirectHostResolverPort allowedRedirectHostResolverPort(
+			RedirectUriManagementService redirectUriManagementService) {
+		return redirectUriManagementService;
+	}
+
 	/**
 	 * Registers the {@link ManageUserUseCase} bean.
 	 *
 	 * @param userRepository               the user repository
 	 * @param passwordEncoder              the password encoder
-	 * @param userRoleAssignmentRepository the user role assignment repository
-	 * @param userGroupMembershipRepository the user group membership repository
-	 * @param roleRepository               the role repository
-	 * @param groupRepository              the group repository
-	 * @return user management service
+	 * @param sessionRegistryProvider      session registry provider
+	 * @param tokenRevocationPortProvider  token revocation provider
+	 * @param userMfaRepositoryProvider    user MFA provider
+	 * @param currentActorProvider         current actor provider
+	 * @param eventPublisherProvider       event publisher provider
+	 * @param passwordValidatorProvider    password validator provider
+	 * @return user account service
 	 */
+	@Bean
+	@ConditionalOnMissingBean
+	public UserCredentialService userCredentialService(
+			PasswordEncoderPort passwordEncoder,
+			ObjectProvider<PasswordValidator> passwordValidatorProvider) {
+		return new UserCredentialService(passwordEncoder, passwordValidatorProvider.getIfAvailable());
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public UserSessionRevocationService userSessionRevocationService(
+			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider) {
+		return new UserSessionRevocationService(
+				sessionRegistryProvider.getIfAvailable(),
+				tokenRevocationPortProvider.getIfAvailable());
+	}
+
 	@Bean
 	@ConditionalOnMissingBean
 	public UserAccountService userAccountService(
 			UserRepository userRepository,
-			PasswordEncoderPort passwordEncoder,
-			ObjectProvider<SessionRegistryPort> sessionRegistryProvider,
-			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
+			UserCredentialService credentialService,
+			UserSessionRevocationService sessionRevocationService,
 			ObjectProvider<UserMfaRepository> userMfaRepositoryProvider,
 			ObjectProvider<CurrentActorProvider> currentActorProvider,
 			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
 		return new UserAccountService(
 				userRepository,
-				passwordEncoder,
-				sessionRegistryProvider.getIfAvailable(),
-				tokenRevocationPortProvider.getIfAvailable(),
+				credentialService,
+				sessionRevocationService,
 				userMfaRepositoryProvider.getIfAvailable(),
 				currentActorProvider.getIfAvailable(),
 				eventPublisherProvider.getIfAvailable());
@@ -229,7 +335,7 @@ public class IamManagementAutoConfiguration {
 	 */
 	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnProperty(prefix = "iam.management.endpoints", name = "enabled", havingValue = "true", matchIfMissing = true)
-	@Import({UserController.class, RoleController.class, GroupController.class, ScopeController.class})
+	@Import({UserController.class, RoleController.class, GroupController.class, ScopeController.class, PasswordPolicyController.class, RedirectUriController.class})
 	public static class ManagementEndpointsConfiguration {
 	}
 }

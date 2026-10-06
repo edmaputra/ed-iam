@@ -13,6 +13,7 @@ import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
 import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
+import io.github.edmaputra.iam.domain.security.PasswordValidator;
 import io.github.edmaputra.iam.domain.event.IamEvent;
 import io.github.edmaputra.iam.domain.event.IamEventTypes;
 import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
@@ -37,12 +38,48 @@ import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 public class UserAccountService {
 
 	private final UserRepository userRepository;
-	private final PasswordEncoderPort passwordEncoder;
-	private final SessionRegistryPort sessionRegistry;
-	private final TokenRevocationPort tokenRevocationPort;
+	private final UserCredentialService credentialService;
+	private final UserSessionRevocationService sessionRevocationService;
 	private final UserMfaRepository userMfaRepository;
 	private final CurrentActorProvider currentActorProvider;
 	private final EventPublisherPort eventPublisher;
+
+	/**
+	 * Canonical constructor delegating credentials and session revocation to focused collaborator services.
+	 */
+	public UserAccountService(
+			UserRepository userRepository,
+			UserCredentialService credentialService,
+			UserSessionRevocationService sessionRevocationService,
+			UserMfaRepository userMfaRepository,
+			CurrentActorProvider currentActorProvider,
+			EventPublisherPort eventPublisher) {
+		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
+		this.credentialService = Objects.requireNonNull(credentialService, "UserCredentialService must not be null.");
+		this.sessionRevocationService = sessionRevocationService != null
+				? sessionRevocationService
+				: new UserSessionRevocationService(null, null);
+		this.userMfaRepository = userMfaRepository;
+		this.currentActorProvider = currentActorProvider;
+		this.eventPublisher = eventPublisher;
+	}
+
+	public UserAccountService(
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			UserMfaRepository userMfaRepository,
+			CurrentActorProvider currentActorProvider,
+			EventPublisherPort eventPublisher,
+			PasswordValidator passwordValidator) {
+		this(userRepository,
+				new UserCredentialService(passwordEncoder, passwordValidator),
+				new UserSessionRevocationService(sessionRegistry, tokenRevocationPort),
+				userMfaRepository,
+				currentActorProvider,
+				eventPublisher);
+	}
 
 	public UserAccountService(
 			UserRepository userRepository,
@@ -52,19 +89,13 @@ public class UserAccountService {
 			UserMfaRepository userMfaRepository,
 			CurrentActorProvider currentActorProvider,
 			EventPublisherPort eventPublisher) {
-		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
-		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
-		this.sessionRegistry = sessionRegistry;
-		this.tokenRevocationPort = tokenRevocationPort;
-		this.userMfaRepository = userMfaRepository;
-		this.currentActorProvider = currentActorProvider;
-		this.eventPublisher = eventPublisher;
+		this(userRepository, passwordEncoder, sessionRegistry, tokenRevocationPort, userMfaRepository, currentActorProvider, eventPublisher, null);
 	}
 
 	public UserAccountService(
 			UserRepository userRepository,
 			PasswordEncoderPort passwordEncoder) {
-		this(userRepository, passwordEncoder, null, null, null, null, null);
+		this(userRepository, new UserCredentialService(passwordEncoder), null, null, null, null);
 	}
 
 	@Transactional
@@ -83,9 +114,7 @@ public class UserAccountService {
 			throw new IllegalArgumentException("User with email already exists: " + command.email());
 		}
 
-		String passwordHash = (command.password() != null && !command.password().isBlank())
-				? passwordEncoder.encode(command.password())
-				: null;
+		String passwordHash = credentialService.preparePasswordHash(command.password(), command.email());
 
 		User user = User.create(
 				command.email(),
@@ -208,17 +237,8 @@ public class UserAccountService {
 	}
 
 	private void revokeUserSessions(UserId userId) {
-		if (tokenRevocationPort != null) {
-			tokenRevocationPort.revokeAllForUser(userId, Instant.now());
-		}
-		if (sessionRegistry != null) {
-			java.util.List<UserSession> activeSessions = sessionRegistry.findActiveSessions(userId, null);
-			for (UserSession s : activeSessions) {
-				sessionRegistry.revokeSession(s.id());
-				if (tokenRevocationPort != null && s.tokenIdentifier() != null) {
-					tokenRevocationPort.revokeToken(s.tokenIdentifier(), s.expiresAt());
-				}
-			}
+		if (sessionRevocationService != null) {
+			sessionRevocationService.revokeAllUserSessions(userId);
 		}
 	}
 

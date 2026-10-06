@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.edmaputra.iam.adapter.persistence.crypto.AesGcmEncryptor;
 import io.github.edmaputra.iam.adapter.persistence.entity.UserMfaJpaEntity;
 import io.github.edmaputra.iam.adapter.persistence.repository.UserMfaJpaRepository;
 import io.github.edmaputra.iam.domain.model.UserId;
@@ -16,15 +16,25 @@ import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 
 /**
  * Persistence adapter implementing {@link UserMfaRepository} backed by Spring Data JPA.
+ * Encrypts TOTP secrets at rest using {@link AesGcmEncryptor} (OWASP A02: Cryptographic Failures).
  *
  * @author edmaputra
  * @since 0.5.0
  */
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserMfaRepositoryAdapter implements UserMfaRepository {
 
 	private final UserMfaJpaRepository repository;
+	private final AesGcmEncryptor encryptor;
+
+	public UserMfaRepositoryAdapter(UserMfaJpaRepository repository, AesGcmEncryptor encryptor) {
+		this.repository = Objects.requireNonNull(repository, "UserMfaJpaRepository must not be null.");
+		this.encryptor = encryptor;
+	}
+
+	public UserMfaRepositoryAdapter(UserMfaJpaRepository repository) {
+		this(repository, null);
+	}
 
 	@Override
 	public Optional<UserMfa> findByUserId(UserId userId) {
@@ -56,9 +66,11 @@ public class UserMfaRepositoryAdapter implements UserMfaRepository {
 						.filter(s -> !s.isEmpty())
 						.toList();
 
+		String secret = (encryptor != null) ? encryptor.decrypt(entity.getSecret()) : entity.getSecret();
+
 		return new UserMfa(
 				new UserId(entity.getUserId()),
-				entity.getSecret(),
+				secret,
 				entity.isEnabled(),
 				backupCodes,
 				entity.getCreatedAt(),
@@ -67,9 +79,11 @@ public class UserMfaRepositoryAdapter implements UserMfaRepository {
 
 	private UserMfaJpaEntity toEntity(UserMfa userMfa) {
 		String serializedBackupCodes = String.join(",", userMfa.backupCodes());
+		String secret = (encryptor != null) ? encryptor.encrypt(userMfa.getSecret()) : userMfa.getSecret();
+
 		return new UserMfaJpaEntity(
 				userMfa.getUserId().value(),
-				userMfa.getSecret(),
+				secret,
 				userMfa.isEnabled(),
 				serializedBackupCodes,
 				userMfa.getCreatedAt(),

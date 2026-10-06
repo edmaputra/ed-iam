@@ -539,3 +539,121 @@ Content-Type: application/json
   "token": "{{magicLinkToken}}"
 }
 
+# =============================================================================
+# SECTION 10: RUNTIME CONFIGURABLE PASSWORD POLICIES
+# =============================================================================
+
+### 10.1 Get Active Password Policy for Metro General Hospital (GET /api/v1/password-policy)
+GET {{baseUrl}}/api/v1/password-policy?tenantId={{metroTenantId}}
+Authorization: Bearer {{adminToken}}
+
+### 10.2 Update Password Policy: Enforce High Complexity (PUT /api/v1/password-policy)
+# Enforces: minLength=12, minUppercase=2, minLowercase=2, minNumbers=2, minSpecial=1, disallowUsername=true
+PUT {{baseUrl}}/api/v1/password-policy
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "tenantId": "{{metroTenantId}}",
+  "minLength": 12,
+  "maxLength": 64,
+  "minUppercase": 2,
+  "minLowercase": 2,
+  "minNumbers": 2,
+  "minSpecialCharacters": 1,
+  "customRegex": "^[A-Za-z0-9!@#$%^&*()_+\\-=\\[\\]{}|;:,.<>?]+$",
+  "regexDescription": "Must contain only standard printable ASCII characters",
+  "disallowUsername": true
+}
+
+### 10.3 Provision User with Non-Compliant Weak Password (Expected: 400 Bad Request)
+# Fails because "weakpass" does not meet length (>= 12) or uppercase/numeric counts
+POST {{baseUrl}}/api/v1/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "email": "nurse-weak@metro.org",
+  "password": "weakpass",
+  "fullName": "Nurse Weak Password"
+}
+
+### 10.4 Provision User with Strong Compliant Password (Expected: 201 Created)
+POST {{baseUrl}}/api/v1/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "email": "nurse-strong@metro.org",
+  "password": "CompliantP@ssw0rd2026!",
+  "fullName": "Nurse Strong Password"
+}
+
+### 10.5 Restore Default Password Policy
+PUT {{baseUrl}}/api/v1/password-policy
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "tenantId": "{{metroTenantId}}",
+  "minLength": 8,
+  "maxLength": 128,
+  "minUppercase": 1,
+  "minLowercase": 1,
+  "minNumbers": 1,
+  "minSpecialCharacters": 1,
+  "disallowUsername": true
+}
+
+# =============================================================================
+# SECTION 11: RUNTIME CONFIGURABLE ALLOWED REDIRECT URLS (OPEN REDIRECT PREVENT)
+# =============================================================================
+
+### 11.1 Get Allowed Redirect URIs for Metro General Hospital (GET /api/v1/redirect-uris)
+GET {{baseUrl}}/api/v1/redirect-uris?tenantId={{metroTenantId}}
+Authorization: Bearer {{adminToken}}
+
+### 11.2 Append a Trusted Portal URL (POST /api/v1/redirect-uris)
+POST {{baseUrl}}/api/v1/redirect-uris
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "tenantId": "{{metroTenantId}}",
+  "uri": "https://clinician-portal.metro.org/auth/callback"
+}
+
+### 11.3 Request Magic Link with Permitted Redirect URL (Expected: 200 OK)
+POST {{baseUrl}}/api/v1/auth/magic-link/request
+Content-Type: application/json
+
+{
+  "email": "doctor@metro.org",
+  "tenantId": "{{metroTenantId}}",
+  "redirectUrl": "https://clinician-portal.metro.org/auth/callback"
+}
+
+### 11.4 Request Magic Link with Malicious / External Redirect URL (Expected: 400 Bad Request - Open Redirect Blocked)
+POST {{baseUrl}}/api/v1/auth/magic-link/request
+Content-Type: application/json
+
+{
+  "email": "doctor@metro.org",
+  "tenantId": "{{metroTenantId}}",
+  "redirectUrl": "https://evil-phishing-attacker.com/steal-token"
+}
+
+### 11.5 Request Magic Link with Protocol-Relative URL Bypass Trick (Expected: 400 Bad Request - Malformed Redirect Blocked)
+POST {{baseUrl}}/api/v1/auth/magic-link/request
+Content-Type: application/json
+
+{
+  "email": "doctor@metro.org",
+  "tenantId": "{{metroTenantId}}",
+  "redirectUrl": "//evil-phishing-attacker.com"
+}
+
+### 11.6 Remove Allowed Redirect URI (DELETE /api/v1/redirect-uris)
+DELETE {{baseUrl}}/api/v1/redirect-uris?tenantId={{metroTenantId}}&uri=https://clinician-portal.metro.org/auth/callback
+Authorization: Bearer {{adminToken}}
+
