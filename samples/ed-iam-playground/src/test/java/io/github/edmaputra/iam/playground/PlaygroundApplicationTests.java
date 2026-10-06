@@ -66,6 +66,8 @@ class PlaygroundApplicationTests {
 					assertThat(html).contains("mfaChallengeModal");
 					assertThat(html).contains("Observability &amp; SIEM Audit");
 					assertThat(html).contains("panelObservability");
+					assertThat(html).contains("panelPolicies");
+					assertThat(html).contains("Security Policies");
 				});
 	}
 
@@ -1227,4 +1229,216 @@ class PlaygroundApplicationTests {
 				.jsonPath("$.totalCaptured").isEqualTo(0)
 				.jsonPath("$.events").isEmpty();
 	}
+
+	@Test
+	@DisplayName("Should support runtime password policy management and reject non-compliant password registrations")
+	void shouldSupportRuntimePasswordPolicyManagementAndEnforcement() {
+		// 1. Login as Dr. Cuddy (Admin)
+		String adminLoginJson = """
+				{
+				    "email": "%s",
+				    "password": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.ADMIN_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD);
+
+		byte[] loginResponseBody = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(adminLoginJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String token = JsonPath.read(new String(loginResponseBody), "$.accessToken");
+
+		// 2. Fetch current active password policy (GET /api/v1/password-policy)
+		webTestClient.get()
+				.uri("/api/v1/password-policy")
+				.headers(headers -> headers.setBearerAuth(token))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.minLength").isNumber();
+
+		// 3. Update password policy to require minimum 12 chars, 1 uppercase, 1 digit, 1 special char
+		String updatePolicyJson = """
+				{
+				    "minLength": 12,
+				    "minUppercase": 1,
+				    "minLowercase": 1,
+				    "minNumbers": 1,
+				    "minSpecialCharacters": 1,
+				    "disallowUsername": true
+				}
+				""";
+
+		webTestClient.put()
+				.uri("/api/v1/password-policy")
+				.headers(headers -> headers.setBearerAuth(token))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(updatePolicyJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.minLength").isEqualTo(12)
+				.jsonPath("$.minUppercase").isEqualTo(1)
+				.jsonPath("$.minNumbers").isEqualTo(1)
+				.jsonPath("$.minSpecialCharacters").isEqualTo(1);
+
+		// 4. Attempt user registration with weak password (fails length + special char) -> Expect 422 Unprocessable Entity
+		String weakUserJson = """
+				{
+				    "email": "weak-%s@metro.org",
+				    "password": "Password1",
+				    "name": "Weak Password User",
+				    "status": "ACTIVE"
+				}
+				""".formatted(UUID.randomUUID().toString().substring(0, 8));
+
+		webTestClient.post()
+				.uri("/api/v1/users")
+				.headers(headers -> headers.setBearerAuth(token))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(weakUserJson)
+				.exchange()
+				.expectStatus().isEqualTo(422);
+
+		// 5. User registration with compliant password (>= 12 chars, upper, lower, digit, special) -> Expect 201 Created
+		String compliantUserJson = """
+				{
+				    "email": "strong-%s@metro.org",
+				    "password": "StrongPassword#2026",
+				    "fullName": "Compliant Password User",
+				    "status": "ACTIVE"
+				}
+				""".formatted(UUID.randomUUID().toString().substring(0, 8));
+
+		webTestClient.post()
+				.uri("/api/v1/users")
+				.headers(headers -> headers.setBearerAuth(token))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(compliantUserJson)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.jsonPath("$.id").isNotEmpty();
+
+		// 6. Restore default password policy
+		String restorePolicyJson = """
+				{
+				    "minLength": 8,
+				    "minUppercase": 0,
+				    "minLowercase": 0,
+				    "minNumbers": 0,
+				    "minSpecialCharacters": 0,
+				    "disallowUsername": true
+				}
+				""";
+
+		webTestClient.put()
+				.uri("/api/v1/password-policy")
+				.headers(headers -> headers.setBearerAuth(token))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(restorePolicyJson)
+				.exchange()
+				.expectStatus().isOk();
+	}
+
+	@Test
+	@DisplayName("Should support runtime allowed redirect URIs management and block untrusted magic link redirects")
+	void shouldSupportRuntimeRedirectUriManagementAndEnforcement() {
+		// 1. Login as Dr. Cuddy (Admin)
+		String adminLoginJson = """
+				{
+				    "email": "%s",
+				    "password": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.ADMIN_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD);
+
+		byte[] loginResponseBody = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(adminLoginJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String token = JsonPath.read(new String(loginResponseBody), "$.accessToken");
+
+		// 2. Fetch seeded redirect URIs (GET /api/v1/redirect-uris)
+		webTestClient.get()
+				.uri("/api/v1/redirect-uris")
+				.headers(headers -> headers.setBearerAuth(token))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.allowedUris").isArray()
+				.jsonPath("$.allowedUris.length()").value(len -> assertThat((Integer) len).isGreaterThanOrEqualTo(2));
+
+		// 3. Add a new trusted redirect URI via POST /api/v1/redirect-uris
+		String newUri = "https://app.metro.org/auth/callback";
+		String addUriJson = """
+				{
+				    "uri": "%s"
+				}
+				""".formatted(newUri);
+
+		webTestClient.post()
+				.uri("/api/v1/redirect-uris")
+				.headers(headers -> headers.setBearerAuth(token))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(addUriJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.allowedUris").isArray()
+				.jsonPath("$.allowedUris[?(@ == '%s')]".formatted(newUri)).isNotEmpty();
+
+		// 4. Request magic link with the trusted redirect URL -> Expect 200 OK
+		String trustedMagicLinkReq = """
+				{
+				    "email": "%s",
+				    "redirectUrl": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL, newUri);
+
+		webTestClient.post()
+				.uri("/api/v1/auth/magic-link/request")
+				.header("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString())
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(trustedMagicLinkReq)
+				.exchange()
+				.expectStatus().isOk();
+
+		// 5. Request magic link with untrusted external URL -> Expect 400 Bad Request (Open Redirect Defense)
+		String maliciousMagicLinkReq = """
+				{
+				    "email": "%s",
+				    "redirectUrl": "https://evil.attacker.com/phishing"
+				}
+				""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL);
+
+		webTestClient.post()
+				.uri("/api/v1/auth/magic-link/request")
+				.header("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString())
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(maliciousMagicLinkReq)
+				.exchange()
+				.expectStatus().isBadRequest();
+
+		// 6. Delete newly added redirect URI (DELETE /api/v1/redirect-uris?uri=...)
+		webTestClient.delete()
+				.uri(uriBuilder -> uriBuilder.path("/api/v1/redirect-uris").queryParam("uri", newUri).build())
+				.headers(headers -> headers.setBearerAuth(token))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.allowedUris").isArray()
+				.jsonPath("$.allowedUris[?(@ == '%s')]".formatted(newUri)).isEmpty();
+	}
 }
+

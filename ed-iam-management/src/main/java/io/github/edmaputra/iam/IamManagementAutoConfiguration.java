@@ -119,6 +119,7 @@ public class IamManagementAutoConfiguration {
 	@ConditionalOnMissingBean(ManageRedirectUriUseCase.class)
 	public RedirectUriManagementService redirectUriManagementService(
 			ObjectProvider<RedirectUriRepository> redirectUriRepositoryProvider,
+			@org.springframework.beans.factory.annotation.Qualifier("allowedRedirectHostResolver")
 			ObjectProvider<AllowedRedirectHostResolverPort> fallbackResolverProvider,
 			ObjectProvider<CurrentActorProvider> currentActorProvider,
 			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
@@ -148,7 +149,7 @@ public class IamManagementAutoConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnMissingBean(AllowedRedirectHostResolverPort.class)
+	@org.springframework.context.annotation.Primary
 	public AllowedRedirectHostResolverPort allowedRedirectHostResolverPort(
 			RedirectUriManagementService redirectUriManagementService) {
 		return redirectUriManagementService;

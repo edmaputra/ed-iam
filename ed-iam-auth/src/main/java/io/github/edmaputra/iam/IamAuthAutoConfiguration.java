@@ -249,12 +249,14 @@ public class IamAuthAutoConfiguration {
 			MagicLinkProperties magicLinkProperties,
 			MagicLinkTokenStorePort magicLinkTokenStore,
 			MagicLinkNotifierPort magicLinkNotifier,
-			AllowedRedirectHostResolverPort allowedRedirectHostResolver) {
+			ObjectProvider<AllowedRedirectHostResolverPort> allowedRedirectHostResolverProvider) {
+		AllowedRedirectHostResolverPort resolver = allowedRedirectHostResolverProvider.getIfAvailable(
+				() -> new DefaultAllowedRedirectHostResolver(magicLinkProperties));
 		return new MagicLinkDispatchService(
 				magicLinkProperties,
 				magicLinkTokenStore,
 				magicLinkNotifier,
-				allowedRedirectHostResolver);
+				resolver);
 	}
 
 	@Bean

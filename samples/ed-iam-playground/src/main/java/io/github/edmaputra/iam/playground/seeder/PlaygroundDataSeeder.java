@@ -32,6 +32,11 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.playground.domain.PatientRecord;
 import io.github.edmaputra.iam.playground.domain.PatientRecordRepository;
 
+import io.github.edmaputra.iam.domain.repository.PasswordPolicyRepository;
+import io.github.edmaputra.iam.domain.repository.RedirectUriRepository;
+import io.github.edmaputra.iam.domain.security.PasswordPolicy;
+import org.springframework.beans.factory.annotation.Autowired;
+
 /**
  * Automatically seeds demo tenants, hierarchical scope trees, users, roles,
  * and clinical patient records upon application startup.
@@ -76,6 +81,12 @@ public class PlaygroundDataSeeder {
 	private final UserGroupMembershipRepository userGroupMembershipRepository;
 	private final PasswordEncoderPort passwordEncoder;
 	private final PatientRecordRepository patientRecordRepository;
+
+	@Autowired(required = false)
+	private RedirectUriRepository redirectUriRepository;
+
+	@Autowired(required = false)
+	private PasswordPolicyRepository passwordPolicyRepository;
 
 	@EventListener(ApplicationReadyEvent.class)
 	@Transactional
@@ -184,7 +195,9 @@ public class PlaygroundDataSeeder {
 				"HOSPITAL_ADMIN",
 				"Hospital Administrator",
 				"Tenant-wide hospital administrator",
-				Set.of("*", "PATIENT_READ", "PATIENT_WRITE", "USER_ADMIN")
+				Set.of("*", "PATIENT_READ", "PATIENT_WRITE", "USER_ADMIN",
+						"iam:password-policy:read", "iam:password-policy:update",
+						"iam:redirect-uri:read", "iam:redirect-uri:update")
 		);
 		roleRepository.save(adminRole);
 
@@ -293,6 +306,12 @@ public class PlaygroundDataSeeder {
 				"Enrolled in Protocol SJ-2026. Routine toxicity bloodwork within normal limits.",
 				Instant.now()
 		));
+
+		// 5. Seed Initial Security Policies (Allowed Redirect URIs)
+		if (redirectUriRepository != null) {
+			redirectUriRepository.addUri(metroTenant, "https://portal.metro.org/auth/callback");
+			redirectUriRepository.addUri(metroTenant, "*.metro.org");
+		}
 
 		log.info("=================================================================");
 		log.info("  ed-iam Playground Ready! (Web UI: http://localhost:8080)");
