@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 import io.github.edmaputra.iam.domain.exception.GroupNotFoundException;
+import io.github.edmaputra.iam.domain.exception.PermissionNotFoundException;
 import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
 import io.github.edmaputra.iam.domain.exception.ScopeNodeNotFoundException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
@@ -90,6 +91,7 @@ public class IamExceptionHandler {
 	@ExceptionHandler({
 			UserNotFoundException.class,
 			RoleNotFoundException.class,
+			PermissionNotFoundException.class,
 			ScopeNodeNotFoundException.class,
 			GroupNotFoundException.class
 	})

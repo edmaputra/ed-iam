@@ -13,12 +13,14 @@ import java.util.Optional;
 
 import io.github.edmaputra.iam.adapter.rest.GroupController;
 import io.github.edmaputra.iam.adapter.rest.PasswordPolicyController;
+import io.github.edmaputra.iam.adapter.rest.PermissionController;
 import io.github.edmaputra.iam.adapter.rest.RedirectUriController;
 import io.github.edmaputra.iam.adapter.rest.RoleController;
 import io.github.edmaputra.iam.adapter.rest.ScopeController;
 import io.github.edmaputra.iam.adapter.rest.UserController;
 import io.github.edmaputra.iam.application.port.in.ManageGroupUseCase;
 import io.github.edmaputra.iam.application.port.in.ManagePasswordPolicyUseCase;
+import io.github.edmaputra.iam.application.port.in.ManagePermissionUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageRedirectUriUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageRoleUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
@@ -40,6 +42,7 @@ import io.github.edmaputra.iam.application.service.RedirectUriManagementService;
 import io.github.edmaputra.iam.application.service.GroupLifecycleService;
 import io.github.edmaputra.iam.application.service.GroupManagementService;
 import io.github.edmaputra.iam.application.service.GroupRoleAssignmentService;
+import io.github.edmaputra.iam.application.service.PermissionManagementService;
 import io.github.edmaputra.iam.application.service.RoleManagementService;
 import io.github.edmaputra.iam.application.service.SessionManagementService;
 import io.github.edmaputra.iam.application.service.UserAccountService;
@@ -51,6 +54,7 @@ import io.github.edmaputra.iam.application.service.UserSessionRevocationService;
 
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
+import io.github.edmaputra.iam.domain.repository.PermissionRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
@@ -279,6 +283,26 @@ public class IamManagementAutoConfiguration {
 	}
 
 	/**
+	 * Registers the {@link ManagePermissionUseCase} bean.
+	 *
+	 * @param permissionRepository the permission repository
+	 * @param currentActorProvider provider for current actor security context
+	 * @param eventPublisherProvider provider for domain event publisher
+	 * @return permission management service
+	 */
+	@Bean
+	@ConditionalOnMissingBean
+	public ManagePermissionUseCase managePermissionUseCase(
+			PermissionRepository permissionRepository,
+			ObjectProvider<CurrentActorProvider> currentActorProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
+		return new PermissionManagementService(
+				permissionRepository,
+				currentActorProvider.getIfAvailable(),
+				eventPublisherProvider.getIfAvailable());
+	}
+
+	/**
 	 * Registers the {@link ManageGroupUseCase} bean.
 	 *
 	 * @param groupRepository              the group repository
@@ -335,7 +359,7 @@ public class IamManagementAutoConfiguration {
 	 */
 	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnProperty(prefix = "iam.management.endpoints", name = "enabled", havingValue = "true", matchIfMissing = true)
-	@Import({UserController.class, RoleController.class, GroupController.class, ScopeController.class, PasswordPolicyController.class, RedirectUriController.class})
+	@Import({UserController.class, RoleController.class, GroupController.class, ScopeController.class, PasswordPolicyController.class, RedirectUriController.class, PermissionController.class})
 	public static class ManagementEndpointsConfiguration {
 	}
 }

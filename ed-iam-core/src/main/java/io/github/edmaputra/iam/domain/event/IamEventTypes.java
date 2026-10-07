@@ -53,5 +53,10 @@ public final class IamEventTypes {
 	public static final String REDIRECT_URI_POLICY_UPDATED = "REDIRECT_URI_POLICY_UPDATED";
 	public static final String REDIRECT_URI_ADDED = "REDIRECT_URI_ADDED";
 	public static final String REDIRECT_URI_REMOVED = "REDIRECT_URI_REMOVED";
+
+	// Permission Events
+	public static final String PERMISSION_CREATED = "PERMISSION_CREATED";
+	public static final String PERMISSION_UPDATED = "PERMISSION_UPDATED";
+	public static final String PERMISSION_DELETED = "PERMISSION_DELETED";
 }
 
