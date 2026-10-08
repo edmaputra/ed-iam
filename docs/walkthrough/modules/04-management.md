@@ -78,10 +78,11 @@ iam:
 |---|---|---|
 | `UserController` | Driving REST Controller | Exposes `/api/v1/users` for user creation, status changes, role assignments, and group memberships. |
 | `RoleController` | Driving REST Controller | Exposes `/api/v1/roles` for creating custom tenant roles, updating permissions, and listing roles. |
+| `PermissionController` | Driving REST Controller | Exposes `/api/v1/permissions` for querying the permission catalog, creating tenant-scoped custom permissions, and updating/deleting permissions. |
 | `GroupController` | Driving REST Controller | Exposes `/api/v1/groups` for managing groups, group members, and group-level role assignments. |
 | `ScopeController` | Driving REST Controller | Exposes `/api/v1/scopes` for tree hierarchies, creating child nodes, moving subtrees, and querying trees. |
 | `IamExceptionHandler` | REST Exception Advice | `@RestControllerAdvice` mapping domain exceptions (`UserNotFoundException`, `AccessDeniedException`, etc.) to standard HTTP responses (RFC 7807 Problem Details). |
-| `*ManagementDtos` | REST DTO Records | Request and response payload records: `UserManagementDtos`, `RoleManagementDtos`, `GroupManagementDtos`, `ScopeManagementDtos`. |
+| `*ManagementDtos` | REST DTO Records | Request and response payload records: `UserManagementDtos`, `RoleManagementDtos`, `GroupManagementDtos`, `ScopeManagementDtos`, `PermissionManagementDtos`. |
 
 ### 3.2 Application Services (`application.service`)
 
@@ -89,6 +90,7 @@ iam:
 |---|---|---|
 | `UserManagementService` | Application Service | Implements `ManageUserUseCase`. Orchestrates user lifecycle, password hashing, and user-role-group bindings. |
 | `RoleManagementService` | Application Service | Implements `ManageRoleUseCase`. Manages role CRUD and prevents unauthorized modification of system-protected roles. |
+| `PermissionManagementService` | Application Service | Implements `ManagePermissionUseCase`. Manages the permission catalog, custom permissions, and system permission immutability. |
 | `GroupManagementService` | Application Service | Implements `ManageGroupUseCase`. Handles group CRUD, user membership additions/removals, and group roles. |
 | `ScopeHierarchyService` | Application Service | Implements `ManageScopeUseCase`. Manages tree hierarchies, path generation, cyclical move prevention, and tree assembly. |
 
@@ -98,12 +100,13 @@ iam:
 |---|---|---|
 | `UserJpaEntity` | JPA Entity | Maps to table `iam_user`. |
 | `RoleJpaEntity` | JPA Entity | Maps to table `iam_role`. |
+| `PermissionJpaEntity` | JPA Entity | Maps to table `iam_permission`. |
 | `GroupJpaEntity` | JPA Entity | Maps to table `iam_group`. |
 | `ScopeNodeJpaEntity` | JPA Entity | Maps to table `iam_scope_node`. |
 | `*AssignmentJpaEntity` | JPA Entities | Relationship mappings: `UserRoleAssignmentJpaEntity`, `GroupRoleAssignmentJpaEntity`, `UserGroupMembershipJpaEntity`, `UserIdentityJpaEntity`. |
 | `*JpaRepository` | Spring Data Repositories | Spring Data interfaces extending `JpaRepository` and `JpaSpecificationExecutor`. |
 | `UserSpecifications` | Query Specification | Dynamic JPA Criteria specifications for filtering users by status, email, or creation date. |
-| `*RepositoryAdapter` | Driven Persistence Adapters | Implements core repository SPIs (`UserRepositoryAdapter`, `RoleRepositoryAdapter`, etc.), translating between JPA entities and pure domain models. |
+| `*RepositoryAdapter` | Driven Persistence Adapters | Implements core repository SPIs (`UserRepositoryAdapter`, `RoleRepositoryAdapter`, `PermissionRepositoryAdapter`, etc.), translating between JPA entities and pure domain models. |
 
 ### 3.4 AutoConfiguration Classes
 

@@ -37,12 +37,14 @@ class ManagementEndpointsDisabledIT extends AbstractIntegrationTest {
 		assertThat(applicationContext.getBeansOfType(RoleController.class)).isEmpty();
 		assertThat(applicationContext.getBeansOfType(GroupController.class)).isEmpty();
 		assertThat(applicationContext.getBeansOfType(ScopeController.class)).isEmpty();
+		assertThat(applicationContext.getBeansOfType(io.github.edmaputra.iam.adapter.rest.PermissionController.class)).isEmpty();
 
 		// Use cases must remain available for embedded usage
 		assertThat(applicationContext.getBean(ManageUserUseCase.class)).isNotNull();
 		assertThat(applicationContext.getBean(ManageRoleUseCase.class)).isNotNull();
 		assertThat(applicationContext.getBean(ManageGroupUseCase.class)).isNotNull();
 		assertThat(applicationContext.getBean(ManageScopeUseCase.class)).isNotNull();
+		assertThat(applicationContext.getBean(io.github.edmaputra.iam.application.port.in.ManagePermissionUseCase.class)).isNotNull();
 
 		// HTTP requests to management endpoints should return 404
 		webTestClient.get()
@@ -52,6 +54,11 @@ class ManagementEndpointsDisabledIT extends AbstractIntegrationTest {
 
 		webTestClient.get()
 				.uri("/api/v1/roles")
+				.exchange()
+				.expectStatus().isNotFound();
+
+		webTestClient.get()
+				.uri("/api/v1/permissions")
 				.exchange()
 				.expectStatus().isNotFound();
 	}

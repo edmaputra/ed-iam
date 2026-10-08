@@ -37,10 +37,13 @@ import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserIdentityRepository;
 import io.github.edmaputra.iam.adapter.persistence.adapter.PasswordPolicyRepositoryAdapter;
+import io.github.edmaputra.iam.adapter.persistence.adapter.PermissionRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.adapter.RedirectUriRepositoryAdapter;
 import io.github.edmaputra.iam.adapter.persistence.repository.PasswordPolicyJpaRepository;
+import io.github.edmaputra.iam.adapter.persistence.repository.PermissionJpaRepository;
 import io.github.edmaputra.iam.adapter.persistence.repository.RedirectUriJpaRepository;
 import io.github.edmaputra.iam.domain.repository.PasswordPolicyRepository;
+import io.github.edmaputra.iam.domain.repository.PermissionRepository;
 import io.github.edmaputra.iam.domain.repository.RedirectUriRepository;
 import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
@@ -134,5 +137,11 @@ public class IamSecurityAutoConfiguration {
 	@ConditionalOnMissingBean
 	public RedirectUriRepository redirectUriRepository(RedirectUriJpaRepository repository) {
 		return new RedirectUriRepositoryAdapter(repository);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public PermissionRepository permissionRepository(PermissionJpaRepository repository) {
+		return new PermissionRepositoryAdapter(repository);
 	}
 }

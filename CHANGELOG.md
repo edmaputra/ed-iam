@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Permission Catalog and Management Feature**:
+  - Pure domain model `Permission` record, `PermissionId` value object, and `PermissionNotFoundException` in `ed-iam-core`.
+  - Driving use case port `ManagePermissionUseCase` and commands `PermissionCommands` (`CreatePermissionCommand`, `UpdatePermissionCommand`) in `ed-iam-core`.
+  - Driven repository contract `PermissionRepository` in `ed-iam-core` supporting tenant-scoped and global system permission queries.
+  - Domain events `PERMISSION_CREATED`, `PERMISSION_UPDATED`, and `PERMISSION_DELETED` added to `IamEventTypes`.
+  - JPA persistence entity `PermissionJpaEntity`, repository `PermissionJpaRepository`, adapter `PermissionRepositoryAdapter`, and Liquibase changelog `2026100701-create-iam-permission.json` creating `iam_permission` table in `ed-iam-management`.
+  - Application service `PermissionManagementService` implementing catalog queries, tenant access verification, and immutability guards for system permissions.
+  - REST management controller `PermissionController` exposing `/api/v1/permissions` with `@RequirePermission` guards, supporting CRUD, code lookup, category filtering, and tenant context resolution.
+  - Full AutoConfiguration integration in `IamManagementAutoConfiguration` and `IamSecurityAutoConfiguration`.
+
 ## [0.8.0] - 2026-10-04
 
 ### Security

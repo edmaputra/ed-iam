@@ -1,0 +1,118 @@
+{
+  "databaseChangeLog": [
+    {
+      "changeSet": {
+        "id": "2026100701-create-iam-permission",
+        "author": "edmaputra",
+        "changes": [
+          {
+            "createTable": {
+              "tableName": "iam_permission",
+              "columns": [
+                {
+                  "column": {
+                    "name": "id",
+                    "type": "UUID",
+                    "constraints": {
+                      "primaryKey": true,
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "tenant_id",
+                    "type": "UUID"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "code",
+                    "type": "VARCHAR(64)",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "name",
+                    "type": "VARCHAR(255)",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "description",
+                    "type": "VARCHAR(512)"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "category",
+                    "type": "VARCHAR(64)"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "is_system_permission",
+                    "type": "BOOLEAN",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "created_at",
+                    "type": "TIMESTAMP WITH TIME ZONE",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "updated_at",
+                    "type": "TIMESTAMP WITH TIME ZONE",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "createIndex": {
+              "tableName": "iam_permission",
+              "indexName": "idx_iam_permission_tenant",
+              "columns": [
+                {
+                  "column": {
+                    "name": "tenant_id"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "createIndex": {
+              "tableName": "iam_permission",
+              "indexName": "idx_iam_permission_code",
+              "columns": [
+                {
+                  "column": {
+                    "name": "code"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
