@@ -68,6 +68,10 @@ class PlaygroundApplicationTests {
 					assertThat(html).contains("panelObservability");
 					assertThat(html).contains("panelPolicies");
 					assertThat(html).contains("Security Policies");
+					assertThat(html).contains("Permissions Catalog");
+					assertThat(html).contains("tabBtnPermissions");
+					assertThat(html).contains("panelPermissions");
+					assertThat(html).contains("editPermissionModal");
 				});
 	}
 
@@ -1439,6 +1443,160 @@ class PlaygroundApplicationTests {
 				.expectBody()
 				.jsonPath("$.allowedUris").isArray()
 				.jsonPath("$.allowedUris[?(@ == '%s')]".formatted(newUri)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("Should perform full permission catalog management, category filtering, and enforce RBAC authorization")
+	void shouldPerformPermissionCatalogManagementAndEnforceAuthorization() {
+		// 1. Authenticate as Hospital Administrator (Dr. Lisa Cuddy)
+		String adminLoginJson = """
+				{
+				    "email": "%s",
+				    "password": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.ADMIN_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD);
+
+		byte[] adminLoginResponse = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(adminLoginJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.accessToken").isNotEmpty()
+				.returnResult().getResponseBody();
+
+		String adminToken = JsonPath.read(new String(adminLoginResponse), "$.accessToken");
+
+		// 2. Query all permissions for Metro General Hospital (seeded system & custom permissions)
+		webTestClient.get()
+				.uri("/api/v1/permissions")
+				.header("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString())
+				.headers(headers -> headers.setBearerAuth(adminToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$[?(@.code == 'PATIENT_READ')]").isNotEmpty()
+				.jsonPath("$[?(@.code == 'RX_DISPENSE')]").isNotEmpty();
+
+		// 3. Query filtered by category CLINICAL
+		webTestClient.get()
+				.uri(uriBuilder -> uriBuilder.path("/api/v1/permissions").queryParam("category", "CLINICAL").build())
+				.header("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString())
+				.headers(headers -> headers.setBearerAuth(adminToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$[?(@.code == 'PATIENT_READ')]").isNotEmpty()
+				.jsonPath("$[?(@.code == 'USER_ADMIN')]").doesNotExist();
+
+		// 4. Query permission by code PATIENT_READ
+		webTestClient.get()
+				.uri("/api/v1/permissions/code/PATIENT_READ")
+				.header("X-Tenant-ID", PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID.toString())
+				.headers(headers -> headers.setBearerAuth(adminToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.code").isEqualTo("PATIENT_READ")
+				.jsonPath("$.systemPermission").isEqualTo(true);
+
+		// 5. Create a new custom tenant permission
+		String permCode = "DEMO_LAB_REVIEW_" + UUID.randomUUID().toString().substring(0, 6);
+		String createJson = """
+				{
+				    "tenantId": "%s",
+				    "code": "%s",
+				    "name": "Review Lab Results",
+				    "description": "Allows reviewing clinical pathology outputs",
+				    "category": "DIAGNOSTICS"
+				}
+				""".formatted(PlaygroundDataSeeder.METRO_HOSPITAL_TENANT_ID, permCode);
+
+		byte[] createResponse = webTestClient.post()
+				.uri("/api/v1/permissions")
+				.headers(headers -> headers.setBearerAuth(adminToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(createJson)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.jsonPath("$.id").isNotEmpty()
+				.jsonPath("$.code").isEqualTo(permCode)
+				.jsonPath("$.systemPermission").isEqualTo(false)
+				.returnResult().getResponseBody();
+
+		String createdId = JsonPath.read(new String(createResponse), "$.id");
+
+		// 6. Get permission by ID
+		webTestClient.get()
+				.uri("/api/v1/permissions/" + createdId)
+				.headers(headers -> headers.setBearerAuth(adminToken))
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.id").isEqualTo(createdId)
+				.jsonPath("$.name").isEqualTo("Review Lab Results");
+
+		// 7. Update custom permission
+		String updateJson = """
+				{
+				    "name": "Review & Verify Lab Results",
+				    "description": "Allows senior review of clinical pathology",
+				    "category": "DIAGNOSTICS"
+				}
+				""";
+
+		webTestClient.put()
+				.uri("/api/v1/permissions/" + createdId)
+				.headers(headers -> headers.setBearerAuth(adminToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(updateJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.name").isEqualTo("Review & Verify Lab Results");
+
+		// 8. Delete custom permission
+		webTestClient.delete()
+				.uri("/api/v1/permissions/" + createdId)
+				.headers(headers -> headers.setBearerAuth(adminToken))
+				.exchange()
+				.expectStatus().isNoContent();
+
+		// Verify deletion
+		webTestClient.get()
+				.uri("/api/v1/permissions/" + createdId)
+				.headers(headers -> headers.setBearerAuth(adminToken))
+				.exchange()
+				.expectStatus().isNotFound();
+
+		// 9. Negative Test: Dr. House (Clinician without iam:permission:create) attempts to create a permission
+		String doctorLoginJson = """
+				{
+				    "email": "%s",
+				    "password": "%s"
+				}
+				""".formatted(PlaygroundDataSeeder.DOCTOR_EMAIL, PlaygroundDataSeeder.DEMO_PASSWORD);
+
+		byte[] doctorLoginResp = webTestClient.post()
+				.uri("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(doctorLoginJson)
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.returnResult().getResponseBody();
+
+		String doctorToken = JsonPath.read(new String(doctorLoginResp), "$.accessToken");
+
+		webTestClient.post()
+				.uri("/api/v1/permissions")
+				.headers(headers -> headers.setBearerAuth(doctorToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(createJson)
+				.exchange()
+				.expectStatus().isForbidden();
 	}
 }
 

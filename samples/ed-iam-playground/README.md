@@ -58,7 +58,8 @@ All pre-seeded accounts share the default password: **`P@ssw0rd123!`**
 
 1. **Interactive IAM Management Console**:
    - **Users & Lifecycle**: Provision users, view effective access, toggle active/suspended status.
-   - **Roles & Permissions**: Manage granular permissions and custom roles.
+   - **Roles & RBAC**: Manage custom roles and role permission bindings.
+   - **Permissions Catalog**: Catalog of system-wide entitlements and tenant-scoped custom permissions (`POST /api/v1/permissions`, `PUT`, `DELETE`, category filtering, and direct code lookup).
    - **Groups & Teams**: Manage user groups and group-level role inheritance.
    - **Scopes & Tree Hierarchy**: Visualize organizational scope trees and subtree navigation.
    - **Auth & Tokens**: Inspect JWT claims, access tokens, and refresh tokens.
