@@ -32,7 +32,9 @@ import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.playground.domain.PatientRecord;
 import io.github.edmaputra.iam.playground.domain.PatientRecordRepository;
 
+import io.github.edmaputra.iam.domain.model.Permission;
 import io.github.edmaputra.iam.domain.repository.PasswordPolicyRepository;
+import io.github.edmaputra.iam.domain.repository.PermissionRepository;
 import io.github.edmaputra.iam.domain.repository.RedirectUriRepository;
 import io.github.edmaputra.iam.domain.security.PasswordPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,6 +89,9 @@ public class PlaygroundDataSeeder {
 
 	@Autowired(required = false)
 	private PasswordPolicyRepository passwordPolicyRepository;
+
+	@Autowired(required = false)
+	private PermissionRepository permissionRepository;
 
 	@EventListener(ApplicationReadyEvent.class)
 	@Transactional
@@ -197,7 +202,8 @@ public class PlaygroundDataSeeder {
 				"Tenant-wide hospital administrator",
 				Set.of("*", "PATIENT_READ", "PATIENT_WRITE", "USER_ADMIN",
 						"iam:password-policy:read", "iam:password-policy:update",
-						"iam:redirect-uri:read", "iam:redirect-uri:update")
+						"iam:redirect-uri:read", "iam:redirect-uri:update",
+						"iam:permission:create", "iam:permission:read", "iam:permission:update", "iam:permission:delete")
 		);
 		roleRepository.save(adminRole);
 
@@ -311,6 +317,35 @@ public class PlaygroundDataSeeder {
 		if (redirectUriRepository != null) {
 			redirectUriRepository.addUri(metroTenant, "https://portal.metro.org/auth/callback");
 			redirectUriRepository.addUri(metroTenant, "*.metro.org");
+		}
+
+		// 6. Seed Permissions Catalog (System and Tenant Custom Permissions)
+		if (permissionRepository != null) {
+			// System Permissions
+			permissionRepository.save(Permission.createSystem(
+					"PATIENT_READ", "Read Patient Records", "Allows viewing sensitive patient clinical records", "CLINICAL"));
+			permissionRepository.save(Permission.createSystem(
+					"PATIENT_WRITE", "Write Patient Records", "Allows updating patient diagnoses and clinical charts", "CLINICAL"));
+			permissionRepository.save(Permission.createSystem(
+					"CLINICAL_CONSULT", "Clinical Consultation", "Allows requesting and submitting specialist consult notes", "CLINICAL"));
+			permissionRepository.save(Permission.createSystem(
+					"AUDIT_READ", "Read Audit Trails", "Allows inspecting system security audit events and logs", "AUDIT"));
+			permissionRepository.save(Permission.createSystem(
+					"USER_ADMIN", "User Administration", "Allows managing identities, credentials, and lifecycle", "IAM_ADMIN"));
+			permissionRepository.save(Permission.createSystem(
+					"iam:permission:create", "Create IAM Permission", "Allows creating new fine-grained permissions", "IAM_ADMIN"));
+			permissionRepository.save(Permission.createSystem(
+					"iam:permission:read", "Read IAM Permission", "Allows viewing permission catalog definitions", "IAM_ADMIN"));
+			permissionRepository.save(Permission.createSystem(
+					"iam:permission:update", "Update IAM Permission", "Allows modifying custom permission metadata", "IAM_ADMIN"));
+			permissionRepository.save(Permission.createSystem(
+					"iam:permission:delete", "Delete IAM Permission", "Allows deleting custom tenant permissions", "IAM_ADMIN"));
+
+			// Custom Tenant Permissions for Metro General Hospital
+			permissionRepository.save(Permission.createCustom(
+					metroTenant, "RX_DISPENSE", "Prescription Dispense", "Allows hospital pharmacy medication dispensing", "PHARMACY"));
+			permissionRepository.save(Permission.createCustom(
+					metroTenant, "LAB_ORDER", "Laboratory Order", "Allows placing diagnostic lab and bloodwork orders", "DIAGNOSTICS"));
 		}
 
 		log.info("=================================================================");

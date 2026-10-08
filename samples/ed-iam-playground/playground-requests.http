@@ -657,3 +657,79 @@ Content-Type: application/json
 DELETE {{baseUrl}}/api/v1/redirect-uris?tenantId={{metroTenantId}}&uri=https://clinician-portal.metro.org/auth/callback
 Authorization: Bearer {{adminToken}}
 
+# =============================================================================
+# SECTION 12: PERMISSION CATALOG MANAGEMENT (FINE-GRAINED ENTITLEMENTS)
+# =============================================================================
+
+### 12.1 List All Available Permissions in Metro General Hospital (GET /api/v1/permissions?tenantId=...)
+GET {{baseUrl}}/api/v1/permissions?tenantId={{metroTenantId}}
+Authorization: Bearer {{adminToken}}
+
+### 12.2 Filter Permissions by Category (GET /api/v1/permissions?tenantId=...&category=CLINICAL)
+GET {{baseUrl}}/api/v1/permissions?tenantId={{metroTenantId}}&category=CLINICAL
+Authorization: Bearer {{adminToken}}
+
+### 12.3 Lookup Permission by Code (GET /api/v1/permissions/code/{code}?tenantId=...)
+GET {{baseUrl}}/api/v1/permissions/code/PATIENT_READ?tenantId={{metroTenantId}}
+Authorization: Bearer {{adminToken}}
+
+### 12.4 Create Custom Tenant Permission: LAB_RESULTS_APPROVE (POST /api/v1/permissions)
+# @name createPermission
+POST {{baseUrl}}/api/v1/permissions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "tenantId": "{{metroTenantId}}",
+  "code": "LAB_RESULTS_APPROVE",
+  "name": "Approve Diagnostic Lab Results",
+  "description": "Allows chief pathologists and senior clinicians to sign off on lab assays",
+  "category": "DIAGNOSTICS"
+}
+
+> {%
+  client.global.set("customPermissionId", response.body.id);
+%}
+
+### 12.5 Get Permission by ID (GET /api/v1/permissions/{id})
+GET {{baseUrl}}/api/v1/permissions/{{customPermissionId}}
+Authorization: Bearer {{adminToken}}
+
+### 12.6 Update Custom Permission (PUT /api/v1/permissions/{id})
+PUT {{baseUrl}}/api/v1/permissions/{{customPermissionId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Approve & Certify Lab Results",
+  "description": "Allows senior clinicians to certify and publish critical diagnostic findings",
+  "category": "DIAGNOSTICS"
+}
+
+### 12.7 Verify Updated Permission by Code (GET /api/v1/permissions/code/LAB_RESULTS_APPROVE)
+GET {{baseUrl}}/api/v1/permissions/code/LAB_RESULTS_APPROVE
+Authorization: Bearer {{adminToken}}
+
+### 12.8 Negative Test: Attempt to Create Permission Without iam:permission:create (Expected: 403 Forbidden)
+# Dr. House has CLINICIAN role without permission management rights
+POST {{baseUrl}}/api/v1/permissions
+Authorization: Bearer {{doctorToken}}
+Content-Type: application/json
+
+{
+  "tenantId": "{{metroTenantId}}",
+  "code": "ILLEGAL_PERM",
+  "name": "Illegal Permission Attempt",
+  "category": "SECURITY"
+}
+
+### 12.9 Delete Custom Permission (DELETE /api/v1/permissions/{id})
+DELETE {{baseUrl}}/api/v1/permissions/{{customPermissionId}}
+Authorization: Bearer {{adminToken}}
+
+### 12.10 Negative Test: Attempt to Delete System Immutable Permission (Expected: Blocked / 500 IllegalStateException)
+# Lookup PATIENT_READ to retrieve its UUID
+GET {{baseUrl}}/api/v1/permissions/code/PATIENT_READ
+Authorization: Bearer {{adminToken}}
+
+
