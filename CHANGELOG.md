@@ -7,21 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
 - **Reusable Web Operations Delegates & Optional Auth Endpoints**:
   - Introduced `MfaOperationsDelegate` and `MagicLinkOperationsDelegate` in `ed-iam-auth` encapsulating client IP/User-Agent metadata extraction, actor resolution, and use-case dispatching.
   - Converted `MfaController` and `MagicLinkController` into toggleable endpoints using `@ConditionalOnProperty` with `matchIfMissing = false` (`iam.auth.mfa.endpoints.enabled` and `iam.auth.magic-link.endpoints.enabled`).
   - Introduced `MfaProperties` (`iam.auth.mfa`) and updated `MagicLinkProperties` (`iam.auth.magic-link`) with `endpoints` configuration blocks.
   - Made `HttpRequestUtils` public for client reuse.
   - Documented custom endpoint integration patterns and updated playground/IT configurations.
-- **Permission Catalog and Management Feature**:
-  - Pure domain model `Permission` record, `PermissionId` value object, and `PermissionNotFoundException` in `ed-iam-core`.
-  - Driving use case port `ManagePermissionUseCase` and commands `PermissionCommands` (`CreatePermissionCommand`, `UpdatePermissionCommand`) in `ed-iam-core`.
-  - Driven repository contract `PermissionRepository` in `ed-iam-core` supporting tenant-scoped and global system permission queries.
-  - Domain events `PERMISSION_CREATED`, `PERMISSION_UPDATED`, and `PERMISSION_DELETED` added to `IamEventTypes`.
-  - JPA persistence entity `PermissionJpaEntity`, repository `PermissionJpaRepository`, adapter `PermissionRepositoryAdapter`, and Liquibase changelog `2026100701-create-iam-permission.json` creating `iam_permission` table in `ed-iam-management`.
-  - Application service `PermissionManagementService` implementing catalog queries, tenant access verification, and immutability guards for system permissions.
-  - REST management controller `PermissionController` exposing `/api/v1/permissions` with `@RequirePermission` guards, supporting CRUD, code lookup, category filtering, and tenant context resolution.
-  - Full AutoConfiguration integration in `IamManagementAutoConfiguration` and `IamSecurityAutoConfiguration`.
+
+---
+
+## [0.10.0] - 2026-10-08
+
+### Added
+- **Permission Catalog and Administrative Management**:
+  - Pure domain model `Permission` record, `PermissionId` value object, and `PermissionNotFoundException` in `ed-iam-core` ([#31](https://github.com/edmaputra/ed-iam/pull/31)).
+  - Driving use case port `ManagePermissionUseCase` and commands `PermissionCommands` (`CreatePermissionCommand`, `UpdatePermissionCommand`) in `ed-iam-core` ([#31](https://github.com/edmaputra/ed-iam/pull/31)).
+  - Driven repository contract `PermissionRepository` in `ed-iam-core` supporting tenant-scoped and global system permission queries ([#31](https://github.com/edmaputra/ed-iam/pull/31)).
+  - Domain events `PERMISSION_CREATED`, `PERMISSION_UPDATED`, and `PERMISSION_DELETED` added to `IamEventTypes` ([#31](https://github.com/edmaputra/ed-iam/pull/31)).
+  - JPA persistence entity `PermissionJpaEntity`, repository `PermissionJpaRepository`, adapter `PermissionRepositoryAdapter`, and Liquibase changelog `2026100701-create-iam-permission.json` creating `iam_permission` table in `ed-iam-management` ([#31](https://github.com/edmaputra/ed-iam/pull/31)).
+  - Application service `PermissionManagementService` implementing catalog queries, tenant access verification, and immutability guards for system permissions ([#31](https://github.com/edmaputra/ed-iam/pull/31)).
+  - REST management controller `PermissionController` exposing `/api/v1/permissions` with `@RequirePermission` guards, supporting CRUD, code lookup, category filtering, and tenant context resolution ([#31](https://github.com/edmaputra/ed-iam/pull/31)).
+  - Full AutoConfiguration integration in `IamManagementAutoConfiguration` and `IamSecurityAutoConfiguration` ([#31](https://github.com/edmaputra/ed-iam/pull/31)).
+  - Interactive Playground Permissions Catalog UI tab, data seeder, sample HTTP requests, and integration tests demonstrating catalog management ([#32](https://github.com/edmaputra/ed-iam/pull/32)).
+
+---
+
+## [0.9.0] - 2026-10-06
+
+### Security
+- **OWASP ASVS Hardening & Password Validation**:
+  - Implemented pure domain `PasswordValidator` SPI and `DefaultPasswordValidator` in `ed-iam-core` enforcing OWASP ASVS password strength (length, character classes, anti-handle reuse) ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+  - Authenticated AES-256-GCM data-at-rest encryption (`AesGcmEncryptor`) for TOTP shared secrets in `UserMfaRepositoryAdapter` backed by Liquibase migration ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+  - Open redirect protection preventing dangerous schemes, protocol-relative URIs, and unlisted hosts with extensible `AllowedRedirectHostResolverPort` SPI ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+  - Added OWASP dependency check plugin management and `security-audit` profile in root POM ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+
+### Added
+- **Runtime Configurable Password Policy (OWASP)**:
+  - Added domain `PasswordPolicy` record supporting dynamic min/max length, uppercase, lowercase, digits, special characters, regex rules, and username exclusion ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+  - Driving port `ManagePasswordPolicyUseCase` and driven SPI `PasswordPolicyRepository` in `ed-iam-core` ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+  - Application service `PasswordPolicyManagementService` implementing dynamic tenant-aware policy enforcement and `PasswordValidator` ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+  - JPA persistence entity, repository, adapter, and Liquibase changelog creating `iam_password_policy` table in `ed-iam-management` ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+  - REST endpoint `/api/v1/password-policy` guarded by `iam:password-policy:read` and `iam:password-policy:update` permissions ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+- **Dynamic Allowed Redirect URI Management (OWASP)**:
+  - Added domain `RedirectUriPolicy` record supporting exact hosts, URI host extraction, and wildcard patterns ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+  - Driving port `ManageRedirectUriUseCase` and driven SPI `RedirectUriRepository` in `ed-iam-core` ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+  - Application service `RedirectUriManagementService` implementing dynamic host resolution and `AllowedRedirectHostResolverPort` ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+  - JPA persistence entity, repository, adapter, and Liquibase changelog creating `iam_allowed_redirect_uri` table in `ed-iam-management` ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+  - REST endpoints `/api/v1/redirect-uris` and `/api/v1/allowed-redirect-uris` ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+- **Phase 4 SIEM Security Audit Logging & Micrometer Telemetry**:
+  - `IamEventValidator` in `ed-iam-core` validating event invariants and sanitizing sensitive secrets with `[PROTECTED]`, wrapped with `ValidatingEventPublisher` decorator ([#28](https://github.com/edmaputra/ed-iam/pull/28)).
+  - `IamTelemetry` providing Micrometer metrics for authentication attempts, latencies, token validations, and access denials ([#28](https://github.com/edmaputra/ed-iam/pull/28)).
+  - `SecurityAuditEventListener` and `SecurityAuditRecorder` facade for structured SIEM audit logging with MDC correlation and domain event dispatch ([#28](https://github.com/edmaputra/ed-iam/pull/28)).
+  - Interactive Playground Observability & SIEM Audit panel with live metrics cards and filterable event logs ([#28](https://github.com/edmaputra/ed-iam/pull/28)).
+- **Interactive Playground Demonstration**:
+  - Playground UI tabs and controls demonstrating runtime password policies and allowed redirect URIs ([#30](https://github.com/edmaputra/ed-iam/pull/30)).
+
+### Changed
+- **Service Decomposition (Constructor Parameter Cleanup)**:
+  - Refactored parameter-heavy services using facade decomposition while maintaining full backward compatibility ([#29](https://github.com/edmaputra/ed-iam/pull/29), [#30](https://github.com/edmaputra/ed-iam/pull/30)):
+    - Decomposed `UserManagementService` into `UserAccountService`, `UserRoleAssignmentService`, `UserGroupMembershipService`, and `UserCredentialService`.
+    - Decomposed `GroupManagementService` into `GroupLifecycleService`, `GroupRoleAssignmentService`, and `UserGroupMembershipService`.
+    - Decomposed `AuthenticationService` and `MagicLinkService` into `CredentialAuthService`, `UserTokenService`, `AuthSessionService`, and `MagicLinkDispatchService`.
+    - Decomposed `MfaService` using `UserCredentialService`, `UserSessionRevocationService`, `UserTokenService`, and `AuthSessionService`.
+  - Registered sub-services as beans in `IamManagementAutoConfiguration` and `IamAuthAutoConfiguration` ([#29](https://github.com/edmaputra/ed-iam/pull/29)).
+
+---
 
 ## [0.8.0] - 2026-10-04
 
@@ -235,7 +286,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automated CI/CD**:
   - GitHub Actions automated release pipeline publishing signed artifacts to Maven Central via Sonatype Central Portal.
 
-[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/edmaputra/ed-iam/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/edmaputra/ed-iam/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/edmaputra/ed-iam/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/edmaputra/ed-iam/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/edmaputra/ed-iam/compare/v0.5.0...v0.6.0
