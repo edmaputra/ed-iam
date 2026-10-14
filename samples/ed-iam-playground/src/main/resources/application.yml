@@ -50,9 +50,14 @@ iam:
     access-token-expiration-seconds: 3600
     refresh-token-expiration-seconds: 604800
   auth:
+    mfa:
+      endpoints:
+        enabled: true
     magic-link:
       enabled: true
       base-url: "http://localhost:8080"
+      endpoints:
+        enabled: true
   management:
     endpoints:
       enabled: true

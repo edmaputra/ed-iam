@@ -132,6 +132,35 @@ iam:
       enabled: true                  # Whether passwordless magic link auth is active (default: true)
       expiration-seconds: 900        # Validity duration in seconds (default: 900s = 15 minutes)
       base-url: "http://localhost:8080" # Base application URL used to construct the verification link
+      endpoints:
+        enabled: true                # Whether default REST controller (/api/v1/auth/magic-link/*) is registered (default: false)
+```
+
+### Reusable Web Component (`MagicLinkOperationsDelegate`)
+By default, `MagicLinkController` is disabled (`matchIfMissing = false`). Consumers who wish to expose custom endpoints, integrate with GraphQL, or use custom response wrappers can inject `MagicLinkOperationsDelegate` into their own controllers:
+
+```java
+@RestController
+@RequestMapping("/custom/auth/magic-link")
+@RequiredArgsConstructor
+public class CustomMagicLinkController {
+
+    private final MagicLinkOperationsDelegate magicLinkDelegate;
+
+    @PostMapping("/send")
+    public ResponseEntity<MagicLinkRequestResponse> send(
+            @RequestHeader(value = "X-Tenant-ID", required = false) String tenantId,
+            @Valid @RequestBody MagicLinkSendRequest request) {
+        return ResponseEntity.ok(magicLinkDelegate.requestMagicLink(request, tenantId));
+    }
+
+    @PostMapping("/consume")
+    public ResponseEntity<TokenResponse> verify(
+            @Valid @RequestBody MagicLinkVerifyRequest request,
+            HttpServletRequest http) {
+        return ResponseEntity.ok(magicLinkDelegate.verifyMagicLink(request, http));
+    }
+}
 ```
 
 ---

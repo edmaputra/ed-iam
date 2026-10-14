@@ -1,11 +1,9 @@
 package io.github.edmaputra.iam.adapter.rest;
 
 import java.util.Objects;
-import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,14 +17,14 @@ import io.github.edmaputra.iam.adapter.rest.dto.MagicLinkSendRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.MagicLinkVerifyRequest;
 import io.github.edmaputra.iam.application.model.MagicLinkRequestResponse;
 import io.github.edmaputra.iam.application.model.TokenResponse;
-import io.github.edmaputra.iam.application.port.in.MagicLinkVerifyCommand;
 import io.github.edmaputra.iam.application.port.in.ManageMagicLinkUseCase;
-import io.github.edmaputra.iam.domain.tenancy.TenantResolutionHelper;
 
 /**
  * Dedicated REST controller for passwordless Magic Link dispatch and
- * verification endpoints
- * under {@code /api/v1/auth/magic-link}.
+ * verification endpoints under {@code /api/v1/auth/magic-link}.
+ * <p>
+ * Delegates web operations to {@link MagicLinkOperationsDelegate}. Can be toggled on/off
+ * via {@code iam.auth.magic-link.endpoints.enabled=true}.
  *
  * @author edmaputra
  * @since 0.7.0
@@ -35,29 +33,30 @@ import io.github.edmaputra.iam.domain.tenancy.TenantResolutionHelper;
 @RequestMapping("/api/v1/auth/magic-link")
 public class MagicLinkController {
 
-	private final ManageMagicLinkUseCase manageMagicLinkUseCase;
+	private final MagicLinkOperationsDelegate magicLinkOperationsDelegate;
+
+	public MagicLinkController(MagicLinkOperationsDelegate magicLinkOperationsDelegate) {
+		this.magicLinkOperationsDelegate = Objects.requireNonNull(magicLinkOperationsDelegate,
+				"MagicLinkOperationsDelegate must not be null.");
+	}
 
 	public MagicLinkController(ManageMagicLinkUseCase manageMagicLinkUseCase) {
-		this.manageMagicLinkUseCase = Objects.requireNonNull(manageMagicLinkUseCase,
-				"ManageMagicLinkUseCase must not be null.");
+		this(new MagicLinkOperationsDelegate(
+				Objects.requireNonNull(manageMagicLinkUseCase, "ManageMagicLinkUseCase must not be null.")));
 	}
 
 	/**
 	 * Requests a passwordless magic link to be sent to the user's email address.
 	 *
-	 * @param headerTenantId optional target tenant ID supplied via
-	 *                       {@code X-Tenant-ID} header
-	 * @param request        the magic link request payload containing email and
-	 *                       optional redirect URL
+	 * @param headerTenantId optional target tenant ID supplied via {@code X-Tenant-ID} header
+	 * @param request        the magic link request payload containing email and optional redirect URL
 	 * @return HTTP 200 with {@link MagicLinkRequestResponse}
 	 */
 	@PostMapping("/request")
 	public ResponseEntity<MagicLinkRequestResponse> requestMagicLink(
 			@RequestHeader(value = "X-Tenant-ID", required = false) String headerTenantId,
 			@Valid @RequestBody MagicLinkSendRequest request) {
-		UUID tenantUuid = TenantResolutionHelper.parseTenantHeader(headerTenantId);
-		MagicLinkRequestResponse response = manageMagicLinkUseCase
-				.requestMagicLink(request.toCommand(tenantUuid));
+		MagicLinkRequestResponse response = magicLinkOperationsDelegate.requestMagicLink(request, headerTenantId);
 		return ResponseEntity.ok(response);
 	}
 
@@ -72,10 +71,7 @@ public class MagicLinkController {
 	public ResponseEntity<TokenResponse> verifyMagicLinkPost(
 			@Valid @RequestBody MagicLinkVerifyRequest request,
 			HttpServletRequest httpRequest) {
-		String ip = HttpRequestUtils.extractClientIp(httpRequest);
-		String userAgent = HttpRequestUtils.extractUserAgent(httpRequest);
-		TokenResponse response = manageMagicLinkUseCase
-				.verifyMagicLink(request.toCommand(ip, userAgent));
+		TokenResponse response = magicLinkOperationsDelegate.verifyMagicLink(request, httpRequest);
 		return ResponseEntity.ok(response);
 	}
 
@@ -91,10 +87,7 @@ public class MagicLinkController {
 	public ResponseEntity<TokenResponse> verifyMagicLinkGet(
 			@RequestParam("token") String token,
 			HttpServletRequest httpRequest) {
-		String ip = HttpRequestUtils.extractClientIp(httpRequest);
-		String userAgent = HttpRequestUtils.extractUserAgent(httpRequest);
-		TokenResponse response = manageMagicLinkUseCase
-				.verifyMagicLink(new MagicLinkVerifyCommand(token, ip, userAgent));
+		TokenResponse response = magicLinkOperationsDelegate.verifyMagicLink(token, httpRequest);
 		return ResponseEntity.ok(response);
 	}
 }

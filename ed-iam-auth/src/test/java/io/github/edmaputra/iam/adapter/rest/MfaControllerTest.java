@@ -52,6 +52,8 @@ class MfaControllerTest {
 	@Test
 	@DisplayName("Should enforce non-null dependencies in constructor")
 	void shouldEnforceNonNullDependencies() {
+		assertThatThrownBy(() -> new MfaController((MfaOperationsDelegate) null))
+				.isInstanceOf(NullPointerException.class);
 		assertThatThrownBy(() -> new MfaController(null, currentActorProvider))
 				.isInstanceOf(NullPointerException.class);
 		assertThatThrownBy(() -> new MfaController(manageMfaUseCase, null))

@@ -42,9 +42,11 @@ class MagicLinkControllerTest {
 	}
 
 	@Test
-	@DisplayName("Should enforce non-null ManageMagicLinkUseCase in constructor")
+	@DisplayName("Should enforce non-null dependencies in constructors")
 	void shouldEnforceNonNullDependency() {
-		assertThatThrownBy(() -> new MagicLinkController(null))
+		assertThatThrownBy(() -> new MagicLinkController((ManageMagicLinkUseCase) null))
+				.isInstanceOf(NullPointerException.class);
+		assertThatThrownBy(() -> new MagicLinkController((MagicLinkOperationsDelegate) null))
 				.isInstanceOf(NullPointerException.class);
 	}
 

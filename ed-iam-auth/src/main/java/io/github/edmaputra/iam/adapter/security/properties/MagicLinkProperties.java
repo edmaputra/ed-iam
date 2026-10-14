@@ -3,6 +3,7 @@ package io.github.edmaputra.iam.adapter.security.properties;
 import java.util.List;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 /**
  * Configuration properties for Magic Link passwordless authentication.
@@ -11,6 +12,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param expirationSeconds     lifetime of an issued magic link token in seconds (default 900s = 15m)
  * @param baseUrl               base application URL used to construct the verification link
  * @param allowedRedirectHosts  list of allowed target hostnames for post-verification redirect
+ * @param endpoints             configuration options for built-in REST endpoints
  * @author edmaputra
  * @since 0.7.0
  */
@@ -19,7 +21,8 @@ public record MagicLinkProperties(
 		Boolean enabled,
 		long expirationSeconds,
 		String baseUrl,
-		List<String> allowedRedirectHosts) {
+		List<String> allowedRedirectHosts,
+		Endpoints endpoints) {
 
 	/** Default enabled status. */
 	public static final boolean DEFAULT_ENABLED = true;
@@ -28,7 +31,7 @@ public record MagicLinkProperties(
 	/** Default base application URL. */
 	public static final String DEFAULT_BASE_URL = "http://localhost:8080";
 
-
+	@ConstructorBinding
 	public MagicLinkProperties {
 		if (enabled == null) {
 			enabled = DEFAULT_ENABLED;
@@ -45,6 +48,17 @@ public record MagicLinkProperties(
 		else {
 			allowedRedirectHosts = List.copyOf(allowedRedirectHosts);
 		}
+		if (endpoints == null) {
+			endpoints = new Endpoints(false);
+		}
+	}
+
+	public MagicLinkProperties(
+			Boolean enabled,
+			long expirationSeconds,
+			String baseUrl,
+			List<String> allowedRedirectHosts) {
+		this(enabled, expirationSeconds, baseUrl, allowedRedirectHosts, new Endpoints(false));
 	}
 
 	/**
@@ -53,6 +67,27 @@ public record MagicLinkProperties(
 	 * @return default {@link MagicLinkProperties}
 	 */
 	public static MagicLinkProperties defaultProperties() {
-		return new MagicLinkProperties(DEFAULT_ENABLED, DEFAULT_EXPIRATION_SECONDS, DEFAULT_BASE_URL, List.of());
+		return new MagicLinkProperties(
+				DEFAULT_ENABLED,
+				DEFAULT_EXPIRATION_SECONDS,
+				DEFAULT_BASE_URL,
+				List.of(),
+				new Endpoints(false));
+	}
+
+	/**
+	 * Configuration options for built-in Magic Link REST endpoints.
+	 *
+	 * @param enabled whether the built-in Magic Link REST controller is registered (default false)
+	 * @author edmaputra
+	 * @since 0.11.0
+	 */
+	public record Endpoints(Boolean enabled) {
+
+		public Endpoints {
+			if (enabled == null) {
+				enabled = false;
+			}
+		}
 	}
 }
