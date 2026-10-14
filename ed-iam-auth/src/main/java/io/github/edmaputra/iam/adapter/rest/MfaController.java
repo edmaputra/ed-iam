@@ -4,7 +4,6 @@ import java.util.Objects;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,14 +18,14 @@ import io.github.edmaputra.iam.application.model.MfaSetupResponse;
 import io.github.edmaputra.iam.application.model.MfaStatusResponse;
 import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.port.in.ManageMfaUseCase;
-import io.github.edmaputra.iam.domain.model.UserId;
-import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 
 /**
  * Dedicated REST controller for Multi-Factor Authentication (MFA / TOTP)
- * lifecycle endpoints
- * under {@code /api/v1/auth/mfa}.
+ * lifecycle endpoints under {@code /api/v1/auth/mfa}.
+ * <p>
+ * Delegates web requests to {@link MfaOperationsDelegate}. Can be toggled on/off
+ * via {@code iam.auth.mfa.endpoints.enabled=true}.
  *
  * @author edmaputra
  * @since 0.6.0
@@ -35,23 +34,26 @@ import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 @RequestMapping("/api/v1/auth/mfa")
 public class MfaController {
 
-	private final ManageMfaUseCase manageMfaUseCase;
-	private final CurrentActorProvider currentActorProvider;
+	private final MfaOperationsDelegate mfaOperationsDelegate;
+
+	public MfaController(MfaOperationsDelegate mfaOperationsDelegate) {
+		this.mfaOperationsDelegate = Objects.requireNonNull(mfaOperationsDelegate,
+				"MfaOperationsDelegate must not be null.");
+	}
 
 	public MfaController(
 			ManageMfaUseCase manageMfaUseCase,
 			CurrentActorProvider currentActorProvider) {
-		this.manageMfaUseCase = Objects.requireNonNull(manageMfaUseCase, "ManageMfaUseCase must not be null.");
-		this.currentActorProvider = Objects.requireNonNull(currentActorProvider,
-				"CurrentActorProvider must not be null.");
+		this(new MfaOperationsDelegate(
+				Objects.requireNonNull(manageMfaUseCase, "ManageMfaUseCase must not be null."),
+				Objects.requireNonNull(currentActorProvider, "CurrentActorProvider must not be null.")));
 	}
 
 	/**
 	 * Completes second-factor authentication for an MFA challenge and returns
 	 * access and refresh tokens.
 	 *
-	 * @param request     the MFA verification request containing the challenge
-	 *                    token and code
+	 * @param request     the MFA verification request containing the challenge token and code
 	 * @param httpRequest the underlying HTTP servlet request for client metadata
 	 * @return HTTP 200 with {@link TokenResponse}
 	 */
@@ -59,9 +61,7 @@ public class MfaController {
 	public ResponseEntity<TokenResponse> verifyMfa(
 			@Valid @RequestBody MfaLoginVerifyRequest request,
 			HttpServletRequest httpRequest) {
-		String ip = HttpRequestUtils.extractClientIp(httpRequest);
-		String userAgent = HttpRequestUtils.extractUserAgent(httpRequest);
-		TokenResponse response = manageMfaUseCase.verifyLogin(request.toCommand(ip, userAgent));
+		TokenResponse response = mfaOperationsDelegate.verifyLogin(request, httpRequest);
 		return ResponseEntity.ok(response);
 	}
 
@@ -72,8 +72,7 @@ public class MfaController {
 	 */
 	@GetMapping("/status")
 	public ResponseEntity<MfaStatusResponse> getMfaStatus() {
-		CurrentActor actor = currentActorProvider.requireCurrentActor();
-		MfaStatusResponse response = manageMfaUseCase.getStatus(new UserId(actor.userId()));
+		MfaStatusResponse response = mfaOperationsDelegate.getStatus();
 		return ResponseEntity.ok(response);
 	}
 
@@ -85,8 +84,7 @@ public class MfaController {
 	 */
 	@PostMapping("/setup")
 	public ResponseEntity<MfaSetupResponse> setupMfa() {
-		CurrentActor actor = currentActorProvider.requireCurrentActor();
-		MfaSetupResponse response = manageMfaUseCase.initiateSetup(new UserId(actor.userId()), "ed-iam");
+		MfaSetupResponse response = mfaOperationsDelegate.initiateSetup();
 		return ResponseEntity.ok(response);
 	}
 
@@ -99,23 +97,19 @@ public class MfaController {
 	 */
 	@PostMapping("/activate")
 	public ResponseEntity<Void> activateMfa(@Valid @RequestBody MfaActivateRequest request) {
-		CurrentActor actor = currentActorProvider.requireCurrentActor();
-		manageMfaUseCase.activate(new UserId(actor.userId()), request.code());
+		mfaOperationsDelegate.activate(request);
 		return ResponseEntity.noContent().build();
 	}
 
 	/**
-	 * Disables Multi-Factor Authentication after verifying the user's TOTP code or
-	 * password.
+	 * Disables Multi-Factor Authentication after verifying the user's TOTP code or password.
 	 *
-	 * @param request the disable request containing the verification code or
-	 *                password
+	 * @param request the disable request containing the verification code or password
 	 * @return HTTP 204 No Content
 	 */
 	@PostMapping("/disable")
 	public ResponseEntity<Void> disableMfa(@Valid @RequestBody MfaDisableRequest request) {
-		CurrentActor actor = currentActorProvider.requireCurrentActor();
-		manageMfaUseCase.disable(new UserId(actor.userId()), request.codeOrPassword());
+		mfaOperationsDelegate.disable(request);
 		return ResponseEntity.noContent().build();
 	}
 }

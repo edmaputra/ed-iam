@@ -17,6 +17,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,15 +25,19 @@ import org.springframework.context.annotation.Import;
 
 import io.github.edmaputra.iam.adapter.rest.AuthController;
 import io.github.edmaputra.iam.adapter.rest.MagicLinkController;
+import io.github.edmaputra.iam.adapter.rest.MagicLinkOperationsDelegate;
 import io.github.edmaputra.iam.adapter.rest.MfaController;
+import io.github.edmaputra.iam.adapter.rest.MfaOperationsDelegate;
 import io.github.edmaputra.iam.adapter.security.BCryptPasswordEncoderAdapter;
 import io.github.edmaputra.iam.adapter.security.IamResourceServerAutoConfiguration;
 import io.github.edmaputra.iam.adapter.security.notifier.LoggingMagicLinkNotifier;
 import io.github.edmaputra.iam.adapter.security.properties.MagicLinkProperties;
+import io.github.edmaputra.iam.adapter.security.properties.MfaProperties;
 import io.github.edmaputra.iam.adapter.security.redirect.DefaultAllowedRedirectHostResolver;
 import io.github.edmaputra.iam.adapter.security.provider.ApiKeyAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.LocalPasswordAuthProvider;
 import io.github.edmaputra.iam.adapter.security.provider.MagicLinkAuthProvider;
+import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 import io.github.edmaputra.iam.adapter.security.provider.OidcAuthProvider;
 import io.github.edmaputra.iam.adapter.security.store.InMemoryMagicLinkTokenStore;
 import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
@@ -78,8 +83,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  * @since 0.3.0
  */
 @AutoConfiguration(after = IamResourceServerAutoConfiguration.class)
-@EnableConfigurationProperties({SessionProperties.class, MagicLinkProperties.class})
-@Import({AuthController.class, MfaController.class, MagicLinkController.class})
+@EnableConfigurationProperties({SessionProperties.class, MagicLinkProperties.class, MfaProperties.class})
+@Import(AuthController.class)
 public class IamAuthAutoConfiguration {
 
 
@@ -218,6 +223,25 @@ public class IamAuthAutoConfiguration {
 	}
 
 	@Bean
+	@ConditionalOnMissingBean
+	public MfaOperationsDelegate mfaOperationsDelegate(
+			ManageMfaUseCase manageMfaUseCase,
+			CurrentActorProvider currentActorProvider,
+			ObjectProvider<MfaProperties> mfaPropertiesProvider) {
+		return new MfaOperationsDelegate(
+				manageMfaUseCase,
+				currentActorProvider,
+				mfaPropertiesProvider.getIfAvailable(MfaProperties::defaultProperties));
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	@ConditionalOnProperty(prefix = "iam.auth.mfa.endpoints", name = "enabled", havingValue = "true", matchIfMissing = false)
+	public MfaController mfaController(MfaOperationsDelegate mfaOperationsDelegate) {
+		return new MfaController(mfaOperationsDelegate);
+	}
+
+	@Bean
 	@ConditionalOnMissingBean(MagicLinkTokenStorePort.class)
 	public MagicLinkTokenStorePort inMemoryMagicLinkTokenStore() {
 		return new InMemoryMagicLinkTokenStore();
@@ -277,6 +301,20 @@ public class IamAuthAutoConfiguration {
 				authRouter,
 				userTokenService,
 				authSessionService);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public MagicLinkOperationsDelegate magicLinkOperationsDelegate(
+			ManageMagicLinkUseCase manageMagicLinkUseCase) {
+		return new MagicLinkOperationsDelegate(manageMagicLinkUseCase);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	@ConditionalOnProperty(prefix = "iam.auth.magic-link.endpoints", name = "enabled", havingValue = "true", matchIfMissing = false)
+	public MagicLinkController magicLinkController(MagicLinkOperationsDelegate magicLinkOperationsDelegate) {
+		return new MagicLinkController(magicLinkOperationsDelegate);
 	}
 
 	@Configuration(proxyBeanMethods = false)

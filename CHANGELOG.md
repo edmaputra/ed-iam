@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+- **Reusable Web Operations Delegates & Optional Auth Endpoints**:
+  - Introduced `MfaOperationsDelegate` and `MagicLinkOperationsDelegate` in `ed-iam-auth` encapsulating client IP/User-Agent metadata extraction, actor resolution, and use-case dispatching.
+  - Converted `MfaController` and `MagicLinkController` into toggleable endpoints using `@ConditionalOnProperty` with `matchIfMissing = false` (`iam.auth.mfa.endpoints.enabled` and `iam.auth.magic-link.endpoints.enabled`).
+  - Introduced `MfaProperties` (`iam.auth.mfa`) and updated `MagicLinkProperties` (`iam.auth.magic-link`) with `endpoints` configuration blocks.
+  - Made `HttpRequestUtils` public for client reuse.
+  - Documented custom endpoint integration patterns and updated playground/IT configurations.
 - **Permission Catalog and Management Feature**:
   - Pure domain model `Permission` record, `PermissionId` value object, and `PermissionNotFoundException` in `ed-iam-core`.
   - Driving use case port `ManagePermissionUseCase` and commands `PermissionCommands` (`CreatePermissionCommand`, `UpdatePermissionCommand`) in `ed-iam-core`.

@@ -4,12 +4,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
 
 /**
- * Internal utility class for extracting HTTP request metadata such as client IP addresses and user agents.
+ * Utility class for extracting HTTP request metadata such as client IP addresses and user agents.
  *
  * @author edmaputra
  * @since 0.7.0
  */
-final class HttpRequestUtils {
+public final class HttpRequestUtils {
 
 	private HttpRequestUtils() {
 	}
@@ -20,7 +20,7 @@ final class HttpRequestUtils {
 	 * @param request the HTTP servlet request
 	 * @return client IP string, or null if request is null
 	 */
-	static String extractClientIp(HttpServletRequest request) {
+	public static String extractClientIp(HttpServletRequest request) {
 		if (request == null) {
 			return null;
 		}
@@ -37,7 +37,7 @@ final class HttpRequestUtils {
 	 * @param request the HTTP servlet request
 	 * @return User-Agent string, or null
 	 */
-	static String extractUserAgent(HttpServletRequest request) {
+	public static String extractUserAgent(HttpServletRequest request) {
 		return request != null ? request.getHeader(HttpHeaders.USER_AGENT) : null;
 	}
 }

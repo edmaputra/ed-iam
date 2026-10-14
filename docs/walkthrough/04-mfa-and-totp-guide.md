@@ -178,6 +178,47 @@ The MFA subsystem exposes five endpoints under `/api/v1/auth/mfa/*`:
   ```
 * **Response**: `204 No Content`.
 
+### 7. Endpoint Configuration & Reusable Web Components
+
+By default, the built-in `MfaController` is **disabled** (`matchIfMissing = false`). Consumers can either enable the built-in controller or implement their own custom endpoints using the reusable `MfaOperationsDelegate`.
+
+#### Enabling Built-in Endpoints
+To activate the default `/api/v1/auth/mfa/*` endpoints, set in `application.yml`:
+```yaml
+iam:
+  auth:
+    mfa:
+      issuer: "MyApplication"   # Optional custom issuer (default "ed-iam")
+      endpoints:
+        enabled: true           # Enables default MfaController
+```
+
+#### Creating Custom Endpoints via `MfaOperationsDelegate`
+When consumers require custom routing paths, GraphQL resolvers, BFF endpoints, or custom response envelopes, they can leave `iam.auth.mfa.endpoints.enabled=false` and inject the auto-configured `MfaOperationsDelegate`:
+
+```java
+@RestController
+@RequestMapping("/custom/api/mfa")
+@RequiredArgsConstructor
+public class CustomMfaController {
+
+    private final MfaOperationsDelegate mfaDelegate;
+
+    @PostMapping("/verify-code")
+    public ResponseEntity<TokenResponse> verify(
+            @Valid @RequestBody MfaLoginVerifyRequest request,
+            HttpServletRequest http) {
+        return ResponseEntity.ok(mfaDelegate.verifyLogin(request, http));
+    }
+
+    @GetMapping("/status")
+    public ResponseEntity<MfaStatusResponse> status() {
+        return ResponseEntity.ok(mfaDelegate.getStatus());
+    }
+}
+```
+`MfaOperationsDelegate` encapsulates actor resolution (`CurrentActorProvider`), request metadata extraction (`HttpRequestUtils`), and issuer resolution, delegating cleanly to `ManageMfaUseCase`.
+
 ---
 
 ## 4. Database Schema & Persistence
