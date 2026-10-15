@@ -3,8 +3,10 @@ package io.github.edmaputra.iam;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
@@ -56,10 +58,16 @@ import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
  * @since 0.0.1
  */
 @AutoConfiguration(after = IamResourceServerAutoConfiguration.class, beforeName = "io.github.edmaputra.iam.IamAuthAutoConfiguration")
+@ConditionalOnProperty(name = "ed-iam.persistence.enabled", havingValue = "true", matchIfMissing = true)
 @EntityScan(basePackages = "io.github.edmaputra.iam.adapter.persistence.entity")
 @EnableJpaRepositories(basePackages = "io.github.edmaputra.iam.adapter.persistence.repository")
-@Import(IamExceptionHandler.class)
 public class IamSecurityAutoConfiguration {
+
+	@Configuration(proxyBeanMethods = false)
+	@ConditionalOnProperty(name = "ed-iam.exception-handler.enabled", havingValue = "true", matchIfMissing = true)
+	@Import(IamExceptionHandler.class)
+	static class ExceptionHandlerConfiguration {
+	}
 
 	@Bean
 	@ConditionalOnMissingBean

@@ -83,9 +83,15 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  * @since 0.3.0
  */
 @AutoConfiguration(after = IamResourceServerAutoConfiguration.class)
+@ConditionalOnProperty(name = "ed-iam.auth.enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties({SessionProperties.class, MagicLinkProperties.class, MfaProperties.class})
-@Import(AuthController.class)
 public class IamAuthAutoConfiguration {
+
+	@Configuration(proxyBeanMethods = false)
+	@ConditionalOnProperty(name = "ed-iam.auth.endpoints.enabled", havingValue = "true", matchIfMissing = true)
+	@Import(AuthController.class)
+	static class AuthEndpointsConfiguration {
+	}
 
 
 	@Bean
@@ -236,7 +242,7 @@ public class IamAuthAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	@ConditionalOnProperty(prefix = "iam.auth.mfa.endpoints", name = "enabled", havingValue = "true", matchIfMissing = false)
+	@ConditionalOnProperty(name = "ed-iam.auth.mfa.endpoints.enabled", havingValue = "true", matchIfMissing = false)
 	public MfaController mfaController(MfaOperationsDelegate mfaOperationsDelegate) {
 		return new MfaController(mfaOperationsDelegate);
 	}
@@ -312,7 +318,7 @@ public class IamAuthAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	@ConditionalOnProperty(prefix = "iam.auth.magic-link.endpoints", name = "enabled", havingValue = "true", matchIfMissing = false)
+	@ConditionalOnProperty(name = "ed-iam.auth.magic-link.endpoints.enabled", havingValue = "true", matchIfMissing = false)
 	public MagicLinkController magicLinkController(MagicLinkOperationsDelegate magicLinkOperationsDelegate) {
 		return new MagicLinkController(magicLinkOperationsDelegate);
 	}

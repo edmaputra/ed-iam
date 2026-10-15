@@ -43,6 +43,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	private final ObjectProvider<TenantContextBridge> tenantContextBridgeProvider;
 	private final ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider;
 	private final SecurityAuditRecorder auditRecorder;
+	private final boolean failurePassthrough;
+
+	/**
+	 * Primary constructor with {@link SecurityAuditRecorder} and failure pass-through flag.
+	 */
+	public JwtAuthenticationFilter(
+			JwtTokenProvider jwtTokenProvider,
+			SecurityContextAccessor securityContextAccessor,
+			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
+			SecurityAuditRecorder auditRecorder,
+			boolean failurePassthrough) {
+		this.jwtTokenProvider = jwtTokenProvider;
+		this.securityContextAccessor = securityContextAccessor;
+		this.tenantContextBridgeProvider = tenantContextBridgeProvider;
+		this.tokenRevocationPortProvider = tokenRevocationPortProvider;
+		this.auditRecorder = auditRecorder != null ? auditRecorder : SecurityAuditRecorder.noop();
+		this.failurePassthrough = failurePassthrough;
+	}
 
 	/**
 	 * Primary constructor with {@link SecurityAuditRecorder}.
@@ -53,11 +72,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider,
 			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
 			SecurityAuditRecorder auditRecorder) {
-		this.jwtTokenProvider = jwtTokenProvider;
-		this.securityContextAccessor = securityContextAccessor;
-		this.tenantContextBridgeProvider = tenantContextBridgeProvider;
-		this.tokenRevocationPortProvider = tokenRevocationPortProvider;
-		this.auditRecorder = auditRecorder != null ? auditRecorder : SecurityAuditRecorder.noop();
+		this(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider, tokenRevocationPortProvider, auditRecorder, false);
+	}
+
+	/**
+	 * Constructor accepting filter properties, telemetry, and event publisher.
+	 */
+	public JwtAuthenticationFilter(
+			JwtTokenProvider jwtTokenProvider,
+			SecurityContextAccessor securityContextAccessor,
+			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider,
+			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
+			ObjectProvider<IamTelemetry> telemetryProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider,
+			io.github.edmaputra.iam.adapter.security.properties.IamSecurityFilterProperties filterProperties) {
+		this(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider, tokenRevocationPortProvider,
+				new SecurityAuditRecorder(
+						telemetryProvider != null ? telemetryProvider.getIfAvailable() : null,
+						eventPublisherProvider != null ? eventPublisherProvider.getIfAvailable() : null),
+				filterProperties != null && Boolean.TRUE.equals(filterProperties.failurePassthrough()));
 	}
 
 	/**
@@ -71,9 +104,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			ObjectProvider<IamTelemetry> telemetryProvider,
 			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
 		this(jwtTokenProvider, securityContextAccessor, tenantContextBridgeProvider, tokenRevocationPortProvider,
-				new SecurityAuditRecorder(
-						telemetryProvider != null ? telemetryProvider.getIfAvailable() : null,
-						eventPublisherProvider != null ? eventPublisherProvider.getIfAvailable() : null));
+				telemetryProvider, eventPublisherProvider, null);
 	}
 
 	/**
@@ -112,6 +143,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 		String token = authHeader.substring(BEARER_PREFIX.length()).trim();
 		if (token.isEmpty()) {
+			if (failurePassthrough) {
+				filterChain.doFilter(request, response);
+				return;
+			}
 			writeUnauthorized(response, "Authorization header contains empty bearer token.");
 			return;
 		}
@@ -123,6 +158,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			actor = jwtTokenProvider.parseAccessToken(token);
 		}
 		catch (AuthenticationException ex) {
+			if (failurePassthrough) {
+				filterChain.doFilter(request, response);
+				return;
+			}
 			String status = (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("expired")) ? "expired" : "invalid";
 			auditRecorder.recordTokenValidation(status, startTime);
 			auditRecorder.recordAccessDenied("token_" + status, null, null, "anonymous", request.getRequestURI(),
@@ -131,6 +170,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			return;
 		}
 		catch (Exception ex) {
+			if (failurePassthrough) {
+				filterChain.doFilter(request, response);
+				return;
+			}
 			auditRecorder.recordTokenValidation("invalid", startTime);
 			auditRecorder.recordAccessDenied("token_invalid", null, null, "anonymous", request.getRequestURI(), null);
 			writeUnauthorized(response, "Invalid or expired authorization token.");

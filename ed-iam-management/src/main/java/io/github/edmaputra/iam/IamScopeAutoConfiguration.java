@@ -3,6 +3,7 @@ package io.github.edmaputra.iam;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 
@@ -22,6 +23,7 @@ import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
  * @since 0.0.1
  */
 @AutoConfiguration
+@ConditionalOnProperty(name = "ed-iam.scope.enabled", havingValue = "true", matchIfMissing = true)
 public class IamScopeAutoConfiguration {
 
 	/**

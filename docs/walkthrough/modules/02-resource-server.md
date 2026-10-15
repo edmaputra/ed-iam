@@ -100,6 +100,10 @@ public class SecurityConfiguration {
 }
 ```
 
+> [!IMPORTANT]
+> When integrating `JwtAuthenticationFilter` into a custom `SecurityFilterChain`, set `ed-iam.security.filter.register-servlet: false` in `application.yml`. This prevents Spring Boot from automatically registering the filter to the root servlet container (`/*`), ensuring it only runs within the ordered `SecurityFilterChain`.
+> If downstream filters or multi-provider authentication need to evaluate unauthenticated requests, set `ed-iam.security.filter.failure-passthrough: true`.
+
 > [!TIP]
 > Downstream microservices that only validate incoming JWT tokens and do not expose local login endpoints can use `anyRequest().authenticated()` as a baseline default deny policy, relying on `@RequirePermission` or `@PreAuthorize("@iam...")` for granular RBAC.
 
@@ -109,11 +113,13 @@ public class SecurityConfiguration {
 
 | Class / Record | Architectural Role | Objective & Responsibility |
 |---|---|---|
-| `IamResourceServerAutoConfiguration` | Spring AutoConfiguration | Registers all resource server beans: `JwtTokenProvider`, `SecurityContextAccessor`, `JwtAuthenticationFilter`, `RequirePermissionInterceptor`, and `IamSecurityEvaluator`. |
+| `IamResourceServerAutoConfiguration` | Spring AutoConfiguration | Registers all resource server beans: `JwtTokenProvider`, `SecurityContextAccessor`, `JwtAuthenticationFilter`, `RequirePermissionInterceptor`, and `IamSecurityEvaluator`. Conditioned on `ed-iam.resource-server.enabled`. |
+| `IamSecurityFilterProperties` | Configuration Properties | Maps configuration properties under prefix `ed-iam.security.filter` (`enabled`, `registerServlet`, `failurePassthrough`). |
 | `JwtProperties` | Configuration Properties | Maps configuration properties under prefix `iam.jwt.*` (secret key, token expirations, algorithm). |
 | `JwtTokenProvider` | Outbound Adapter (JJWT) | Implements `TokenProviderPort`. Signs and parses JWT access and refresh tokens using HMAC-SHA256 (`io.jsonwebtoken 0.12.x`). |
-| `JwtAuthenticationFilter` | Inbound Web Filter | Spring `OncePerRequestFilter`. Intercepts incoming HTTP requests, extracts Bearer token, validates signature, scopes the `CurrentActor`, and notifies `TenantContextBridge`. |
+| `JwtAuthenticationFilter` | Inbound Web Filter | Spring `OncePerRequestFilter`. Intercepts incoming HTTP requests, extracts Bearer token, validates signature, scopes the `CurrentActor`, and notifies `TenantContextBridge`. Supports `failurePassthrough` mode. |
 | `SecurityContextAccessor` | Security Context Provider | Implements `CurrentActorProvider`. Manages the Java 25 `ScopedValue` context binding the active actor to the current thread/virtual thread. |
 | `SecurityContextCurrentActor` | Value Implementation | Concrete package-private record implementing `CurrentActor` populated from decoded JWT claims. |
 | `RequirePermissionInterceptor` | MVC Interceptor | Spring MVC `HandlerInterceptor`. Inspects handler method and controller class for `@RequirePermission` and validates actor permissions. |
 | `IamSecurityEvaluator` | SpEL Evaluator Bean | Named bean `@iam` for Spring Security SpEL expressions (`@iam.hasPermission(...)`, `@iam.canAccessScope(...)`). |
+
