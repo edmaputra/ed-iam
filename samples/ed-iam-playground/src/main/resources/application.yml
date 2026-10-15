@@ -41,6 +41,18 @@ spring:
     suffix: .html
 
 # ed-iam Starter Configuration
+ed-iam:
+  auth:
+    mfa:
+      endpoints:
+        enabled: true
+    magic-link:
+      endpoints:
+        enabled: true
+  management:
+    endpoints:
+      enabled: true
+
 iam:
   jwt:
     # Signing secret must be at least 256 bits (32 bytes). In production, configure via IAM_JWT_SECRET environment variable.

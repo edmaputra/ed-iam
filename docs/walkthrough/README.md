@@ -58,7 +58,14 @@ We recommend reading through the documentation in the following order:
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 7. Module Deep Dives & Class Architecture Catalogs          │
+│ 7. Auto-Configuration & Host Coexistence Guide             │
+│    docs/walkthrough/07-autoconfiguration-and-coexistence-   │
+│    guide.md                                                 │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 8. Module Deep Dives & Class Architecture Catalogs          │
 │    ├── modules/01-core.md            (Domain Kernel & SPIs) │
 │    ├── modules/02-resource-server.md (JWT & ScopedValue)    │
 │    ├── modules/03-auth.md            (Auth SPI & Providers) │
@@ -88,21 +95,25 @@ We recommend reading through the documentation in the following order:
 6. [**Observability, Telemetry & SIEM Audit Guide**](06-observability-and-audit-guide.md)  
    Domain audit events catalog, sensitive credential sanitization, Micrometer metric instruments, OpenTelemetry distributed tracing, and SIEM logging.
 
-7. [**Module 1: ed-iam-core**](modules/01-core.md)  
+7. [**Auto-Configuration & Host Coexistence Guide**](07-autoconfiguration-and-coexistence-guide.md)  
+   How to embed `ed-iam` into existing applications with custom Spring Security filter chains or Liquibase migrations without using `spring.autoconfigure.exclude`.
+
+8. [**Module 1: ed-iam-core**](modules/01-core.md)  
    The pure domain kernel. Zero framework dependencies, immutable record invariants, use-case driving ports, and driven SPI repository contracts. Includes a complete class catalog.
 
-8. [**Module 2: ed-iam-resource-server**](modules/02-resource-server.md)  
+9. [**Module 2: ed-iam-resource-server**](modules/02-resource-server.md)  
    Stateless downstream microservice integration. JJWT token parsing, `JwtAuthenticationFilter`, Java 25 `ScopedValue` security context, `@RequirePermission` MVC interceptor, and `@iam` SpEL evaluator. Includes a complete class catalog.
 
-9. [**Module 3: ed-iam-auth**](modules/03-auth.md)  
+10. [**Module 3: ed-iam-auth**](modules/03-auth.md)  
    Authentication provider router, local BCrypt passwords, federated OIDC identity provisioning, machine-to-machine (M2M) API keys, and single-pass `EffectiveAccessResolver`. Includes a complete class catalog.
 
-10. [**Module 4: ed-iam-management**](modules/04-management.md)  
+11. [**Module 4: ed-iam-management**](modules/04-management.md)  
     Administrative REST endpoints, Spring Data JPA entities, isolated Liquibase migrations (`iam_*`), and hierarchical scope tree management (`ScopeHierarchyService`). Includes a complete class catalog.
 
-11. [**Module 5: ed-iam-starter**](modules/05-starter.md)  
+12. [**Module 5: ed-iam-starter**](modules/05-starter.md)  
     The turnkey Spring Boot AutoConfiguration module bundling core, resource server, auth, and management for zero-configuration consumers. Includes class catalog.
 
-12. [**Playground & Testing Guide**](modules/06-playground-and-testing.md)  
+13. [**Playground & Testing Guide**](modules/06-playground-and-testing.md)  
     The interactive reference application (`samples/ed-iam-playground`), clinical scenario personas, unit and integration testing strategy, and ArchUnit rules.
+
 

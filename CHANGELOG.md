@@ -8,12 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Auto-Configuration Collision Prevention & Dedicated `ed-iam.*` Configuration**:
+  - Introduced dedicated `ed-iam.*` configuration properties across all modules to prevent naming collisions with host application configurations.
+  - Added `IamSecurityFilterProperties` (`ed-iam.security.filter`) allowing host applications to customize `JwtAuthenticationFilter` lifecycle and delegation:
+    - `ed-iam.security.filter.enabled`: Enables or disables the JWT filter bean.
+    - `ed-iam.security.filter.register-servlet`: When set to `false`, registers `FilterRegistrationBean` with `setEnabled(false)` to prevent Spring Boot from automatically registering `JwtAuthenticationFilter` directly into the servlet container (`/*`), allowing host applications with custom `SecurityFilterChain` beans to manage filter ordering without double-filtering.
+    - `ed-iam.security.filter.failure-passthrough`: When set to `true`, delegates invalid/unauthenticated token requests down the filter chain (`filterChain.doFilter`) instead of immediately aborting with HTTP 401 Unauthorized, allowing multi-provider or secondary security filters to process requests.
+  - Added `@ConditionalOnProperty(name = "ed-iam.resource-server.enabled", havingValue = "true", matchIfMissing = true)` on `IamResourceServerAutoConfiguration`.
+  - Added `@ConditionalOnProperty(name = "ed-iam.liquibase.enabled", havingValue = "true", matchIfMissing = true)` and `@ConditionalOnMissingBean(name = "iamLiquibase")` on `IamLiquibaseAutoConfiguration`, allowing host applications with existing Liquibase configurations to disable or customize IAM migrations without requiring `spring.autoconfigure.exclude`.
+  - Added `@ConditionalOnProperty(name = "ed-iam.auth.enabled", havingValue = "true", matchIfMissing = true)` and endpoint toggles supporting `ed-iam.auth.endpoints.enabled`, `ed-iam.auth.mfa.endpoints.enabled`, and `ed-iam.auth.magic-link.endpoints.enabled` on `IamAuthAutoConfiguration`.
+  - Added `@ConditionalOnProperty(name = "ed-iam.management.enabled", havingValue = "true", matchIfMissing = true)` and endpoint toggle `ed-iam.management.endpoints.enabled` on `IamManagementAutoConfiguration`.
+  - Added `@ConditionalOnProperty(name = "ed-iam.scope.enabled", havingValue = "true", matchIfMissing = true)` on `IamScopeAutoConfiguration`.
+  - Added `@ConditionalOnProperty(name = "ed-iam.persistence.enabled", havingValue = "true", matchIfMissing = true)` and `@ConditionalOnProperty(name = "ed-iam.exception-handler.enabled", havingValue = "true", matchIfMissing = true)` on `IamSecurityAutoConfiguration`.
+---
+
+## [0.11.0] - 2026-10-14
+
+### Added
 - **Reusable Web Operations Delegates & Optional Auth Endpoints**:
-  - Introduced `MfaOperationsDelegate` and `MagicLinkOperationsDelegate` in `ed-iam-auth` encapsulating client IP/User-Agent metadata extraction, actor resolution, and use-case dispatching.
-  - Converted `MfaController` and `MagicLinkController` into toggleable endpoints using `@ConditionalOnProperty` with `matchIfMissing = false` (`iam.auth.mfa.endpoints.enabled` and `iam.auth.magic-link.endpoints.enabled`).
-  - Introduced `MfaProperties` (`iam.auth.mfa`) and updated `MagicLinkProperties` (`iam.auth.magic-link`) with `endpoints` configuration blocks.
-  - Made `HttpRequestUtils` public for client reuse.
-  - Documented custom endpoint integration patterns and updated playground/IT configurations.
+  - Introduced `MfaOperationsDelegate` in `ed-iam-auth` encapsulating web metadata extraction (client IP via `HttpRequestUtils`, User-Agent), actor resolution, and use-case dispatching for MFA enrollment, challenge verification, and recovery code verification ([#33](https://github.com/edmaputra/ed-iam/pull/33)).
+  - Introduced `MagicLinkOperationsDelegate` in `ed-iam-auth` handling HTTP request metadata extraction, actor resolution, and use-case dispatching for magic link initiation and consumption with multi-tenant session and MFA interception ([#33](https://github.com/edmaputra/ed-iam/pull/33)).
+  - Converted `MfaController` and `MagicLinkController` into optional, toggleable endpoints using `@ConditionalOnProperty` with `matchIfMissing = false` (`iam.auth.mfa.endpoints.enabled` and `iam.auth.magic-link.endpoints.enabled`), enabling host applications to supply custom controllers while reusing delegates ([#33](https://github.com/edmaputra/ed-iam/pull/33)).
+  - Introduced `MfaProperties` (`iam.auth.mfa.endpoints`) and updated `MagicLinkProperties` (`iam.auth.magic-link.endpoints`) with dedicated endpoint toggle blocks ([#33](https://github.com/edmaputra/ed-iam/pull/33)).
+  - Made `HttpRequestUtils` public for client reuse with comprehensive IP resolution across proxy headers (`X-Forwarded-For`, `X-Real-IP`, `Proxy-Client-IP`, `WL-Proxy-Client-IP`) ([#33](https://github.com/edmaputra/ed-iam/pull/33)).
+  - Comprehensive unit and auto-configuration tests for delegates, property binding, and conditional endpoint loading ([#33](https://github.com/edmaputra/ed-iam/pull/33)).
+  - Documentation guides and walkthroughs updated for custom endpoint integration in MFA and Magic Link chapters ([#33](https://github.com/edmaputra/ed-iam/pull/33)).
 
 ---
 
@@ -286,7 +305,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automated CI/CD**:
   - GitHub Actions automated release pipeline publishing signed artifacts to Maven Central via Sonatype Central Portal.
 
-[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/edmaputra/ed-iam/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/edmaputra/ed-iam/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/edmaputra/ed-iam/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/edmaputra/ed-iam/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/edmaputra/ed-iam/compare/v0.7.0...v0.8.0

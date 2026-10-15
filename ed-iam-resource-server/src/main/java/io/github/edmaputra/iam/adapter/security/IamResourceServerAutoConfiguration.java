@@ -2,9 +2,11 @@ package io.github.edmaputra.iam.adapter.security;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -17,6 +19,7 @@ import io.github.edmaputra.iam.adapter.security.interceptor.RequirePermissionInt
 import io.github.edmaputra.iam.adapter.security.jwt.JwtAuthenticationFilter;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtProperties;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtTokenProvider;
+import io.github.edmaputra.iam.adapter.security.properties.IamSecurityFilterProperties;
 import io.github.edmaputra.iam.adapter.security.telemetry.DefaultIamTelemetry;
 import io.github.edmaputra.iam.adapter.security.telemetry.IamTelemetry;
 import io.github.edmaputra.iam.adapter.security.telemetry.IamTelemetryProperties;
@@ -37,7 +40,13 @@ import org.springframework.context.ApplicationEventPublisher;
  * @since 0.0.1
  */
 @AutoConfiguration
-@EnableConfigurationProperties({JwtProperties.class, IamTelemetryProperties.class, IamAuditProperties.class})
+@ConditionalOnProperty(name = "ed-iam.resource-server.enabled", havingValue = "true", matchIfMissing = true)
+@EnableConfigurationProperties({
+		JwtProperties.class,
+		IamTelemetryProperties.class,
+		IamAuditProperties.class,
+		IamSecurityFilterProperties.class
+})
 public class IamResourceServerAutoConfiguration {
 
 	/**
@@ -133,20 +142,41 @@ public class IamResourceServerAutoConfiguration {
 	 */
 	@Bean
 	@ConditionalOnMissingBean
+	@ConditionalOnProperty(name = "ed-iam.security.filter.enabled", havingValue = "true", matchIfMissing = true)
 	public JwtAuthenticationFilter jwtAuthenticationFilter(
 			JwtTokenProvider jwtTokenProvider,
 			SecurityContextAccessor securityContextAccessor,
 			ObjectProvider<TenantContextBridge> tenantContextBridgeProvider,
 			ObjectProvider<TokenRevocationPort> tokenRevocationPortProvider,
 			ObjectProvider<IamTelemetry> telemetryProvider,
-			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
+			ObjectProvider<EventPublisherPort> eventPublisherProvider,
+			ObjectProvider<IamSecurityFilterProperties> filterPropertiesProvider) {
 		return new JwtAuthenticationFilter(
 				jwtTokenProvider,
 				securityContextAccessor,
 				tenantContextBridgeProvider,
 				tokenRevocationPortProvider,
 				telemetryProvider,
-				eventPublisherProvider);
+				eventPublisherProvider,
+				filterPropertiesProvider.getIfAvailable(IamSecurityFilterProperties::defaultProperties));
+	}
+
+	/**
+	 * Disables automatic servlet container filter registration when {@code ed-iam.security.filter.register-servlet=false},
+	 * allowing the {@link JwtAuthenticationFilter} bean to remain in the application context for explicit
+	 * wiring inside custom Spring Security filter chains.
+	 *
+	 * @param filter the JWT authentication filter
+	 * @return disabled filter registration bean
+	 */
+	@Bean
+	@ConditionalOnBean(JwtAuthenticationFilter.class)
+	@ConditionalOnProperty(name = "ed-iam.security.filter.register-servlet", havingValue = "false")
+	public FilterRegistrationBean<JwtAuthenticationFilter> jwtAuthenticationFilterRegistration(
+			JwtAuthenticationFilter filter) {
+		FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+		registration.setEnabled(false);
+		return registration;
 	}
 
 

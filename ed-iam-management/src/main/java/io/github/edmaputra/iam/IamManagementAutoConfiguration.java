@@ -70,6 +70,7 @@ import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
  * @since 0.0.1
  */
 @AutoConfiguration(after = {IamSecurityAutoConfiguration.class, IamScopeAutoConfiguration.class})
+@ConditionalOnProperty(name = "ed-iam.management.enabled", havingValue = "true", matchIfMissing = true)
 public class IamManagementAutoConfiguration {
 
 	@Bean
@@ -352,13 +353,13 @@ public class IamManagementAutoConfiguration {
 
 	/**
 	 * Auto-configuration for entity management REST controllers, enabled by default
-	 * and toggleable via {@code iam.management.endpoints.enabled=false}.
+	 * and toggleable via {@code ed-iam.management.endpoints.enabled=false}.
 	 *
 	 * @author edmaputra
 	 * @since 0.0.1
 	 */
 	@Configuration(proxyBeanMethods = false)
-	@ConditionalOnProperty(prefix = "iam.management.endpoints", name = "enabled", havingValue = "true", matchIfMissing = true)
+	@ConditionalOnProperty(name = "ed-iam.management.endpoints.enabled", havingValue = "true", matchIfMissing = true)
 	@Import({UserController.class, RoleController.class, GroupController.class, ScopeController.class, PasswordPolicyController.class, RedirectUriController.class, PermissionController.class})
 	public static class ManagementEndpointsConfiguration {
 	}

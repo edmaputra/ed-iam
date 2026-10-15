@@ -373,5 +373,49 @@ class JwtAuthenticationFilterTest {
 		assertThat(response.getContentAsString()).contains("Token has been revoked");
 		verify(chain, never()).doFilter(any(), any());
 	}
+
+	@Test
+	@DisplayName("Should pass through to filterChain when failurePassthrough is enabled and token is invalid")
+	void shouldPassThroughWhenFailurePassthroughIsEnabled() throws ServletException, IOException {
+		JwtAuthenticationFilter passthroughFilter = new JwtAuthenticationFilter(
+				jwtTokenProvider,
+				securityContextAccessor,
+				tenantBridgeProvider,
+				null,
+				null,
+				true);
+
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer invalid-foreign-token-from-external-idp");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain chain = mock(FilterChain.class);
+
+		passthroughFilter.doFilter(request, response, chain);
+
+		verify(chain).doFilter(request, response);
+		assertThat(response.getStatus()).isEqualTo(200);
+	}
+
+	@Test
+	@DisplayName("Should pass through to filterChain when failurePassthrough is enabled and bearer token is empty")
+	void shouldPassThroughWhenFailurePassthroughIsEnabledAndBearerTokenEmpty() throws ServletException, IOException {
+		JwtAuthenticationFilter passthroughFilter = new JwtAuthenticationFilter(
+				jwtTokenProvider,
+				securityContextAccessor,
+				tenantBridgeProvider,
+				null,
+				null,
+				true);
+
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer ");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain chain = mock(FilterChain.class);
+
+		passthroughFilter.doFilter(request, response, chain);
+
+		verify(chain).doFilter(request, response);
+		assertThat(response.getStatus()).isEqualTo(200);
+	}
 }
 

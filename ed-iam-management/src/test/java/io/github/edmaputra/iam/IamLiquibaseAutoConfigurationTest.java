@@ -56,4 +56,31 @@ class IamLiquibaseAutoConfigurationTest {
 		postProcessor.postProcessBeanFactory(beanFactory);
 		assertThat(iamLiquibaseBd.getDependsOn()).containsExactly("customPreMigrationBean", "liquibase");
 	}
+
+	@Test
+	@DisplayName("Should omit iamLiquibase when ed-iam.liquibase.enabled is false")
+	void shouldOmitIamLiquibaseWhenDisabled() {
+		new org.springframework.boot.test.context.runner.ApplicationContextRunner()
+				.withConfiguration(org.springframework.boot.autoconfigure.AutoConfigurations.of(IamLiquibaseAutoConfiguration.class))
+				.withBean(DataSource.class, () -> Mockito.mock(DataSource.class))
+				.withPropertyValues("ed-iam.liquibase.enabled=false")
+				.run(context -> {
+					assertThat(context).doesNotHaveBean("iamLiquibase");
+				});
+	}
+
+	@Test
+	@DisplayName("Should back off when custom iamLiquibase bean is already defined")
+	void shouldBackOffWhenCustomIamLiquibaseBeanExists() {
+		SpringLiquibase customLiquibase = new SpringLiquibase();
+		customLiquibase.setShouldRun(false);
+		new org.springframework.boot.test.context.runner.ApplicationContextRunner()
+				.withConfiguration(org.springframework.boot.autoconfigure.AutoConfigurations.of(IamLiquibaseAutoConfiguration.class))
+				.withBean(DataSource.class, () -> Mockito.mock(DataSource.class))
+				.withBean("iamLiquibase", SpringLiquibase.class, () -> customLiquibase)
+				.run(context -> {
+					assertThat(context).hasBean("iamLiquibase");
+					assertThat(context.getBean("iamLiquibase")).isSameAs(customLiquibase);
+				});
+	}
 }

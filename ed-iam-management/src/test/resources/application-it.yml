@@ -10,6 +10,18 @@ spring:
   liquibase:
     enabled: true
 
+ed-iam:
+  auth:
+    mfa:
+      endpoints:
+        enabled: true
+    magic-link:
+      endpoints:
+        enabled: true
+  management:
+    endpoints:
+      enabled: true
+
 iam:
   jwt:
     secret: "test-secret-key-that-is-at-least-256-bits-long-for-hmac-sha-256!"

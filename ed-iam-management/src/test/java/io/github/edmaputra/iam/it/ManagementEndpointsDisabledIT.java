@@ -19,12 +19,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration test verifying that management REST endpoints can be disabled via configuration property
- * {@code iam.management.endpoints.enabled=false} while application services remain available.
+ * {@code ed-iam.management.endpoints.enabled=false} while application services remain available.
  *
  * @author edmaputra
  * @since 0.0.1
  */
-@TestPropertySource(properties = "iam.management.endpoints.enabled=false")
+@TestPropertySource(properties = "ed-iam.management.endpoints.enabled=false")
 class ManagementEndpointsDisabledIT extends AbstractIntegrationTest {
 
 	@Autowired

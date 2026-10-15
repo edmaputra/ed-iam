@@ -40,6 +40,45 @@ When a Spring Boot application starts with `ed-iam-starter` on the classpath, th
 ### 2.2 Turnkey Defaults with Customization Overrides
 All beans in `ed-iam` are registered with `@ConditionalOnMissingBean`. If a consuming application declares its own `TokenProviderPort`, `PasswordEncoderPort`, or `TenantContextBridge`, the custom bean takes precedence automatically.
 
+### 2.3 Collision Prevention & Dedicated `ed-iam.*` Namespace
+When integrating `ed-iam` with host applications that already maintain their own Spring Security filter chains or Liquibase migrations, each module auto-configuration can be selectively enabled or disabled via application properties without requiring `spring.autoconfigure.exclude`:
+
+```yaml
+ed-iam:
+  # Resource Server & Filter
+  resource-server:
+    enabled: true                     # Master toggle for resource server
+  security:
+    filter:
+      enabled: true                  # Toggle JwtAuthenticationFilter bean
+      register-servlet: false        # Suppress servlet container auto-registration (/*)
+      failure-passthrough: true      # Delegate to filter chain on invalid/missing token
+
+  # Database & Migrations
+  liquibase:
+    enabled: false                   # Disable IAM migrations if managed externally
+  persistence:
+    enabled: true                    # Toggle IAM JPA repositories & entities
+
+  # Management & Scopes
+  management:
+    enabled: true                    # Domain management services
+    endpoints:
+      enabled: true                  # /api/v1/users, /roles, etc.
+  scope:
+    enabled: true                    # Hierarchical scope services
+  exception-handler:
+    enabled: true                    # IamExceptionHandler (@RestControllerAdvice)
+
+  # Authentication
+  auth:
+    enabled: true                    # Authentication services & providers
+    endpoints:
+      enabled: true                  # /api/v1/auth/login, /refresh, etc.
+```
+
+For comprehensive architectural patterns and coexistence recipes, see the [Auto-Configuration & Host Coexistence Guide](../07-autoconfiguration-and-coexistence-guide.md).
+
 ---
 
 ## 3. Key Classes & Responsibilities Reference Table

@@ -41,10 +41,10 @@ class IamAuthAutoConfigurationTest {
 	}
 
 	@Test
-	@DisplayName("Should register MfaController when iam.auth.mfa.endpoints.enabled=true")
+	@DisplayName("Should register MfaController when ed-iam.auth.mfa.endpoints.enabled=true")
 	void shouldRegisterMfaControllerWhenEnabled() {
 		contextRunner
-				.withPropertyValues("iam.auth.mfa.endpoints.enabled=true")
+				.withPropertyValues("ed-iam.auth.mfa.endpoints.enabled=true")
 				.run(context -> {
 					assertThat(context).hasSingleBean(MfaOperationsDelegate.class);
 					assertThat(context).hasSingleBean(MfaController.class);
@@ -52,10 +52,10 @@ class IamAuthAutoConfigurationTest {
 	}
 
 	@Test
-	@DisplayName("Should NOT register MfaController when iam.auth.mfa.endpoints.enabled=false")
+	@DisplayName("Should NOT register MfaController when ed-iam.auth.mfa.endpoints.enabled=false")
 	void shouldNotRegisterMfaControllerWhenExplicitlyDisabled() {
 		contextRunner
-				.withPropertyValues("iam.auth.mfa.endpoints.enabled=false")
+				.withPropertyValues("ed-iam.auth.mfa.endpoints.enabled=false")
 				.run(context -> {
 					assertThat(context).hasSingleBean(MfaOperationsDelegate.class);
 					assertThat(context).doesNotHaveBean(MfaController.class);
@@ -72,10 +72,10 @@ class IamAuthAutoConfigurationTest {
 	}
 
 	@Test
-	@DisplayName("Should register MagicLinkController when iam.auth.magic-link.endpoints.enabled=true")
+	@DisplayName("Should register MagicLinkController when ed-iam.auth.magic-link.endpoints.enabled=true")
 	void shouldRegisterMagicLinkControllerWhenEnabled() {
 		contextRunner
-				.withPropertyValues("iam.auth.magic-link.endpoints.enabled=true")
+				.withPropertyValues("ed-iam.auth.magic-link.endpoints.enabled=true")
 				.run(context -> {
 					assertThat(context).hasSingleBean(io.github.edmaputra.iam.adapter.rest.MagicLinkOperationsDelegate.class);
 					assertThat(context).hasSingleBean(io.github.edmaputra.iam.adapter.rest.MagicLinkController.class);
@@ -83,13 +83,35 @@ class IamAuthAutoConfigurationTest {
 	}
 
 	@Test
-	@DisplayName("Should NOT register MagicLinkController when iam.auth.magic-link.endpoints.enabled=false")
+	@DisplayName("Should NOT register MagicLinkController when ed-iam.auth.magic-link.endpoints.enabled=false")
 	void shouldNotRegisterMagicLinkControllerWhenExplicitlyDisabled() {
 		contextRunner
-				.withPropertyValues("iam.auth.magic-link.endpoints.enabled=false")
+				.withPropertyValues("ed-iam.auth.magic-link.endpoints.enabled=false")
 				.run(context -> {
 					assertThat(context).hasSingleBean(io.github.edmaputra.iam.adapter.rest.MagicLinkOperationsDelegate.class);
 					assertThat(context).doesNotHaveBean(io.github.edmaputra.iam.adapter.rest.MagicLinkController.class);
+				});
+	}
+
+	@Test
+	@DisplayName("Should omit all auth beans when ed-iam.auth.enabled=false")
+	void shouldOmitAllAuthBeansWhenDisabled() {
+		contextRunner
+				.withPropertyValues("ed-iam.auth.enabled=false")
+				.run(context -> {
+					assertThat(context).doesNotHaveBean(IamAuthAutoConfiguration.class);
+					assertThat(context).doesNotHaveBean(io.github.edmaputra.iam.adapter.rest.AuthController.class);
+				});
+	}
+
+	@Test
+	@DisplayName("Should omit AuthController when ed-iam.auth.endpoints.enabled=false")
+	void shouldOmitAuthControllerWhenEndpointsDisabled() {
+		contextRunner
+				.withPropertyValues("ed-iam.auth.endpoints.enabled=false")
+				.run(context -> {
+					assertThat(context).hasSingleBean(IamAuthAutoConfiguration.class);
+					assertThat(context).doesNotHaveBean(io.github.edmaputra.iam.adapter.rest.AuthController.class);
 				});
 	}
 

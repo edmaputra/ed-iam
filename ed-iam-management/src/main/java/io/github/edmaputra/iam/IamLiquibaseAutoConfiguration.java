@@ -9,6 +9,7 @@ import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.jpa.autoconfigure.EntityManagerFactoryDependsOnPostProcessor;
 import org.springframework.context.annotation.Bean;
@@ -37,6 +38,7 @@ import org.springframework.context.annotation.Configuration;
 @AutoConfiguration
 @ConditionalOnClass(SpringLiquibase.class)
 @ConditionalOnProperty(prefix = "spring.liquibase", name = "enabled", matchIfMissing = true)
+@ConditionalOnProperty(name = "ed-iam.liquibase.enabled", havingValue = "true", matchIfMissing = true)
 public class IamLiquibaseAutoConfiguration {
 
 	/**
@@ -46,6 +48,7 @@ public class IamLiquibaseAutoConfiguration {
 	 * @return configured IAM SpringLiquibase bean
 	 */
 	@Bean
+	@ConditionalOnMissingBean(name = "iamLiquibase")
 	public SpringLiquibase iamLiquibase(DataSource dataSource) {
 		SpringLiquibase liquibase = new SpringLiquibase();
 		liquibase.setDataSource(dataSource);
