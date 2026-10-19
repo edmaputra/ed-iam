@@ -202,4 +202,26 @@ class UserControllerTest {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 		verify(manageLockoutUseCase).unlockUser(new UserId(uuid));
 	}
+
+	@Test
+	@DisplayName("Should reset user MFA")
+	void shouldResetUserMfa() {
+		UUID uuid = UUID.randomUUID();
+		io.github.edmaputra.iam.application.port.in.ManageMfaUseCase mockMfaUseCase =
+				mock(io.github.edmaputra.iam.application.port.in.ManageMfaUseCase.class);
+		org.springframework.beans.factory.ObjectProvider<io.github.edmaputra.iam.application.port.in.ManageMfaUseCase> mfaProvider =
+				mock(org.springframework.beans.factory.ObjectProvider.class);
+		when(mfaProvider.getIfAvailable()).thenReturn(mockMfaUseCase);
+
+		org.springframework.beans.factory.ObjectProvider<ManageSessionUseCase> sessionProvider =
+				mock(org.springframework.beans.factory.ObjectProvider.class);
+		org.springframework.beans.factory.ObjectProvider<ManageLockoutUseCase> lockoutProvider =
+				mock(org.springframework.beans.factory.ObjectProvider.class);
+
+		UserController controller = new UserController(manageUserUseCase, sessionProvider, lockoutProvider, mfaProvider);
+		ResponseEntity<Void> response = controller.resetMfa(uuid);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		verify(mockMfaUseCase).resetMfa(new UserId(uuid));
+	}
 }

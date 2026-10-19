@@ -95,6 +95,34 @@ class TotpGeneratorTest {
 	}
 
 	@Test
+	@DisplayName("Should enforce RFC 6238 §5.2 one-time-use replay protection using verifyTotpStep")
+	void shouldEnforceReplayProtectionWithStepVerification() {
+		String secret = TotpGenerator.generateSecret();
+		Instant now = Instant.now();
+		long currentStep = now.getEpochSecond() / 30;
+
+		String code = TotpGenerator.generateTotp(secret, now);
+
+		// First verification succeeds
+		java.util.OptionalLong firstStep = TotpGenerator.verifyTotpStep(secret, code, now, 1, null);
+		assertThat(firstStep).isPresent().hasValue(currentStep);
+
+		// Immediate replay within same step is rejected
+		java.util.OptionalLong replayedStep = TotpGenerator.verifyTotpStep(secret, code, now, 1, firstStep.getAsLong());
+		assertThat(replayedStep).isEmpty();
+
+		// Replay attempt with older step count is rejected
+		java.util.OptionalLong olderStep = TotpGenerator.verifyTotpStep(secret, code, now, 1, currentStep + 1);
+		assertThat(olderStep).isEmpty();
+
+		// Future step code succeeds when advancing
+		Instant nextStepTime = now.plusSeconds(30);
+		String nextCode = TotpGenerator.generateTotp(secret, nextStepTime);
+		java.util.OptionalLong nextStep = TotpGenerator.verifyTotpStep(secret, nextCode, nextStepTime, 1, firstStep.getAsLong());
+		assertThat(nextStep).isPresent().hasValue(currentStep + 1);
+	}
+
+	@Test
 	@DisplayName("Should generate standard OTP Auth URI")
 	void shouldGenerateOtpAuthUri() {
 		String uri = TotpGenerator.generateOtpAuthUri("ed-iam", "doctor@metro.org", "JBSWY3DPEHPK3PXP");

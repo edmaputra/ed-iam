@@ -218,4 +218,24 @@ public class MfaOperationsDelegate {
 		Objects.requireNonNull(codeOrPassword, "codeOrPassword must not be null.");
 		manageMfaUseCase.disable(userId, codeOrPassword);
 	}
+
+	/**
+	 * Administratively resets MFA for a specific user ID, removing enrolled secrets and backup codes.
+	 *
+	 * @param userId the target user identifier
+	 */
+	public void resetMfa(UserId userId) {
+		Objects.requireNonNull(userId, "UserId must not be null.");
+		manageMfaUseCase.resetMfa(userId);
+	}
+
+	/**
+	 * Administratively resets MFA for a specific user UUID, removing enrolled secrets and backup codes.
+	 *
+	 * @param userId the target user UUID
+	 */
+	public void resetMfa(UUID userId) {
+		Objects.requireNonNull(userId, "UserId must not be null.");
+		resetMfa(new UserId(userId));
+	}
 }

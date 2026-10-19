@@ -55,4 +55,13 @@ public interface ManageMfaUseCase {
 	 * @return fully authenticated token response
 	 */
 	TokenResponse verifyLogin(MfaLoginVerifyCommand command);
+
+	/**
+	 * Administratively resets and unenrolls MFA for the specified user account.
+	 * This removes any active MFA enrollment, secret key, and backup codes without
+	 * requiring user verification codes or passwords.
+	 *
+	 * @param userId the user ID whose MFA configuration is being reset
+	 */
+	void resetMfa(UserId userId);
 }

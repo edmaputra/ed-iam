@@ -211,6 +211,19 @@ class MfaOperationsDelegateTest {
 		verify(manageMfaUseCase).disable(otherUser, "master-secret");
 	}
 
+	@Test
+	@DisplayName("Should reset MFA for UserId and UUID")
+	void shouldResetMfa() {
+		UUID targetUuid = UUID.randomUUID();
+		UserId targetUserId = new UserId(targetUuid);
+
+		delegate.resetMfa(targetUserId);
+		verify(manageMfaUseCase).resetMfa(targetUserId);
+
+		delegate.resetMfa(targetUuid);
+		verify(manageMfaUseCase, org.mockito.Mockito.times(2)).resetMfa(targetUserId);
+	}
+
 	private TokenResponse createSampleTokenResponse() {
 		UserProfileResponse profile = new UserProfileResponse(
 				UUID.randomUUID(), "test@metro.org", "Test User", null, false, false,

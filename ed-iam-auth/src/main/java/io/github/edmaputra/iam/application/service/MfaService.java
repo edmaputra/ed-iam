@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -18,14 +19,17 @@ import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.model.UserProfileResponse;
 import io.github.edmaputra.iam.application.port.in.ManageMfaUseCase;
 import io.github.edmaputra.iam.application.port.in.MfaLoginVerifyCommand;
+import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
 import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
 import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
 import io.github.edmaputra.iam.domain.auth.mfa.TotpGenerator;
+import io.github.edmaputra.iam.domain.exception.AccountLockedException;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 import io.github.edmaputra.iam.domain.exception.InvalidTotpException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
+import io.github.edmaputra.iam.domain.model.LockoutStatus;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserMfa;
@@ -51,6 +55,7 @@ public class MfaService implements ManageMfaUseCase {
 	private final PasswordEncoderPort passwordEncoder;
 	private final UserTokenService userTokenService;
 	private final AuthSessionService authSessionService;
+	private final LoginAttemptTrackerPort loginAttemptTracker;
 
 	/**
 	 * Canonical constructor delegating token and session orchestration to collaborator services.
@@ -60,12 +65,41 @@ public class MfaService implements ManageMfaUseCase {
 			UserRepository userRepository,
 			PasswordEncoderPort passwordEncoder,
 			UserTokenService userTokenService,
-			AuthSessionService authSessionService) {
+			AuthSessionService authSessionService,
+			LoginAttemptTrackerPort loginAttemptTracker) {
 		this.userMfaRepository = userMfaRepository;
 		this.userRepository = Objects.requireNonNull(userRepository, "UserRepository must not be null.");
 		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoderPort must not be null.");
 		this.userTokenService = Objects.requireNonNull(userTokenService, "UserTokenService must not be null.");
 		this.authSessionService = authSessionService;
+		this.loginAttemptTracker = loginAttemptTracker;
+	}
+
+	public MfaService(
+			UserMfaRepository userMfaRepository,
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			UserTokenService userTokenService,
+			AuthSessionService authSessionService) {
+		this(userMfaRepository, userRepository, passwordEncoder, userTokenService, authSessionService, null);
+	}
+
+	public MfaService(
+			UserMfaRepository userMfaRepository,
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			TokenProviderPort tokenProvider,
+			EffectiveAccessResolver effectiveAccessResolver,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			SessionProperties sessionProperties,
+			LoginAttemptTrackerPort loginAttemptTracker) {
+		this(userMfaRepository,
+				userRepository,
+				passwordEncoder,
+				new UserTokenService(effectiveAccessResolver, tokenProvider, userMfaRepository, null),
+				new AuthSessionService(sessionRegistry, tokenRevocationPort, sessionProperties, null),
+				loginAttemptTracker);
 	}
 
 	public MfaService(
@@ -77,11 +111,7 @@ public class MfaService implements ManageMfaUseCase {
 			SessionRegistryPort sessionRegistry,
 			TokenRevocationPort tokenRevocationPort,
 			SessionProperties sessionProperties) {
-		this(userMfaRepository,
-				userRepository,
-				passwordEncoder,
-				new UserTokenService(effectiveAccessResolver, tokenProvider, userMfaRepository, null),
-				new AuthSessionService(sessionRegistry, tokenRevocationPort, sessionProperties, null));
+		this(userMfaRepository, userRepository, passwordEncoder, tokenProvider, effectiveAccessResolver, sessionRegistry, tokenRevocationPort, sessionProperties, null);
 	}
 
 	public MfaService(
@@ -90,7 +120,7 @@ public class MfaService implements ManageMfaUseCase {
 			PasswordEncoderPort passwordEncoder,
 			TokenProviderPort tokenProvider,
 			EffectiveAccessResolver effectiveAccessResolver) {
-		this(userMfaRepository, userRepository, passwordEncoder, tokenProvider, effectiveAccessResolver, null, null, SessionProperties.defaultProperties());
+		this(userMfaRepository, userRepository, passwordEncoder, tokenProvider, effectiveAccessResolver, null, null, SessionProperties.defaultProperties(), null);
 	}
 
 	@Override
@@ -202,6 +232,15 @@ public class MfaService implements ManageMfaUseCase {
 			throw new AuthenticationException("User account is deactivated.");
 		}
 
+		if (loginAttemptTracker != null) {
+			LockoutStatus status = loginAttemptTracker.getLockoutStatus(user.getEmail());
+			if (status != null && status.locked()) {
+				throw new AccountLockedException(
+						"Account is temporarily locked due to too many failed attempts until: " + status.lockedUntil(),
+						status.lockedUntil());
+			}
+		}
+
 		UserMfa mfa = userMfaRepository.findByUserId(claims.userId())
 				.orElseThrow(() -> new AuthenticationException("MFA configuration not found for user."));
 
@@ -209,8 +248,14 @@ public class MfaService implements ManageMfaUseCase {
 			throw new AuthenticationException("MFA is not enabled for this user account.");
 		}
 
-		boolean verified = TotpGenerator.verifyTotp(mfa.getSecret(), command.code(), Instant.now(), TOTP_WINDOW_STEPS);
-		if (!verified) {
+		boolean verified = false;
+		OptionalLong verifiedStep = TotpGenerator.verifyTotpStep(mfa.getSecret(), command.code(), Instant.now(), TOTP_WINDOW_STEPS, mfa.getLastVerifiedStep());
+		if (verifiedStep.isPresent()) {
+			mfa.markStepVerified(verifiedStep.getAsLong());
+			userMfaRepository.save(mfa);
+			verified = true;
+		}
+		else {
 			String hashedBackupCode = TotpGenerator.hashBackupCode(command.code());
 			boolean backupConsumed = mfa.consumeBackupCode(hashedBackupCode);
 			if (backupConsumed) {
@@ -220,7 +265,14 @@ public class MfaService implements ManageMfaUseCase {
 		}
 
 		if (!verified) {
+			if (loginAttemptTracker != null) {
+				loginAttemptTracker.recordFailedAttempt(user.getEmail(), Instant.now());
+			}
 			throw new InvalidTotpException("Invalid TOTP code or backup recovery code.");
+		}
+
+		if (loginAttemptTracker != null) {
+			loginAttemptTracker.recordSuccessfulAttempt(user.getEmail());
 		}
 
 		UserTokenService.TokenIssueResult issueResult = userTokenService.issueTokens(user, claims.tenantId());
@@ -240,6 +292,17 @@ public class MfaService implements ManageMfaUseCase {
 				issueResult.refreshToken(),
 				userTokenService.getAccessTokenExpirationSeconds(),
 				issueResult.profile());
+	}
+
+	@Override
+	public void resetMfa(UserId userId) {
+		Objects.requireNonNull(userId, "UserId must not be null.");
+		requireUserMfaRepository();
+
+		userMfaRepository.deleteByUserId(userId);
+		if (authSessionService != null) {
+			authSessionService.logoutAll(userId, null);
+		}
 	}
 
 	private void requireUserMfaRepository() {

@@ -32,6 +32,7 @@ import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.UpdateUserReq
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.UserResponse;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.UserRoleAssignmentResponse;
 import io.github.edmaputra.iam.application.port.in.ManageLockoutUseCase;
+import io.github.edmaputra.iam.application.port.in.ManageMfaUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageSessionUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
@@ -67,19 +68,29 @@ public class UserController {
 	private final ManageUserUseCase manageUserUseCase;
 	private final ObjectProvider<ManageSessionUseCase> manageSessionUseCaseProvider;
 	private final ObjectProvider<ManageLockoutUseCase> manageLockoutUseCaseProvider;
+	private final ObjectProvider<ManageMfaUseCase> manageMfaUseCaseProvider;
 
 	@Autowired
 	public UserController(
 			ManageUserUseCase manageUserUseCase,
 			ObjectProvider<ManageSessionUseCase> manageSessionUseCaseProvider,
-			ObjectProvider<ManageLockoutUseCase> manageLockoutUseCaseProvider) {
+			ObjectProvider<ManageLockoutUseCase> manageLockoutUseCaseProvider,
+			ObjectProvider<ManageMfaUseCase> manageMfaUseCaseProvider) {
 		this.manageUserUseCase = Objects.requireNonNull(manageUserUseCase, "ManageUserUseCase must not be null.");
 		this.manageSessionUseCaseProvider = manageSessionUseCaseProvider;
 		this.manageLockoutUseCaseProvider = manageLockoutUseCaseProvider;
+		this.manageMfaUseCaseProvider = manageMfaUseCaseProvider;
+	}
+
+	public UserController(
+			ManageUserUseCase manageUserUseCase,
+			ObjectProvider<ManageSessionUseCase> manageSessionUseCaseProvider,
+			ObjectProvider<ManageLockoutUseCase> manageLockoutUseCaseProvider) {
+		this(manageUserUseCase, manageSessionUseCaseProvider, manageLockoutUseCaseProvider, null);
 	}
 
 	public UserController(ManageUserUseCase manageUserUseCase) {
-		this(manageUserUseCase, null, null);
+		this(manageUserUseCase, null, null, null);
 	}
 
 	@PostMapping
@@ -280,6 +291,16 @@ public class UserController {
 		ManageLockoutUseCase lockoutUseCase = manageLockoutUseCaseProvider != null ? manageLockoutUseCaseProvider.getIfAvailable() : null;
 		if (lockoutUseCase != null) {
 			lockoutUseCase.unlockUser(new UserId(id));
+		}
+		return ResponseEntity.noContent().build();
+	}
+
+	@PostMapping("/{id}/mfa/reset")
+	@RequirePermission("iam:user:update")
+	public ResponseEntity<Void> resetMfa(@PathVariable UUID id) {
+		ManageMfaUseCase mfaUseCase = manageMfaUseCaseProvider != null ? manageMfaUseCaseProvider.getIfAvailable() : null;
+		if (mfaUseCase != null) {
+			mfaUseCase.resetMfa(new UserId(id));
 		}
 		return ResponseEntity.noContent().build();
 	}

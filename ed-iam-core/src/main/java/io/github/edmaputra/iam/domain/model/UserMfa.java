@@ -24,9 +24,38 @@ public class UserMfa {
 	private List<String> backupCodes;
 	private final Instant createdAt;
 	private Instant updatedAt;
+	private Long lastVerifiedStep;
 
 	/**
 	 * Canonical constructor for reconstructing MFA domain models from persistence.
+	 *
+	 * @param userId           the user ID
+	 * @param secret           the Base32-encoded TOTP secret key
+	 * @param enabled          whether MFA is actively enforced for authentication
+	 * @param backupCodes      list of hashed single-use backup recovery codes
+	 * @param createdAt        creation timestamp
+	 * @param updatedAt        last modified timestamp
+	 * @param lastVerifiedStep the last consumed RFC 6238 TOTP time-step counter, or {@code null}
+	 */
+	public UserMfa(
+			UserId userId,
+			String secret,
+			boolean enabled,
+			List<String> backupCodes,
+			Instant createdAt,
+			Instant updatedAt,
+			Long lastVerifiedStep) {
+		this.userId = Objects.requireNonNull(userId, "UserId must not be null.");
+		this.secret = validateSecret(secret);
+		this.enabled = enabled;
+		this.backupCodes = backupCodes == null ? new ArrayList<>() : new ArrayList<>(backupCodes);
+		this.createdAt = Objects.requireNonNull(createdAt, "CreatedAt must not be null.");
+		this.updatedAt = Objects.requireNonNull(updatedAt, "UpdatedAt must not be null.");
+		this.lastVerifiedStep = lastVerifiedStep;
+	}
+
+	/**
+	 * Constructor for reconstructing MFA domain models without a verified step history.
 	 *
 	 * @param userId      the user ID
 	 * @param secret      the Base32-encoded TOTP secret key
@@ -42,12 +71,7 @@ public class UserMfa {
 			List<String> backupCodes,
 			Instant createdAt,
 			Instant updatedAt) {
-		this.userId = Objects.requireNonNull(userId, "UserId must not be null.");
-		this.secret = validateSecret(secret);
-		this.enabled = enabled;
-		this.backupCodes = backupCodes == null ? new ArrayList<>() : new ArrayList<>(backupCodes);
-		this.createdAt = Objects.requireNonNull(createdAt, "CreatedAt must not be null.");
-		this.updatedAt = Objects.requireNonNull(updatedAt, "UpdatedAt must not be null.");
+		this(userId, secret, enabled, backupCodes, createdAt, updatedAt, null);
 	}
 
 	/**
@@ -60,7 +84,7 @@ public class UserMfa {
 	 */
 	public static UserMfa create(UserId userId, String secret, List<String> hashedBackupCodes) {
 		Instant now = Instant.now();
-		return new UserMfa(userId, secret, false, hashedBackupCodes, now, now);
+		return new UserMfa(userId, secret, false, hashedBackupCodes, now, now, null);
 	}
 
 	/**
@@ -80,6 +104,19 @@ public class UserMfa {
 	}
 
 	/**
+	 * Records a successfully verified RFC 6238 time-step, preventing replay attacks.
+	 *
+	 * @param step the consumed time-step counter
+	 */
+	public void markStepVerified(long step) {
+		if (this.lastVerifiedStep != null && step <= this.lastVerifiedStep) {
+			throw new IllegalArgumentException("Time step " + step + " has already been consumed.");
+		}
+		this.lastVerifiedStep = step;
+		this.updatedAt = Instant.now();
+	}
+
+	/**
 	 * Reconfigures the MFA secret and backup codes, resetting active status to pending confirmation.
 	 *
 	 * @param newSecret         the new Base32 secret
@@ -89,6 +126,7 @@ public class UserMfa {
 		this.secret = validateSecret(newSecret);
 		this.enabled = false;
 		this.backupCodes = hashedBackupCodes == null ? new ArrayList<>() : new ArrayList<>(hashedBackupCodes);
+		this.lastVerifiedStep = null;
 		this.updatedAt = Instant.now();
 	}
 
