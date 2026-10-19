@@ -1,15 +1,19 @@
 package io.github.edmaputra.iam.adapter.rest;
 
 import java.util.Objects;
+import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import io.github.edmaputra.iam.domain.security.annotation.RequirePermission;
 
 import io.github.edmaputra.iam.adapter.rest.dto.MfaActivateRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.MfaDisableRequest;
@@ -110,6 +114,19 @@ public class MfaController {
 	@PostMapping("/disable")
 	public ResponseEntity<Void> disableMfa(@Valid @RequestBody MfaDisableRequest request) {
 		mfaOperationsDelegate.disable(request);
+		return ResponseEntity.noContent().build();
+	}
+
+	/**
+	 * Administratively resets Multi-Factor Authentication for the target user.
+	 *
+	 * @param userId the user ID whose MFA configuration is being reset
+	 * @return HTTP 204 No Content
+	 */
+	@PostMapping("/users/{userId}/reset")
+	@RequirePermission("iam:user:update")
+	public ResponseEntity<Void> resetMfa(@PathVariable("userId") UUID userId) {
+		mfaOperationsDelegate.resetMfa(userId);
 		return ResponseEntity.noContent().build();
 	}
 }

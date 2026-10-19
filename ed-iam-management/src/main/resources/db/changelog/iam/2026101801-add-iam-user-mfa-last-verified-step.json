@@ -1,0 +1,25 @@
+{
+  "databaseChangeLog": [
+    {
+      "changeSet": {
+        "id": "2026101801-add-iam-user-mfa-last-verified-step",
+        "author": "edmaputra",
+        "changes": [
+          {
+            "addColumn": {
+              "tableName": "iam_user_mfa",
+              "columns": [
+                {
+                  "column": {
+                    "name": "last_verified_step",
+                    "type": "BIGINT"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -21,14 +21,17 @@ import io.github.edmaputra.iam.application.model.MfaSetupResponse;
 import io.github.edmaputra.iam.application.model.MfaStatusResponse;
 import io.github.edmaputra.iam.application.model.TokenResponse;
 import io.github.edmaputra.iam.application.port.in.MfaLoginVerifyCommand;
+import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
 import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
 import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
 import io.github.edmaputra.iam.domain.auth.mfa.TotpGenerator;
+import io.github.edmaputra.iam.domain.exception.AccountLockedException;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 import io.github.edmaputra.iam.domain.exception.InvalidTotpException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
+import io.github.edmaputra.iam.domain.model.LockoutStatus;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserMfa;
@@ -383,5 +386,86 @@ class MfaServiceTest {
 		verify(sessionRegistry).revokeSession(oldSession.id());
 		verify(tokenRevocationPort).revokeToken(eq("old-token-id"), any());
 		verify(sessionRegistry).registerSession(any(UserSession.class));
+	}
+
+	@Test
+	@DisplayName("Should enforce RFC 6238 §5.2 replay protection and reject already consumed step")
+	void shouldEnforceReplayProtectionOnLogin() {
+		String mfaToken = "mfa-token-replay";
+		String secret = TotpGenerator.generateSecret();
+		Instant now = Instant.now();
+		long currentStep = now.getEpochSecond() / 30;
+
+		UserMfa mfa = UserMfa.create(testUserId, secret, List.of());
+		mfa.activate();
+		mfa.markStepVerified(currentStep); // Step already consumed!
+
+		MfaChallengeClaims claims = new MfaChallengeClaims(testUserId, null, now, now.plusSeconds(300));
+		when(tokenProvider.parseMfaChallengeToken(mfaToken)).thenReturn(claims);
+		when(userRepository.findById(testUserId)).thenReturn(Optional.of(testUser));
+		when(userMfaRepository.findByUserId(testUserId)).thenReturn(Optional.of(mfa));
+
+		String currentCode = TotpGenerator.generateTotp(secret, now);
+		assertThatThrownBy(() -> mfaService.verifyLogin(MfaLoginVerifyCommand.of(mfaToken, currentCode)))
+				.isInstanceOf(InvalidTotpException.class);
+	}
+
+	@Test
+	@DisplayName("Should track login attempts and enforce lockout during MFA verification")
+	void shouldTrackLoginAttemptsAndEnforceLockout() {
+		LoginAttemptTrackerPort tracker = org.mockito.Mockito.mock(LoginAttemptTrackerPort.class);
+		MfaService serviceWithTracker = new MfaService(
+				userMfaRepository, userRepository, passwordEncoder, tokenProvider, effectiveAccessResolver,
+				null, null, SessionProperties.defaultProperties(), tracker);
+
+		String mfaToken = "mfa-token-lockout";
+		String secret = TotpGenerator.generateSecret();
+		UserMfa mfa = UserMfa.create(testUserId, secret, List.of());
+		mfa.activate();
+
+		MfaChallengeClaims claims = new MfaChallengeClaims(testUserId, null, Instant.now(), Instant.now().plusSeconds(300));
+		when(tokenProvider.parseMfaChallengeToken(mfaToken)).thenReturn(claims);
+		when(userRepository.findById(testUserId)).thenReturn(Optional.of(testUser));
+
+		// Case 1: Account is locked
+		when(tracker.getLockoutStatus(testUser.getEmail())).thenReturn(LockoutStatus.locked(5, Instant.now().plusSeconds(900)));
+		assertThatThrownBy(() -> serviceWithTracker.verifyLogin(MfaLoginVerifyCommand.of(mfaToken, "123456")))
+				.isInstanceOf(AccountLockedException.class);
+
+		// Case 2: Account is unlocked, code is invalid -> failure recorded
+		when(tracker.getLockoutStatus(testUser.getEmail())).thenReturn(LockoutStatus.unlocked(2));
+		when(userMfaRepository.findByUserId(testUserId)).thenReturn(Optional.of(mfa));
+		assertThatThrownBy(() -> serviceWithTracker.verifyLogin(MfaLoginVerifyCommand.of(mfaToken, "999999")))
+				.isInstanceOf(InvalidTotpException.class);
+		verify(tracker).recordFailedAttempt(eq(testUser.getEmail()), any());
+
+		// Case 3: Code is valid -> success recorded
+		EffectiveAccess access = new EffectiveAccess(
+				testUserId, testUser.getEmail(), null, false, false,
+				Set.of(), Set.of(), Set.of("USER"), Set.of(), Set.of(), Set.of("/"));
+		when(effectiveAccessResolver.resolve(testUser, null)).thenReturn(access);
+		when(tokenProvider.createAccessToken(eq(access), any())).thenReturn("access-token-success");
+		when(tokenProvider.createRefreshToken(testUserId, null)).thenReturn("refresh-token-success");
+		when(tokenProvider.getAccessTokenExpirationSeconds()).thenReturn(3600L);
+
+		String validCode = TotpGenerator.generateTotp(secret, Instant.now());
+		TokenResponse response = serviceWithTracker.verifyLogin(MfaLoginVerifyCommand.of(mfaToken, validCode));
+		assertThat(response.accessToken()).isEqualTo("access-token-success");
+		verify(tracker).recordSuccessfulAttempt(testUser.getEmail());
+	}
+
+	@Test
+	@DisplayName("Should administratively reset MFA and revoke active sessions")
+	void shouldResetMfaAndRevokeSessions() {
+		SessionRegistryPort sessionRegistry = org.mockito.Mockito.mock(SessionRegistryPort.class);
+		TokenRevocationPort tokenRevocationPort = org.mockito.Mockito.mock(TokenRevocationPort.class);
+		MfaService serviceWithSessions = new MfaService(
+				userMfaRepository, userRepository, passwordEncoder, tokenProvider, effectiveAccessResolver,
+				sessionRegistry, tokenRevocationPort, SessionProperties.defaultProperties());
+
+		serviceWithSessions.resetMfa(testUserId);
+
+		verify(userMfaRepository).deleteByUserId(testUserId);
+		verify(tokenRevocationPort).revokeAllForUser(eq(testUserId), any());
 	}
 }

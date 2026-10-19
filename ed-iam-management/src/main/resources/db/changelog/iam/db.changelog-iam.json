@@ -34,6 +34,11 @@
       "include": {
         "file": "db/changelog/iam/2026100701-create-iam-permission.json"
       }
+    },
+    {
+      "include": {
+        "file": "db/changelog/iam/2026101801-add-iam-user-mfa-last-verified-step.json"
+      }
     }
   ]
 }

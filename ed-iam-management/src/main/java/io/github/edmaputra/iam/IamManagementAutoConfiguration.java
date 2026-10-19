@@ -11,6 +11,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.Optional;
 
+import io.github.edmaputra.iam.adapter.persistence.crypto.AesGcmEncryptor;
+import io.github.edmaputra.iam.adapter.security.jwt.JwtProperties;
 import io.github.edmaputra.iam.adapter.rest.GroupController;
 import io.github.edmaputra.iam.adapter.rest.PasswordPolicyController;
 import io.github.edmaputra.iam.adapter.rest.PermissionController;
@@ -72,6 +74,24 @@ import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 @AutoConfiguration(after = {IamSecurityAutoConfiguration.class, IamScopeAutoConfiguration.class})
 @ConditionalOnProperty(name = "ed-iam.management.enabled", havingValue = "true", matchIfMissing = true)
 public class IamManagementAutoConfiguration {
+
+	@Bean
+	@ConditionalOnMissingBean(AesGcmEncryptor.class)
+	public AesGcmEncryptor aesGcmEncryptor(
+			@org.springframework.beans.factory.annotation.Value("${ed-iam.mfa.encryption-key:${iam.mfa.encryption-key:}}") String mfaEncryptionKey,
+			ObjectProvider<JwtProperties> jwtPropertiesProvider) {
+		String secret;
+		if (mfaEncryptionKey != null && !mfaEncryptionKey.isBlank()) {
+			secret = mfaEncryptionKey;
+		}
+		else {
+			JwtProperties jwtProperties = jwtPropertiesProvider.getIfAvailable();
+			secret = (jwtProperties != null && jwtProperties.secret() != null && !jwtProperties.secret().isBlank())
+					? jwtProperties.secret()
+					: "iam-default-fallback-mfa-encryption-key-for-credentials-at-rest!";
+		}
+		return new AesGcmEncryptor(secret);
+	}
 
 	@Bean
 	@ConditionalOnMissingBean

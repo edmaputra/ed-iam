@@ -44,12 +44,12 @@ class UserMfaRepositoryAdapterTest {
 	}
 
 	@Test
-	@DisplayName("Should find UserMfa by userId and map correctly including backup codes")
+	@DisplayName("Should find UserMfa by userId and map correctly including backup codes and lastVerifiedStep")
 	void shouldFindByUserId() {
 		UserId userId = UserId.generate();
 		Instant now = Instant.now();
 		UserMfaJpaEntity entity = new UserMfaJpaEntity(
-				userId.value(), "SECRET123", true, "code1,code2,code3", now, now);
+				userId.value(), "SECRET123", true, "code1,code2,code3", now, now, 12345L);
 
 		when(jpaRepository.findById(userId.value())).thenReturn(Optional.of(entity));
 
@@ -60,13 +60,15 @@ class UserMfaRepositoryAdapterTest {
 		assertThat(mfa.getSecret()).isEqualTo("SECRET123");
 		assertThat(mfa.isEnabled()).isTrue();
 		assertThat(mfa.backupCodes()).containsExactly("code1", "code2", "code3");
+		assertThat(mfa.getLastVerifiedStep()).isEqualTo(12345L);
 	}
 
 	@Test
-	@DisplayName("Should save UserMfa domain model to entity")
+	@DisplayName("Should save UserMfa domain model to entity including lastVerifiedStep")
 	void shouldSaveUserMfa() {
 		UserId userId = UserId.generate();
 		UserMfa mfa = UserMfa.create(userId, "SECRET123", List.of("hash1", "hash2"));
+		mfa.markStepVerified(54321L);
 		mfa.activate();
 
 		when(jpaRepository.save(any(UserMfaJpaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -74,6 +76,7 @@ class UserMfaRepositoryAdapterTest {
 		UserMfa saved = adapter.save(mfa);
 		assertThat(saved.getUserId()).isEqualTo(userId);
 		assertThat(saved.isEnabled()).isTrue();
+		assertThat(saved.getLastVerifiedStep()).isEqualTo(54321L);
 
 		ArgumentCaptor<UserMfaJpaEntity> captor = ArgumentCaptor.forClass(UserMfaJpaEntity.class);
 		verify(jpaRepository).save(captor.capture());
@@ -82,6 +85,7 @@ class UserMfaRepositoryAdapterTest {
 		assertThat(entity.getSecret()).isEqualTo("SECRET123");
 		assertThat(entity.isEnabled()).isTrue();
 		assertThat(entity.getBackupCodes()).isEqualTo("hash1,hash2");
+		assertThat(entity.getLastVerifiedStep()).isEqualTo(54321L);
 	}
 
 	@Test

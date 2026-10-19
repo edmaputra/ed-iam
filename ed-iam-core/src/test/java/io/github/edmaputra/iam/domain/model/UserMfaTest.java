@@ -61,6 +61,31 @@ class UserMfaTest {
 		assertThat(mfa.getSecret()).isEqualTo(newSecret);
 		assertThat(mfa.isEnabled()).isFalse();
 		assertThat(mfa.backupCodes()).containsExactly("hash1", "hash2");
+		assertThat(mfa.getLastVerifiedStep()).isNull();
+	}
+
+	@Test
+	@DisplayName("Should track verified steps and reject replayed or decreasing steps")
+	void shouldTrackVerifiedSteps() {
+		UserId userId = UserId.generate();
+		UserMfa mfa = UserMfa.create(userId, "SECRET123", List.of());
+		assertThat(mfa.getLastVerifiedStep()).isNull();
+
+		mfa.markStepVerified(100L);
+		assertThat(mfa.getLastVerifiedStep()).isEqualTo(100L);
+
+		mfa.markStepVerified(101L);
+		assertThat(mfa.getLastVerifiedStep()).isEqualTo(101L);
+
+		// Replay of same step
+		assertThatThrownBy(() -> mfa.markStepVerified(101L))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("already been consumed");
+
+		// Older step
+		assertThatThrownBy(() -> mfa.markStepVerified(99L))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("already been consumed");
 	}
 
 	@Test

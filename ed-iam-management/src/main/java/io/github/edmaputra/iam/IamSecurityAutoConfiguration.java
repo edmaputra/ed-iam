@@ -113,11 +113,19 @@ public class IamSecurityAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	public AesGcmEncryptor aesGcmEncryptor(ObjectProvider<JwtProperties> jwtPropertiesProvider) {
-		JwtProperties jwtProperties = jwtPropertiesProvider.getIfAvailable();
-		String secret = (jwtProperties != null && jwtProperties.secret() != null)
-				? jwtProperties.secret()
-				: "iam-default-fallback-mfa-encryption-key-for-credentials-at-rest!";
+	public AesGcmEncryptor aesGcmEncryptor(
+			@org.springframework.beans.factory.annotation.Value("${ed-iam.mfa.encryption-key:${iam.mfa.encryption-key:}}") String mfaEncryptionKey,
+			ObjectProvider<JwtProperties> jwtPropertiesProvider) {
+		String secret;
+		if (mfaEncryptionKey != null && !mfaEncryptionKey.isBlank()) {
+			secret = mfaEncryptionKey;
+		}
+		else {
+			JwtProperties jwtProperties = jwtPropertiesProvider.getIfAvailable();
+			secret = (jwtProperties != null && jwtProperties.secret() != null && !jwtProperties.secret().isBlank())
+					? jwtProperties.secret()
+					: "iam-default-fallback-mfa-encryption-key-for-credentials-at-rest!";
+		}
 		return new AesGcmEncryptor(secret);
 	}
 

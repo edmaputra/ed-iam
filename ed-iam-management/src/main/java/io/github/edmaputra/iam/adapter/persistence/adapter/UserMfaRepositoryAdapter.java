@@ -74,7 +74,8 @@ public class UserMfaRepositoryAdapter implements UserMfaRepository {
 				entity.isEnabled(),
 				backupCodes,
 				entity.getCreatedAt(),
-				entity.getUpdatedAt());
+				entity.getUpdatedAt(),
+				entity.getLastVerifiedStep());
 	}
 
 	private UserMfaJpaEntity toEntity(UserMfa userMfa) {
@@ -87,6 +88,7 @@ public class UserMfaRepositoryAdapter implements UserMfaRepository {
 				userMfa.isEnabled(),
 				serializedBackupCodes,
 				userMfa.getCreatedAt(),
-				userMfa.getUpdatedAt());
+				userMfa.getUpdatedAt(),
+				userMfa.getLastVerifiedStep());
 	}
 }

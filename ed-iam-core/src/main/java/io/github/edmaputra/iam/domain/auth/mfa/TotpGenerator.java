@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.OptionalLong;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -82,6 +83,56 @@ public final class TotpGenerator {
 
 	/**
 	 * Verifies whether the provided TOTP code is valid for the given Base32 secret at the specified instant,
+	 * allowing for clock drift within {@code windowSteps} (e.g. 1 step = +/- 30 seconds),
+	 * and ensuring the matched time-step has not already been consumed (RFC 6238 §5.2).
+	 *
+	 * @param base32Secret     the Base32-encoded secret key
+	 * @param code             the 6-digit candidate code
+	 * @param instant          the current time instant
+	 * @param windowSteps      the number of past and future time steps to check for clock drift (e.g. 1)
+	 * @param lastVerifiedStep the last consumed time-step counter (or {@code null} if never consumed)
+	 * @return {@link OptionalLong} containing the verified time-step if valid and unconsumed, or empty otherwise
+	 */
+	public static OptionalLong verifyTotpStep(
+			String base32Secret,
+			String code,
+			Instant instant,
+			int windowSteps,
+			Long lastVerifiedStep) {
+		if (base32Secret == null || code == null || instant == null) {
+			return OptionalLong.empty();
+		}
+		String cleanCode = code.trim();
+		if (cleanCode.length() != DEFAULT_DIGITS || !cleanCode.chars().allMatch(Character::isDigit)) {
+			return OptionalLong.empty();
+		}
+
+		byte[] keyBytes;
+		try {
+			keyBytes = decodeBase32(base32Secret);
+		}
+		catch (IllegalArgumentException ex) {
+			return OptionalLong.empty();
+		}
+
+		long currentStep = instant.getEpochSecond() / DEFAULT_TIME_STEP_SECONDS;
+		byte[] expectedBytes = cleanCode.getBytes(StandardCharsets.UTF_8);
+
+		for (long step = currentStep - windowSteps; step <= currentStep + windowSteps; step++) {
+			if (lastVerifiedStep != null && step <= lastVerifiedStep) {
+				continue; // Step already consumed (RFC 6238 §5.2 replay protection)
+			}
+			String candidate = generateTotpForTimeStep(keyBytes, step);
+			byte[] candidateBytes = candidate.getBytes(StandardCharsets.UTF_8);
+			if (MessageDigest.isEqual(candidateBytes, expectedBytes)) {
+				return OptionalLong.of(step);
+			}
+		}
+		return OptionalLong.empty();
+	}
+
+	/**
+	 * Verifies whether the provided TOTP code is valid for the given Base32 secret at the specified instant,
 	 * allowing for clock drift within {@code windowSteps} (e.g. 1 step = +/- 30 seconds).
 	 *
 	 * @param base32Secret the Base32-encoded secret key
@@ -91,30 +142,7 @@ public final class TotpGenerator {
 	 * @return {@code true} if valid, {@code false} otherwise
 	 */
 	public static boolean verifyTotp(String base32Secret, String code, Instant instant, int windowSteps) {
-		if (base32Secret == null || code == null || instant == null) {
-			return false;
-		}
-		String cleanCode = code.trim();
-		if (cleanCode.length() != DEFAULT_DIGITS || !cleanCode.chars().allMatch(Character::isDigit)) {
-			return false;
-		}
-
-		byte[] keyBytes;
-		try {
-			keyBytes = decodeBase32(base32Secret);
-		}
-		catch (IllegalArgumentException ex) {
-			return false;
-		}
-
-		long currentStep = instant.getEpochSecond() / DEFAULT_TIME_STEP_SECONDS;
-		for (long step = currentStep - windowSteps; step <= currentStep + windowSteps; step++) {
-			String candidate = generateTotpForTimeStep(keyBytes, step);
-			if (candidate.equals(cleanCode)) {
-				return true;
-			}
-		}
-		return false;
+		return verifyTotpStep(base32Secret, code, instant, windowSteps, null).isPresent();
 	}
 
 	/**

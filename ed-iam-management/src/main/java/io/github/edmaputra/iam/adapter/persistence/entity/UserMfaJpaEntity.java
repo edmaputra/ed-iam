@@ -45,4 +45,17 @@ public class UserMfaJpaEntity {
 
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
+
+	@Column(name = "last_verified_step")
+	private Long lastVerifiedStep;
+
+	public UserMfaJpaEntity(
+			UUID userId,
+			String secret,
+			boolean enabled,
+			String backupCodes,
+			Instant createdAt,
+			Instant updatedAt) {
+		this(userId, secret, enabled, backupCodes, createdAt, updatedAt, null);
+	}
 }

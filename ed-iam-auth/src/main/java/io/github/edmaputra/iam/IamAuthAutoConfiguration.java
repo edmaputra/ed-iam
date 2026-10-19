@@ -218,14 +218,16 @@ public class IamAuthAutoConfiguration {
 			UserRepository userRepository,
 			PasswordEncoderPort passwordEncoder,
 			UserTokenService userTokenService,
-			AuthSessionService authSessionService) {
+			AuthSessionService authSessionService,
+			ObjectProvider<LoginAttemptTrackerPort> loginAttemptTrackerProvider) {
 
 		return new MfaService(
 				userMfaRepositoryProvider.getIfAvailable(),
 				userRepository,
 				passwordEncoder,
 				userTokenService,
-				authSessionService);
+				authSessionService,
+				loginAttemptTrackerProvider.getIfAvailable());
 	}
 
 	@Bean

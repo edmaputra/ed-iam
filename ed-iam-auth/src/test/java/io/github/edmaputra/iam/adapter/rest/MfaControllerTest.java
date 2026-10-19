@@ -141,4 +141,15 @@ class MfaControllerTest {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 		verify(manageMfaUseCase).disable(new UserId(actorId), "123456");
 	}
+
+	@Test
+	@DisplayName("Should administratively reset MFA for target user")
+	void shouldResetMfa() {
+		UUID targetUserId = UUID.randomUUID();
+
+		ResponseEntity<Void> response = controller.resetMfa(targetUserId);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+		verify(manageMfaUseCase).resetMfa(new UserId(targetUserId));
+	}
 }
