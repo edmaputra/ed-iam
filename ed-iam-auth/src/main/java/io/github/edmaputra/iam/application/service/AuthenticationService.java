@@ -10,8 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.github.edmaputra.iam.adapter.security.audit.SecurityAuditRecorder;
-import io.github.edmaputra.iam.adapter.security.session.SessionProperties;
-import io.github.edmaputra.iam.adapter.security.telemetry.IamTelemetry;
 import io.github.edmaputra.iam.application.model.EffectiveAccess;
 import io.github.edmaputra.iam.application.model.RefreshTokenClaims;
 import io.github.edmaputra.iam.application.model.TokenResponse;
@@ -20,12 +18,6 @@ import io.github.edmaputra.iam.application.port.in.AuthenticateUserUseCase;
 import io.github.edmaputra.iam.application.port.in.LoginCommand;
 import io.github.edmaputra.iam.application.port.in.RefreshTokenCommand;
 import io.github.edmaputra.iam.application.port.in.SwitchTenantCommand;
-import io.github.edmaputra.iam.application.port.out.AuthenticationProviderRouter;
-import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
-import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
-import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
-import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
-import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
 import io.github.edmaputra.iam.application.service.UserTokenService.TokenIssueResult;
 import io.github.edmaputra.iam.domain.auth.AuthenticatedIdentity;
 import io.github.edmaputra.iam.domain.event.IamEvent;
@@ -36,7 +28,6 @@ import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserId;
 import io.github.edmaputra.iam.domain.model.UserSession;
-import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
@@ -76,87 +67,14 @@ public class AuthenticationService implements AuthenticateUserUseCase {
 	}
 
 	/**
-	 * Backwards-compatible canonical constructor with unified security audit recorder.
+	 * Convenience constructor defaulting security audit recorder to noop.
 	 */
 	public AuthenticationService(
-			AuthenticationProviderRouter authRouter,
 			UserRepository userRepository,
-			EffectiveAccessResolver effectiveAccessResolver,
-			TokenProviderPort tokenProvider,
-			LoginAttemptTrackerPort loginAttemptTracker,
-			SessionRegistryPort sessionRegistry,
-			TokenRevocationPort tokenRevocationPort,
-			SessionProperties sessionProperties,
-			UserMfaRepository userMfaRepository,
-			SecurityAuditRecorder auditRecorder) {
-		this(
-				Objects.requireNonNull(userRepository, "UserRepository must not be null."),
-				new CredentialAuthService(authRouter, loginAttemptTracker, auditRecorder),
-				new UserTokenService(effectiveAccessResolver, tokenProvider, userMfaRepository, auditRecorder),
-				new AuthSessionService(sessionRegistry, tokenRevocationPort, sessionProperties, auditRecorder),
-				auditRecorder
-		);
-	}
-
-	/**
-	 * Full constructor with telemetry and audit event dependencies.
-	 */
-	public AuthenticationService(
-			AuthenticationProviderRouter authRouter,
-			UserRepository userRepository,
-			EffectiveAccessResolver effectiveAccessResolver,
-			TokenProviderPort tokenProvider,
-			LoginAttemptTrackerPort loginAttemptTracker,
-			SessionRegistryPort sessionRegistry,
-			TokenRevocationPort tokenRevocationPort,
-			SessionProperties sessionProperties,
-			UserMfaRepository userMfaRepository,
-			IamTelemetry telemetry,
-			EventPublisherPort eventPublisher) {
-		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, loginAttemptTracker, sessionRegistry,
-				tokenRevocationPort, sessionProperties, userMfaRepository, new SecurityAuditRecorder(telemetry, eventPublisher));
-	}
-
-	/**
-	 * Canonical constructor with session, lockout, and MFA dependencies.
-	 */
-	public AuthenticationService(
-			AuthenticationProviderRouter authRouter,
-			UserRepository userRepository,
-			EffectiveAccessResolver effectiveAccessResolver,
-			TokenProviderPort tokenProvider,
-			LoginAttemptTrackerPort loginAttemptTracker,
-			SessionRegistryPort sessionRegistry,
-			TokenRevocationPort tokenRevocationPort,
-			SessionProperties sessionProperties,
-			UserMfaRepository userMfaRepository) {
-		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, loginAttemptTracker, sessionRegistry, tokenRevocationPort, sessionProperties, userMfaRepository, null, null);
-	}
-
-	/**
-	 * Constructor with session and lockout dependencies.
-	 */
-	public AuthenticationService(
-			AuthenticationProviderRouter authRouter,
-			UserRepository userRepository,
-			EffectiveAccessResolver effectiveAccessResolver,
-			TokenProviderPort tokenProvider,
-			LoginAttemptTrackerPort loginAttemptTracker,
-			SessionRegistryPort sessionRegistry,
-			TokenRevocationPort tokenRevocationPort,
-			SessionProperties sessionProperties) {
-		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, loginAttemptTracker, sessionRegistry, tokenRevocationPort, sessionProperties, null, null, null);
-	}
-
-	/**
-	 * Backward-compatible constructor without session/lockout providers.
-	 */
-	public AuthenticationService(
-			AuthenticationProviderRouter authRouter,
-			UserRepository userRepository,
-			EffectiveAccessResolver effectiveAccessResolver,
-			TokenProviderPort tokenProvider) {
-		this(authRouter, userRepository, effectiveAccessResolver, tokenProvider, null, null, null, SessionProperties.defaultProperties(), null, null, null);
+			CredentialAuthService credentialAuthService,
+			UserTokenService userTokenService,
+			AuthSessionService authSessionService) {
+		this(userRepository, credentialAuthService, userTokenService, authSessionService, SecurityAuditRecorder.noop());
 	}
 
 	@Override

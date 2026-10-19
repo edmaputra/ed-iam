@@ -79,7 +79,72 @@ class AuthenticationServiceTest {
 
 		when(tokenProvider.getAccessTokenExpirationSeconds()).thenReturn(900L);
 
-		service = new AuthenticationService(authRouter, userRepository, effectiveAccessResolver, tokenProvider);
+		service = createService(authRouter, userRepository, effectiveAccessResolver, tokenProvider);
+	}
+
+	private AuthenticationService createService(
+			AuthenticationProviderRouter authRouter,
+			UserRepository userRepository,
+			EffectiveAccessResolver effectiveAccessResolver,
+			TokenProviderPort tokenProvider) {
+		return createService(authRouter, userRepository, effectiveAccessResolver, tokenProvider, null, null, null, SessionProperties.defaultProperties(), null, SecurityAuditRecorder.noop());
+	}
+
+	private AuthenticationService createService(
+			AuthenticationProviderRouter authRouter,
+			UserRepository userRepository,
+			EffectiveAccessResolver effectiveAccessResolver,
+			TokenProviderPort tokenProvider,
+			LoginAttemptTrackerPort loginAttemptTracker,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			SessionProperties sessionProperties) {
+		return createService(authRouter, userRepository, effectiveAccessResolver, tokenProvider, loginAttemptTracker, sessionRegistry, tokenRevocationPort, sessionProperties, null, SecurityAuditRecorder.noop());
+	}
+
+	private AuthenticationService createService(
+			AuthenticationProviderRouter authRouter,
+			UserRepository userRepository,
+			EffectiveAccessResolver effectiveAccessResolver,
+			TokenProviderPort tokenProvider,
+			LoginAttemptTrackerPort loginAttemptTracker,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			SessionProperties sessionProperties,
+			UserMfaRepository userMfaRepository) {
+		return createService(authRouter, userRepository, effectiveAccessResolver, tokenProvider, loginAttemptTracker, sessionRegistry, tokenRevocationPort, sessionProperties, userMfaRepository, SecurityAuditRecorder.noop());
+	}
+
+	private AuthenticationService createService(
+			AuthenticationProviderRouter authRouter,
+			UserRepository userRepository,
+			EffectiveAccessResolver effectiveAccessResolver,
+			TokenProviderPort tokenProvider,
+			LoginAttemptTrackerPort loginAttemptTracker,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			SessionProperties sessionProperties,
+			UserMfaRepository userMfaRepository,
+			IamTelemetry telemetry,
+			EventPublisherPort eventPublisher) {
+		return createService(authRouter, userRepository, effectiveAccessResolver, tokenProvider, loginAttemptTracker, sessionRegistry, tokenRevocationPort, sessionProperties, userMfaRepository, new SecurityAuditRecorder(telemetry, eventPublisher));
+	}
+
+	private AuthenticationService createService(
+			AuthenticationProviderRouter authRouter,
+			UserRepository userRepository,
+			EffectiveAccessResolver effectiveAccessResolver,
+			TokenProviderPort tokenProvider,
+			LoginAttemptTrackerPort loginAttemptTracker,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			SessionProperties sessionProperties,
+			UserMfaRepository userMfaRepository,
+			SecurityAuditRecorder auditRecorder) {
+		CredentialAuthService credentialAuthService = new CredentialAuthService(authRouter, loginAttemptTracker, auditRecorder);
+		UserTokenService userTokenService = new UserTokenService(effectiveAccessResolver, tokenProvider, userMfaRepository, auditRecorder);
+		AuthSessionService authSessionService = new AuthSessionService(sessionRegistry, tokenRevocationPort, sessionProperties, auditRecorder);
+		return new AuthenticationService(userRepository, credentialAuthService, userTokenService, authSessionService, auditRecorder);
 	}
 
 	@Test
@@ -160,7 +225,7 @@ class AuthenticationServiceTest {
 		TokenRevocationPort tokenRevocationPort = mock(TokenRevocationPort.class);
 		when(tokenRevocationPort.isTokenRevoked("old-token-id")).thenReturn(false);
 
-		AuthenticationService serviceWithRevocation = new AuthenticationService(
+		AuthenticationService serviceWithRevocation = createService(
 				authRouter,
 				userRepository,
 				effectiveAccessResolver,
@@ -168,8 +233,7 @@ class AuthenticationServiceTest {
 				null,
 				null,
 				tokenRevocationPort,
-				SessionProperties.defaultProperties(),
-				null);
+				SessionProperties.defaultProperties());
 
 		when(tokenProvider.parseRefreshToken("valid-refresh")).thenReturn(claims);
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -194,7 +258,7 @@ class AuthenticationServiceTest {
 		TokenRevocationPort tokenRevocationPort = mock(TokenRevocationPort.class);
 		when(tokenRevocationPort.isTokenRevoked("revoked-token-id")).thenReturn(true);
 
-		AuthenticationService serviceWithRevocation = new AuthenticationService(
+		AuthenticationService serviceWithRevocation = createService(
 				authRouter,
 				userRepository,
 				effectiveAccessResolver,
@@ -202,8 +266,7 @@ class AuthenticationServiceTest {
 				null,
 				null,
 				tokenRevocationPort,
-				SessionProperties.defaultProperties(),
-				null);
+				SessionProperties.defaultProperties());
 
 		when(tokenProvider.parseRefreshToken("reused-refresh")).thenReturn(claims);
 
@@ -294,7 +357,7 @@ class AuthenticationServiceTest {
 		when(tracker.getLockoutStatus("locked@clinic.org"))
 				.thenReturn(LockoutStatus.locked(5, lockedUntil));
 
-		AuthenticationService serviceWithTracker = new AuthenticationService(
+		AuthenticationService serviceWithTracker = createService(
 				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
 				tracker, null, null, SessionProperties.defaultProperties());
 
@@ -314,7 +377,7 @@ class AuthenticationServiceTest {
 		SessionProperties props = new SessionProperties(
 				1, SessionProperties.SessionLimitStrategy.TERMINATE_OLDEST, 5, 900);
 
-		AuthenticationService serviceWithSession = new AuthenticationService(
+		AuthenticationService serviceWithSession = createService(
 				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
 				null, registry, revocation, props);
 
@@ -347,7 +410,7 @@ class AuthenticationServiceTest {
 		SessionRegistryPort registry = mock(SessionRegistryPort.class);
 		TokenRevocationPort revocation = mock(TokenRevocationPort.class);
 
-		AuthenticationService serviceWithSession = new AuthenticationService(
+		AuthenticationService serviceWithSession = createService(
 				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
 				null, registry, revocation, SessionProperties.defaultProperties());
 
@@ -370,7 +433,7 @@ class AuthenticationServiceTest {
 	void shouldIssueMfaChallengeWhenUserHasMfaEnabled() {
 		UserMfaRepository mfaRepository = mock(UserMfaRepository.class);
 
-		AuthenticationService mfaAuthService = new AuthenticationService(
+		AuthenticationService mfaAuthService = createService(
 				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
 				null, null, null, SessionProperties.defaultProperties(),
 				mfaRepository);
@@ -400,7 +463,7 @@ class AuthenticationServiceTest {
 		IamTelemetry telemetry = mock(IamTelemetry.class);
 		EventPublisherPort publisher = mock(EventPublisherPort.class);
 
-		AuthenticationService serviceWithTelemetry = new AuthenticationService(
+		AuthenticationService serviceWithTelemetry = createService(
 				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
 				null, null, null, SessionProperties.defaultProperties(),
 				null, telemetry, publisher);
@@ -445,7 +508,7 @@ class AuthenticationServiceTest {
 	void shouldUseSecurityAuditRecorderDirectly() {
 		SecurityAuditRecorder recorder = mock(SecurityAuditRecorder.class);
 
-		AuthenticationService service = new AuthenticationService(
+		AuthenticationService service = createService(
 				authRouter, userRepository, effectiveAccessResolver, tokenProvider,
 				null, null, null, SessionProperties.defaultProperties(),
 				null, recorder);

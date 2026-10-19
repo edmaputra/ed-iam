@@ -10,10 +10,6 @@ import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatus
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
 import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
-import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
-import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
-import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
-import io.github.edmaputra.iam.domain.security.PasswordValidator;
 import io.github.edmaputra.iam.domain.event.IamEvent;
 import io.github.edmaputra.iam.domain.event.IamEventTypes;
 import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
@@ -64,38 +60,24 @@ public class UserAccountService {
 		this.eventPublisher = eventPublisher;
 	}
 
+	/**
+	 * Convenience constructor without actor tracking or event publishing.
+	 */
 	public UserAccountService(
 			UserRepository userRepository,
-			PasswordEncoderPort passwordEncoder,
-			SessionRegistryPort sessionRegistry,
-			TokenRevocationPort tokenRevocationPort,
-			UserMfaRepository userMfaRepository,
-			CurrentActorProvider currentActorProvider,
-			EventPublisherPort eventPublisher,
-			PasswordValidator passwordValidator) {
-		this(userRepository,
-				new UserCredentialService(passwordEncoder, passwordValidator),
-				new UserSessionRevocationService(sessionRegistry, tokenRevocationPort),
-				userMfaRepository,
-				currentActorProvider,
-				eventPublisher);
+			UserCredentialService credentialService,
+			UserSessionRevocationService sessionRevocationService,
+			UserMfaRepository userMfaRepository) {
+		this(userRepository, credentialService, sessionRevocationService, userMfaRepository, null, null);
 	}
 
+	/**
+	 * Convenience constructor with minimal dependencies for basic account management.
+	 */
 	public UserAccountService(
 			UserRepository userRepository,
-			PasswordEncoderPort passwordEncoder,
-			SessionRegistryPort sessionRegistry,
-			TokenRevocationPort tokenRevocationPort,
-			UserMfaRepository userMfaRepository,
-			CurrentActorProvider currentActorProvider,
-			EventPublisherPort eventPublisher) {
-		this(userRepository, passwordEncoder, sessionRegistry, tokenRevocationPort, userMfaRepository, currentActorProvider, eventPublisher, null);
-	}
-
-	public UserAccountService(
-			UserRepository userRepository,
-			PasswordEncoderPort passwordEncoder) {
-		this(userRepository, new UserCredentialService(passwordEncoder), null, null, null, null);
+			UserCredentialService credentialService) {
+		this(userRepository, credentialService, null, null, null, null);
 	}
 
 	@Transactional

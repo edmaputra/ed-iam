@@ -70,9 +70,8 @@ class UserAccountServiceTest {
 
 		service = new UserAccountService(
 				userRepository,
-				passwordEncoder,
-				sessionRegistry,
-				tokenRevocationPort,
+				new UserCredentialService(passwordEncoder),
+				new UserSessionRevocationService(sessionRegistry, tokenRevocationPort),
 				userMfaRepository,
 				currentActorProvider,
 				eventPublisher);
@@ -226,13 +225,11 @@ class UserAccountServiceTest {
 
 		UserAccountService validatingService = new UserAccountService(
 				userRepository,
-				passwordEncoder,
-				sessionRegistry,
-				tokenRevocationPort,
+				new UserCredentialService(passwordEncoder, validator),
+				new UserSessionRevocationService(sessionRegistry, tokenRevocationPort),
 				userMfaRepository,
 				currentActorProvider,
-				eventPublisher,
-				validator);
+				eventPublisher);
 
 		when(userRepository.findByEmail("doctor@hospital.org")).thenReturn(Optional.empty());
 
