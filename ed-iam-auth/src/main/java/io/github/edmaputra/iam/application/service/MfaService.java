@@ -10,8 +10,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import io.github.edmaputra.iam.adapter.security.session.SessionProperties;
-import io.github.edmaputra.iam.application.model.EffectiveAccess;
 import io.github.edmaputra.iam.application.model.MfaChallengeClaims;
 import io.github.edmaputra.iam.application.model.MfaSetupResponse;
 import io.github.edmaputra.iam.application.model.MfaStatusResponse;
@@ -21,9 +19,6 @@ import io.github.edmaputra.iam.application.port.in.ManageMfaUseCase;
 import io.github.edmaputra.iam.application.port.in.MfaLoginVerifyCommand;
 import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
-import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
-import io.github.edmaputra.iam.application.port.out.TokenProviderPort;
-import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
 import io.github.edmaputra.iam.domain.auth.mfa.TotpGenerator;
 import io.github.edmaputra.iam.domain.exception.AccountLockedException;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
@@ -58,7 +53,7 @@ public class MfaService implements ManageMfaUseCase {
 	private final LoginAttemptTrackerPort loginAttemptTracker;
 
 	/**
-	 * Canonical constructor delegating token and session orchestration to collaborator services.
+	 * Canonical constructor delegating token, session, and attempt tracking orchestration to collaborator services.
 	 */
 	public MfaService(
 			UserMfaRepository userMfaRepository,
@@ -75,6 +70,9 @@ public class MfaService implements ManageMfaUseCase {
 		this.loginAttemptTracker = loginAttemptTracker;
 	}
 
+	/**
+	 * Convenience constructor without login attempt tracking.
+	 */
 	public MfaService(
 			UserMfaRepository userMfaRepository,
 			UserRepository userRepository,
@@ -84,43 +82,15 @@ public class MfaService implements ManageMfaUseCase {
 		this(userMfaRepository, userRepository, passwordEncoder, userTokenService, authSessionService, null);
 	}
 
+	/**
+	 * Convenience constructor without session management or login attempt tracking.
+	 */
 	public MfaService(
 			UserMfaRepository userMfaRepository,
 			UserRepository userRepository,
 			PasswordEncoderPort passwordEncoder,
-			TokenProviderPort tokenProvider,
-			EffectiveAccessResolver effectiveAccessResolver,
-			SessionRegistryPort sessionRegistry,
-			TokenRevocationPort tokenRevocationPort,
-			SessionProperties sessionProperties,
-			LoginAttemptTrackerPort loginAttemptTracker) {
-		this(userMfaRepository,
-				userRepository,
-				passwordEncoder,
-				new UserTokenService(effectiveAccessResolver, tokenProvider, userMfaRepository, null),
-				new AuthSessionService(sessionRegistry, tokenRevocationPort, sessionProperties, null),
-				loginAttemptTracker);
-	}
-
-	public MfaService(
-			UserMfaRepository userMfaRepository,
-			UserRepository userRepository,
-			PasswordEncoderPort passwordEncoder,
-			TokenProviderPort tokenProvider,
-			EffectiveAccessResolver effectiveAccessResolver,
-			SessionRegistryPort sessionRegistry,
-			TokenRevocationPort tokenRevocationPort,
-			SessionProperties sessionProperties) {
-		this(userMfaRepository, userRepository, passwordEncoder, tokenProvider, effectiveAccessResolver, sessionRegistry, tokenRevocationPort, sessionProperties, null);
-	}
-
-	public MfaService(
-			UserMfaRepository userMfaRepository,
-			UserRepository userRepository,
-			PasswordEncoderPort passwordEncoder,
-			TokenProviderPort tokenProvider,
-			EffectiveAccessResolver effectiveAccessResolver) {
-		this(userMfaRepository, userRepository, passwordEncoder, tokenProvider, effectiveAccessResolver, null, null, SessionProperties.defaultProperties(), null);
+			UserTokenService userTokenService) {
+		this(userMfaRepository, userRepository, passwordEncoder, userTokenService, null, null);
 	}
 
 	@Override

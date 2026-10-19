@@ -16,6 +16,9 @@ import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserComman
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
 import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
+import io.github.edmaputra.iam.application.port.out.SessionRegistryPort;
+import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
+import io.github.edmaputra.iam.domain.repository.UserMfaRepository;
 import io.github.edmaputra.iam.domain.event.IamEvent;
 import io.github.edmaputra.iam.domain.event.IamEventTypes;
 import io.github.edmaputra.iam.domain.exception.GroupNotFoundException;
@@ -79,13 +82,63 @@ class UserManagementServiceTest {
 		groupRepository = mock(GroupRepository.class);
 		userGroupMembershipRepository = mock(UserGroupMembershipRepository.class);
 
-		service = new UserManagementService(
+		service = createService(
 				userRepository,
 				passwordEncoder,
 				userRoleAssignmentRepository,
 				userGroupMembershipRepository,
 				roleRepository,
 				groupRepository);
+	}
+
+	private UserManagementService createService(
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			UserRoleAssignmentRepository userRoleAssignmentRepository,
+			UserGroupMembershipRepository userGroupMembershipRepository,
+			RoleRepository roleRepository,
+			GroupRepository groupRepository) {
+		return createService(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, null, null, null, null, null);
+	}
+
+	private UserManagementService createService(
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			UserRoleAssignmentRepository userRoleAssignmentRepository,
+			UserGroupMembershipRepository userGroupMembershipRepository,
+			RoleRepository roleRepository,
+			GroupRepository groupRepository,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			UserMfaRepository userMfaRepository,
+			CurrentActorProvider currentActorProvider) {
+		return createService(userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository, roleRepository, groupRepository, sessionRegistry, tokenRevocationPort, userMfaRepository, currentActorProvider, null);
+	}
+
+	private UserManagementService createService(
+			UserRepository userRepository,
+			PasswordEncoderPort passwordEncoder,
+			UserRoleAssignmentRepository userRoleAssignmentRepository,
+			UserGroupMembershipRepository userGroupMembershipRepository,
+			RoleRepository roleRepository,
+			GroupRepository groupRepository,
+			SessionRegistryPort sessionRegistry,
+			TokenRevocationPort tokenRevocationPort,
+			UserMfaRepository userMfaRepository,
+			CurrentActorProvider currentActorProvider,
+			EventPublisherPort eventPublisher) {
+		UserAccountService accountService = new UserAccountService(
+				userRepository,
+				new UserCredentialService(passwordEncoder),
+				new UserSessionRevocationService(sessionRegistry, tokenRevocationPort),
+				userMfaRepository,
+				currentActorProvider,
+				eventPublisher);
+		UserRoleAssignmentService roleAssignmentService = new UserRoleAssignmentService(
+				userRepository, roleRepository, userRoleAssignmentRepository, currentActorProvider, eventPublisher);
+		UserGroupMembershipService groupMembershipService = new UserGroupMembershipService(
+				userRepository, groupRepository, userGroupMembershipRepository, currentActorProvider);
+		return new UserManagementService(accountService, roleAssignmentService, groupMembershipService);
 	}
 
 	@Test
@@ -119,7 +172,7 @@ class UserManagementServiceTest {
 		when(actor.isPlatformSuperAdmin()).thenReturn(false);
 		when(actorProvider.currentActor()).thenReturn(Optional.of(actor));
 
-		UserManagementService securedService = new UserManagementService(
+		UserManagementService securedService = createService(
 				userRepository,
 				passwordEncoder,
 				userRoleAssignmentRepository,
@@ -146,7 +199,7 @@ class UserManagementServiceTest {
 		when(actor.isPlatformSuperAdmin()).thenReturn(true);
 		when(actorProvider.currentActor()).thenReturn(Optional.of(actor));
 
-		UserManagementService securedService = new UserManagementService(
+		UserManagementService securedService = createService(
 				userRepository,
 				passwordEncoder,
 				userRoleAssignmentRepository,
@@ -331,7 +384,7 @@ class UserManagementServiceTest {
 		when(actor.tenantId()).thenReturn(actorTenantId.value());
 		when(actorProvider.currentActor()).thenReturn(Optional.of(actor));
 
-		UserManagementService securedService = new UserManagementService(
+		UserManagementService securedService = createService(
 				userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository,
 				roleRepository, groupRepository, null, null, null, actorProvider);
 
@@ -357,7 +410,7 @@ class UserManagementServiceTest {
 		when(actor.tenantId()).thenReturn(actorTenantId.value());
 		when(actorProvider.currentActor()).thenReturn(Optional.of(actor));
 
-		UserManagementService securedService = new UserManagementService(
+		UserManagementService securedService = createService(
 				userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository,
 				roleRepository, groupRepository, null, null, null, actorProvider);
 
@@ -375,7 +428,7 @@ class UserManagementServiceTest {
 	@DisplayName("Should publish audit events for user lifecycle")
 	void shouldPublishAuditEventsForUserLifecycle() {
 		EventPublisherPort publisher = mock(EventPublisherPort.class);
-		UserManagementService eventService = new UserManagementService(
+		UserManagementService eventService = createService(
 				userRepository, passwordEncoder, userRoleAssignmentRepository, userGroupMembershipRepository,
 				roleRepository, groupRepository, null, null, null, null, publisher);
 

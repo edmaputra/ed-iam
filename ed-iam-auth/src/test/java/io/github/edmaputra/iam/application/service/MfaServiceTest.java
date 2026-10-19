@@ -72,6 +72,7 @@ class MfaServiceTest {
 	@Mock
 	private EffectiveAccessResolver effectiveAccessResolver;
 
+	private UserTokenService userTokenService;
 	private MfaService mfaService;
 
 	private UserId testUserId;
@@ -79,12 +80,12 @@ class MfaServiceTest {
 
 	@BeforeEach
 	void setUp() {
+		userTokenService = new UserTokenService(effectiveAccessResolver, tokenProvider, userMfaRepository, null);
 		mfaService = new MfaService(
 				userMfaRepository,
 				userRepository,
 				passwordEncoder,
-				tokenProvider,
-				effectiveAccessResolver);
+				userTokenService);
 
 		testUserId = UserId.generate();
 		testUser = new User(
@@ -311,7 +312,8 @@ class MfaServiceTest {
 	@Test
 	@DisplayName("Should return disabled status when userMfaRepository is null")
 	void shouldReturnDisabledStatusWhenRepositoryIsNull() {
-		MfaService serviceWithoutRepo = new MfaService(null, userRepository, passwordEncoder, tokenProvider, effectiveAccessResolver);
+		UserTokenService tokenServiceWithoutRepo = new UserTokenService(effectiveAccessResolver, tokenProvider, null, null);
+		MfaService serviceWithoutRepo = new MfaService(null, userRepository, passwordEncoder, tokenServiceWithoutRepo);
 		MfaStatusResponse status = serviceWithoutRepo.getStatus(testUserId);
 		assertThat(status.enabled()).isFalse();
 		assertThat(status.enrolledAt()).isNull();
@@ -353,10 +355,10 @@ class MfaServiceTest {
 		SessionRegistryPort sessionRegistry = org.mockito.Mockito.mock(SessionRegistryPort.class);
 		TokenRevocationPort tokenRevocationPort = org.mockito.Mockito.mock(TokenRevocationPort.class);
 		SessionProperties sessionProps = new SessionProperties(1, SessionProperties.SessionLimitStrategy.TERMINATE_OLDEST, 3, 900L);
+		AuthSessionService authSessionService = new AuthSessionService(sessionRegistry, tokenRevocationPort, sessionProps, null);
 
 		MfaService serviceWithSessions = new MfaService(
-				userMfaRepository, userRepository, passwordEncoder, tokenProvider, effectiveAccessResolver,
-				sessionRegistry, tokenRevocationPort, sessionProps);
+				userMfaRepository, userRepository, passwordEncoder, userTokenService, authSessionService);
 
 		String mfaToken = "mfa-token-session";
 		String secret = TotpGenerator.generateSecret();
@@ -415,8 +417,7 @@ class MfaServiceTest {
 	void shouldTrackLoginAttemptsAndEnforceLockout() {
 		LoginAttemptTrackerPort tracker = org.mockito.Mockito.mock(LoginAttemptTrackerPort.class);
 		MfaService serviceWithTracker = new MfaService(
-				userMfaRepository, userRepository, passwordEncoder, tokenProvider, effectiveAccessResolver,
-				null, null, SessionProperties.defaultProperties(), tracker);
+				userMfaRepository, userRepository, passwordEncoder, userTokenService, null, tracker);
 
 		String mfaToken = "mfa-token-lockout";
 		String secret = TotpGenerator.generateSecret();
@@ -459,9 +460,9 @@ class MfaServiceTest {
 	void shouldResetMfaAndRevokeSessions() {
 		SessionRegistryPort sessionRegistry = org.mockito.Mockito.mock(SessionRegistryPort.class);
 		TokenRevocationPort tokenRevocationPort = org.mockito.Mockito.mock(TokenRevocationPort.class);
+		AuthSessionService authSessionService = new AuthSessionService(sessionRegistry, tokenRevocationPort, SessionProperties.defaultProperties(), null);
 		MfaService serviceWithSessions = new MfaService(
-				userMfaRepository, userRepository, passwordEncoder, tokenProvider, effectiveAccessResolver,
-				sessionRegistry, tokenRevocationPort, SessionProperties.defaultProperties());
+				userMfaRepository, userRepository, passwordEncoder, userTokenService, authSessionService);
 
 		serviceWithSessions.resetMfa(testUserId);
 
