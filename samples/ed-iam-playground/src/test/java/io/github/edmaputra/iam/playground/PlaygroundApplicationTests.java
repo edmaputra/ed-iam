@@ -37,6 +37,9 @@ class PlaygroundApplicationTests {
 	@Autowired
 	private PlaygroundSimulatedMailService mailService;
 
+	@org.springframework.beans.factory.annotation.Value("${playground.version:@project.version@}")
+	private String expectedVersion;
+
 	private WebTestClient webTestClient;
 
 	@BeforeEach
@@ -58,6 +61,7 @@ class PlaygroundApplicationTests {
 				.expectBody(String.class)
 				.value(html -> {
 					assertThat(html).contains("ed-iam");
+					assertThat(html).contains("Playground v" + expectedVersion);
 					assertThat(html).contains("Interactive Playground");
 					assertThat(html).contains("Dr. Gregory House");
 					assertThat(html).contains("Custom Credentials Login");
