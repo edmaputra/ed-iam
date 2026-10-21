@@ -9,6 +9,14 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+  info:
+    build:
+      enabled: true
+    env:
+      enabled: true
+
+playground:
+  version: "@project.version@"
 
 spring:
   application:
