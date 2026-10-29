@@ -6,7 +6,7 @@ Central multi-tenant Identity & Access Management Spring Boot starter library.
 
 ## 1. Stack & Versions
 - **Language**: Java 25
-- **Framework**: Spring Boot 4.1.1
+- **Framework**: Spring Boot 4.1.2
 - **Build Tool**: Maven (`./mvnw`)
 - **JWT Engine**: JJWT 0.12.6
 - **Architecture Testing**: ArchUnit 1.5.1
