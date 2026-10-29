@@ -58,5 +58,10 @@ public final class IamEventTypes {
 	public static final String PERMISSION_CREATED = "PERMISSION_CREATED";
 	public static final String PERMISSION_UPDATED = "PERMISSION_UPDATED";
 	public static final String PERMISSION_DELETED = "PERMISSION_DELETED";
+
+	// Policy Events
+	public static final String POLICY_CREATED = "POLICY_CREATED";
+	public static final String POLICY_UPDATED = "POLICY_UPDATED";
+	public static final String POLICY_DELETED = "POLICY_DELETED";
 }
 
