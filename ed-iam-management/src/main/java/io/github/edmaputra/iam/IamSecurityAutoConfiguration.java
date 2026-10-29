@@ -10,6 +10,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.edmaputra.iam.adapter.persistence.adapter.PolicyConstraintJsonConverter;
+import io.github.edmaputra.iam.adapter.persistence.adapter.PolicyRepositoryAdapter;
+import io.github.edmaputra.iam.adapter.persistence.repository.PolicyJpaRepository;
+import io.github.edmaputra.iam.domain.repository.PolicyRepository;
 import io.github.edmaputra.iam.adapter.persistence.crypto.AesGcmEncryptor;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtProperties;
 import io.github.edmaputra.iam.adapter.persistence.adapter.GroupRepositoryAdapter;
@@ -159,5 +164,19 @@ public class IamSecurityAutoConfiguration {
 	@ConditionalOnMissingBean
 	public PermissionRepository permissionRepository(PermissionJpaRepository repository) {
 		return new PermissionRepositoryAdapter(repository);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public PolicyConstraintJsonConverter policyConstraintJsonConverter(ObjectProvider<ObjectMapper> objectMapperProvider) {
+		return new PolicyConstraintJsonConverter(objectMapperProvider.getIfAvailable());
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public PolicyRepository policyRepository(
+			PolicyJpaRepository repository,
+			PolicyConstraintJsonConverter converter) {
+		return new PolicyRepositoryAdapter(repository, converter);
 	}
 }

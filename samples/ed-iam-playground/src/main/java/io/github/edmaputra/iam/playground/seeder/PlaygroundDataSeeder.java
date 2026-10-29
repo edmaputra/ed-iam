@@ -1,6 +1,9 @@
 package io.github.edmaputra.iam.playground.seeder;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalTime;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -15,28 +18,34 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.edmaputra.iam.application.port.out.PasswordEncoderPort;
 import io.github.edmaputra.iam.domain.model.Group;
 import io.github.edmaputra.iam.domain.model.GroupRoleAssignment;
+import io.github.edmaputra.iam.domain.model.Permission;
 import io.github.edmaputra.iam.domain.model.Role;
 import io.github.edmaputra.iam.domain.model.ScopeNode;
 import io.github.edmaputra.iam.domain.model.ScopeNodeId;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserGroupMembership;
 import io.github.edmaputra.iam.domain.model.UserRoleAssignment;
+import io.github.edmaputra.iam.domain.policy.DevicePostureConstraint;
+import io.github.edmaputra.iam.domain.policy.Policy;
+import io.github.edmaputra.iam.domain.policy.PolicyEffect;
+import io.github.edmaputra.iam.domain.policy.PolicyId;
+import io.github.edmaputra.iam.domain.policy.PolicyTarget;
+import io.github.edmaputra.iam.domain.policy.TimeWindowConstraint;
 import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
+import io.github.edmaputra.iam.domain.repository.PasswordPolicyRepository;
+import io.github.edmaputra.iam.domain.repository.PermissionRepository;
+import io.github.edmaputra.iam.domain.repository.PolicyRepository;
+import io.github.edmaputra.iam.domain.repository.RedirectUriRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
 import io.github.edmaputra.iam.domain.repository.UserGroupMembershipRepository;
 import io.github.edmaputra.iam.domain.repository.UserRepository;
 import io.github.edmaputra.iam.domain.repository.UserRoleAssignmentRepository;
+import io.github.edmaputra.iam.domain.security.PasswordPolicy;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
 import io.github.edmaputra.iam.playground.domain.PatientRecord;
 import io.github.edmaputra.iam.playground.domain.PatientRecordRepository;
-
-import io.github.edmaputra.iam.domain.model.Permission;
-import io.github.edmaputra.iam.domain.repository.PasswordPolicyRepository;
-import io.github.edmaputra.iam.domain.repository.PermissionRepository;
-import io.github.edmaputra.iam.domain.repository.RedirectUriRepository;
-import io.github.edmaputra.iam.domain.security.PasswordPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -92,6 +101,9 @@ public class PlaygroundDataSeeder {
 
 	@Autowired(required = false)
 	private PermissionRepository permissionRepository;
+
+	@Autowired(required = false)
+	private PolicyRepository policyRepository;
 
 	@EventListener(ApplicationReadyEvent.class)
 	@Transactional
@@ -340,12 +352,59 @@ public class PlaygroundDataSeeder {
 					"iam:permission:update", "Update IAM Permission", "Allows modifying custom permission metadata", "IAM_ADMIN"));
 			permissionRepository.save(Permission.createSystem(
 					"iam:permission:delete", "Delete IAM Permission", "Allows deleting custom tenant permissions", "IAM_ADMIN"));
+			permissionRepository.save(Permission.createSystem(
+					"iam:policy:create", "Create ABAC Policy", "Allows provisioning dynamic ABAC policies", "IAM_ADMIN"));
+			permissionRepository.save(Permission.createSystem(
+					"iam:policy:read", "Read ABAC Policy", "Allows inspecting dynamic ABAC policies", "IAM_ADMIN"));
+			permissionRepository.save(Permission.createSystem(
+					"iam:policy:update", "Update ABAC Policy", "Allows modifying dynamic ABAC policies", "IAM_ADMIN"));
+			permissionRepository.save(Permission.createSystem(
+					"iam:policy:delete", "Delete ABAC Policy", "Allows deleting dynamic ABAC policies", "IAM_ADMIN"));
+			permissionRepository.save(Permission.createSystem(
+					"iam:policy:evaluate", "Evaluate ABAC Policy", "Allows evaluating dynamic ABAC policies", "IAM_ADMIN"));
 
 			// Custom Tenant Permissions for Metro General Hospital
 			permissionRepository.save(Permission.createCustom(
 					metroTenant, "RX_DISPENSE", "Prescription Dispense", "Allows hospital pharmacy medication dispensing", "PHARMACY"));
 			permissionRepository.save(Permission.createCustom(
 					metroTenant, "LAB_ORDER", "Laboratory Order", "Allows placing diagnostic lab and bloodwork orders", "DIAGNOSTICS"));
+		}
+
+		// 7. Seed Dynamic ABAC Policies
+		if (policyRepository != null) {
+			policyRepository.save(new Policy(
+					PolicyId.generate(),
+					metroTenant,
+					"MetroClinicBusinessHoursPolicy",
+					"Permits clinical charting and patient record access during hospital operating hours",
+					PolicyEffect.PERMIT,
+					10,
+					true,
+					new PolicyTarget(Set.of("read", "write"), Set.of("patient_record"), Set.of("CHIEF_PHYSICIAN", "DOCTOR", "STAFF_NURSE")),
+					List.of(
+							new TimeWindowConstraint(LocalTime.of(6, 0), LocalTime.of(22, 0), Set.of(
+									DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY
+							), "UTC")
+					),
+					Instant.now(),
+					Instant.now()
+			));
+
+			policyRepository.save(new Policy(
+					PolicyId.generate(),
+					null,
+					"GlobalExportManagedDevicePolicy",
+					"Restricts sensitive patient data export to enterprise-managed devices with HIGH trust posture",
+					PolicyEffect.PERMIT,
+					20,
+					true,
+					new PolicyTarget(Set.of("export"), Set.of("patient_record"), Set.of()),
+					List.of(
+							new DevicePostureConstraint(true, "HIGH", Set.of("MACOS", "LINUX", "WINDOWS"))
+					),
+					Instant.now(),
+					Instant.now()
+			));
 		}
 
 		log.info("=================================================================");
