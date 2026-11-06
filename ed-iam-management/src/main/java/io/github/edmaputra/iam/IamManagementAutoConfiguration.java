@@ -2,6 +2,7 @@ package io.github.edmaputra.iam;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -16,16 +17,22 @@ import io.github.edmaputra.iam.adapter.security.jwt.JwtProperties;
 import io.github.edmaputra.iam.adapter.rest.GroupController;
 import io.github.edmaputra.iam.adapter.rest.PasswordPolicyController;
 import io.github.edmaputra.iam.adapter.rest.PermissionController;
+import io.github.edmaputra.iam.adapter.rest.PolicyController;
 import io.github.edmaputra.iam.adapter.rest.RedirectUriController;
 import io.github.edmaputra.iam.adapter.rest.RoleController;
 import io.github.edmaputra.iam.adapter.rest.ScopeController;
 import io.github.edmaputra.iam.adapter.rest.UserController;
+import io.github.edmaputra.iam.application.port.in.EvaluatePolicyUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageGroupUseCase;
 import io.github.edmaputra.iam.application.port.in.ManagePasswordPolicyUseCase;
 import io.github.edmaputra.iam.application.port.in.ManagePermissionUseCase;
+import io.github.edmaputra.iam.application.port.in.ManagePolicyUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageRedirectUriUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageRoleUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
+import io.github.edmaputra.iam.application.service.DynamicPolicyEvaluationService;
+import io.github.edmaputra.iam.application.service.PolicyManagementService;
+import io.github.edmaputra.iam.domain.repository.PolicyRepository;
 import io.github.edmaputra.iam.application.port.out.AllowedRedirectHostResolverPort;
 import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.port.out.LoginAttemptTrackerPort;
@@ -371,6 +378,26 @@ public class IamManagementAutoConfiguration {
 		return new GroupManagementService(groupLifecycleService, groupRoleAssignmentService, userGroupMembershipService);
 	}
 
+	@Bean
+	@ConditionalOnBean(PolicyRepository.class)
+	@ConditionalOnMissingBean
+	public EvaluatePolicyUseCase evaluatePolicyUseCase(PolicyRepository policyRepository) {
+		return new DynamicPolicyEvaluationService(policyRepository);
+	}
+
+	@Bean
+	@ConditionalOnBean(PolicyRepository.class)
+	@ConditionalOnMissingBean
+	public ManagePolicyUseCase managePolicyUseCase(
+			PolicyRepository policyRepository,
+			ObjectProvider<CurrentActorProvider> currentActorProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
+		return new PolicyManagementService(
+				policyRepository,
+				currentActorProvider.getIfAvailable(),
+				eventPublisherProvider.getIfAvailable());
+	}
+
 	/**
 	 * Auto-configuration for entity management REST controllers, enabled by default
 	 * and toggleable via {@code ed-iam.management.endpoints.enabled=false}.
@@ -380,7 +407,7 @@ public class IamManagementAutoConfiguration {
 	 */
 	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnProperty(name = "ed-iam.management.endpoints.enabled", havingValue = "true", matchIfMissing = true)
-	@Import({UserController.class, RoleController.class, GroupController.class, ScopeController.class, PasswordPolicyController.class, RedirectUriController.class, PermissionController.class})
+	@Import({UserController.class, RoleController.class, GroupController.class, ScopeController.class, PasswordPolicyController.class, RedirectUriController.class, PermissionController.class, PolicyController.class})
 	public static class ManagementEndpointsConfiguration {
 	}
 }

@@ -18,6 +18,7 @@ import io.github.edmaputra.iam.domain.exception.AccessDeniedException;
 import io.github.edmaputra.iam.domain.exception.AuthenticationException;
 import io.github.edmaputra.iam.domain.exception.GroupNotFoundException;
 import io.github.edmaputra.iam.domain.exception.PermissionNotFoundException;
+import io.github.edmaputra.iam.domain.exception.PolicyNotFoundException;
 import io.github.edmaputra.iam.domain.exception.RoleNotFoundException;
 import io.github.edmaputra.iam.domain.exception.ScopeNodeNotFoundException;
 import io.github.edmaputra.iam.domain.exception.UserNotFoundException;
@@ -93,7 +94,8 @@ public class IamExceptionHandler {
 			RoleNotFoundException.class,
 			PermissionNotFoundException.class,
 			ScopeNodeNotFoundException.class,
-			GroupNotFoundException.class
+			GroupNotFoundException.class,
+			PolicyNotFoundException.class
 	})
 	public ProblemDetail handleNotFound(RuntimeException ex, HttpServletRequest request) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());

@@ -15,6 +15,7 @@ import io.github.edmaputra.iam.domain.repository.GroupRepository;
 import io.github.edmaputra.iam.domain.repository.GroupRoleAssignmentRepository;
 import io.github.edmaputra.iam.domain.repository.PasswordPolicyRepository;
 import io.github.edmaputra.iam.domain.repository.PermissionRepository;
+import io.github.edmaputra.iam.domain.repository.PolicyRepository;
 import io.github.edmaputra.iam.domain.repository.RedirectUriRepository;
 import io.github.edmaputra.iam.domain.repository.RoleRepository;
 import io.github.edmaputra.iam.domain.repository.ScopeNodeRepository;
@@ -138,6 +139,11 @@ class IamManagementAutoConfigurationConditionsTest {
 		@Bean
 		RedirectUriRepository redirectUriRepository() {
 			return Mockito.mock(RedirectUriRepository.class);
+		}
+
+		@Bean
+		PolicyRepository policyRepository() {
+			return Mockito.mock(PolicyRepository.class);
 		}
 
 		@Bean
