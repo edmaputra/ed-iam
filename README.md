@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://openjdk.org/projects/jdk/25/"><img src="https://img.shields.io/badge/Java-25-blue.svg" alt="Java 25" /></a>
-  <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-4.1.1.RELEASE-brightgreen.svg" alt="Spring Boot 4.1.1" /></a>
+  <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-4.1.2.RELEASE-brightgreen.svg" alt="Spring Boot 4.1.2" /></a>
   <a href="https://central.sonatype.com/artifact/io.github.edmaputra/ed-iam"><img src="https://img.shields.io/maven-central/v/io.github.edmaputra/ed-iam.svg" alt="Maven Central" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License" /></a>
 </p>

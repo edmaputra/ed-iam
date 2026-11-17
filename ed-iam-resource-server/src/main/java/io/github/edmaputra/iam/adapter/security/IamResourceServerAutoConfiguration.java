@@ -16,6 +16,7 @@ import io.github.edmaputra.iam.adapter.security.audit.SecurityAuditEventListener
 import io.github.edmaputra.iam.adapter.security.audit.SecurityAuditRecorder;
 import io.github.edmaputra.iam.adapter.security.evaluator.IamSecurityEvaluator;
 import io.github.edmaputra.iam.adapter.security.interceptor.RequirePermissionInterceptor;
+import io.github.edmaputra.iam.adapter.security.interceptor.RequirePolicyInterceptor;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtAuthenticationFilter;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtProperties;
 import io.github.edmaputra.iam.adapter.security.jwt.JwtTokenProvider;
@@ -23,6 +24,7 @@ import io.github.edmaputra.iam.adapter.security.properties.IamSecurityFilterProp
 import io.github.edmaputra.iam.adapter.security.telemetry.DefaultIamTelemetry;
 import io.github.edmaputra.iam.adapter.security.telemetry.IamTelemetry;
 import io.github.edmaputra.iam.adapter.security.telemetry.IamTelemetryProperties;
+import io.github.edmaputra.iam.application.port.in.EvaluatePolicyUseCase;
 import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.application.port.out.TokenRevocationPort;
 import io.github.edmaputra.iam.application.port.out.ValidatingEventPublisher;
@@ -217,14 +219,56 @@ public class IamResourceServerAutoConfiguration {
 	}
 
 	/**
+	 * Registers the {@link RequirePolicyInterceptor} bean.
+	 *
+	 * @param currentActorProvider   the current actor provider
+	 * @param policyEvaluatorProvider the optional policy evaluator provider
+	 * @param telemetryProvider      the optional telemetry provider
+	 * @param eventPublisherProvider the optional event publisher provider
+	 * @return new {@link RequirePolicyInterceptor}
+	 */
+	@Bean
+	@ConditionalOnMissingBean
+	@ConditionalOnProperty(prefix = "iam.security.policy", name = "enabled", havingValue = "true", matchIfMissing = true)
+	public RequirePolicyInterceptor requirePolicyInterceptor(
+			CurrentActorProvider currentActorProvider,
+			ObjectProvider<EvaluatePolicyUseCase> policyEvaluatorProvider,
+			ObjectProvider<IamTelemetry> telemetryProvider,
+			ObjectProvider<EventPublisherPort> eventPublisherProvider) {
+		return new RequirePolicyInterceptor(currentActorProvider, policyEvaluatorProvider, telemetryProvider, eventPublisherProvider);
+	}
+
+	/**
+	 * Registers the {@link WebMvcConfigurer} adding the {@link RequirePolicyInterceptor}.
+	 *
+	 * @param interceptor the require policy interceptor
+	 * @return new {@link WebMvcConfigurer}
+	 */
+	@Bean
+	@ConditionalOnMissingBean(name = "requirePolicyWebMvcConfigurer")
+	@ConditionalOnBean(RequirePolicyInterceptor.class)
+	@ConditionalOnProperty(prefix = "iam.security.policy", name = "enabled", havingValue = "true", matchIfMissing = true)
+	public WebMvcConfigurer requirePolicyWebMvcConfigurer(RequirePolicyInterceptor interceptor) {
+		return new WebMvcConfigurer() {
+			@Override
+			public void addInterceptors(InterceptorRegistry registry) {
+				registry.addInterceptor(interceptor);
+			}
+		};
+	}
+
+	/**
 	 * Registers the {@link IamSecurityEvaluator} Spring Security SpEL evaluator bean named {@code "iam"}.
 	 *
-	 * @param currentActorProvider the current actor provider
+	 * @param currentActorProvider    the current actor provider
+	 * @param policyEvaluatorProvider the optional policy evaluator provider
 	 * @return new {@link IamSecurityEvaluator}
 	 */
 	@Bean("iam")
 	@ConditionalOnMissingBean(name = "iam")
-	public IamSecurityEvaluator iamSecurityEvaluator(CurrentActorProvider currentActorProvider) {
-		return new IamSecurityEvaluator(currentActorProvider);
+	public IamSecurityEvaluator iamSecurityEvaluator(
+			CurrentActorProvider currentActorProvider,
+			ObjectProvider<EvaluatePolicyUseCase> policyEvaluatorProvider) {
+		return new IamSecurityEvaluator(currentActorProvider, policyEvaluatorProvider);
 	}
 }

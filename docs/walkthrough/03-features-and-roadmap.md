@@ -127,6 +127,22 @@ This document outlines the operational capabilities available in the current rel
     * Role Assignments: `ROLE_ASSIGNMENT_CREATED`, `ROLE_ASSIGNMENT_REVOKED`
   * Structured SLF4J audit logger (`io.github.edmaputra.iam.audit`) outputting machine-parseable log entries for SIEM integration with tenant, actor, entity, and payload details. Configurable via `iam.security.audit.logging-enabled` and `iam.security.audit.logger-name`.
 
+### 2.9 Dynamic Attribute-Based Access Control (ABAC & Contextual Policy Engine)
+* **Pure Domain Engine (`DynamicPolicyEvaluationService`)**: In-memory policy evaluation against subject, resource, action, and environment contextual attributes.
+* **Combining Algorithms**: Multi-policy resolution supports `DENY_OVERRIDES` (strict zero-trust default), `PERMIT_OVERRIDES`, and `FIRST_APPLICABLE` with priority-weighted policy sorting.
+* **Contextual Constraints**:
+  * `TimeWindowConstraint`: Evaluates permitted hours of the day (including overnight midnight-crossing windows), days of the week, and timezone offsets.
+  * `NetworkCidrConstraint`: Pure zero-dependency IPv4 and IPv6 CIDR parsing and matching for allowed and denied subnet ranges.
+  * `DevicePostureConstraint`: Evaluates enterprise-managed device status, minimum trust score rankings (`HIGH`, `MEDIUM`, `LOW`), and operating system platforms (`LINUX`, `MACOS`, `WINDOWS`, `IOS`, `ANDROID`).
+  * `AttributeCondition`: Cross-entity dynamic attribute matching comparing subject, resource, or environment attributes against literal values or against each other (e.g. subject department equals resource department).
+* **Declarative Controller Enforcement**:
+  * `@RequirePolicy(action = "...", resourceType = "...")`: Spring MVC HandlerInterceptor automatically extracting client IP, User-Agent, and device posture headers, enforcing policy access rules and triggering security audit events on denial.
+  * `@iam.evaluatePolicy(...)` / `@iam.isAllowed(...)`: Spring Security SpEL evaluator methods for method-level security expressions.
+* **Administrative Management & REST Endpoints (`/api/v1/policies/*`)**:
+  * Full lifecycle CRUD endpoints: `POST`, `GET`, `PUT`, `DELETE` at `/api/v1/policies`.
+  * Real-time policy dry-run testing & evaluation endpoint: `POST /api/v1/policies/evaluate`.
+  * Liquibase migration `2026103001-create-iam-policy.json` for `iam_policy` table.
+
 ---
 
 ## 3. Product Roadmap
@@ -187,8 +203,10 @@ This document outlines the operational capabilities available in the current rel
 - [x] **Magic Link & Passwordless Provider**: One-time email token authentication flows, 256-bit cryptographically secure URL-safe tokens, atomic single-use invalidation, tenant-scoped session resolution, MFA interception, and interactive simulation (`/api/v1/auth/magic-link/*`).
 
 #### Phase 2: Attribute-Based Access Control (ABAC)
-- [ ] **Dynamic Policy Evaluator**: Flexible rule engine evaluating subject, resource, and contextual attributes.
-- [ ] **Contextual Policy Constraints**: Access policies constrained by time-of-day, network CIDR subnets, and device posture.
+- [x] **Dynamic Policy Evaluator**: Flexible rule engine evaluating subject, resource, and contextual attributes with priority ordering and conflict-resolution combining algorithms (`DENY_OVERRIDES`, `PERMIT_OVERRIDES`, `FIRST_APPLICABLE`).
+- [x] **Contextual Policy Constraints**: Access policies constrained by time-of-day/business-hour windows (`TimeWindowConstraint`), network IPv4/IPv6 CIDR subnets (`NetworkCidrConstraint`), client device posture & trust levels (`DevicePostureConstraint`), and dynamic attribute conditions (`AttributeCondition`).
+- [x] **Declarative `@RequirePolicy` & SpEL Integrations**: `@RequirePolicy(action = "...", resourceType = "...")` interceptor and `@iam.evaluatePolicy(...)` SpEL evaluator for method- and controller-level enforcement.
+- [x] **Policy Management REST APIs & Persistence**: Full CRUD and evaluation endpoints under `/api/v1/policies` with Liquibase `iam_policy` migration and JPA persistence.
 
 #### Phase 3: Token Revocation & Session Management (Accelerated & Delivered)
 - [x] **Distributed & In-Memory Token Revocation**: Cluster-wide Redis token denylist (`RedisTokenRevocationStore`) and fallback in-memory store (`InMemoryTokenRevocationStore`) with token validation hook in `JwtAuthenticationFilter`.

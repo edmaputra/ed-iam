@@ -1,5 +1,6 @@
 package io.github.edmaputra.iam.adapter.security.evaluator;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -10,12 +11,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 import io.github.edmaputra.iam.adapter.security.SecurityContextCurrentActor;
+import io.github.edmaputra.iam.application.port.in.EvaluatePolicyUseCase;
+import io.github.edmaputra.iam.domain.policy.PolicyDecision;
 import io.github.edmaputra.iam.domain.security.CurrentActor;
 import io.github.edmaputra.iam.domain.security.CurrentActorProvider;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
@@ -30,11 +35,17 @@ class IamSecurityEvaluatorTest {
 	@Mock
 	private CurrentActorProvider currentActorProvider;
 
+	@Mock
+	private ObjectProvider<EvaluatePolicyUseCase> policyEvaluatorProvider;
+
+	@Mock
+	private EvaluatePolicyUseCase policyEvaluator;
+
 	private IamSecurityEvaluator evaluator;
 
 	@BeforeEach
 	void setUp() {
-		evaluator = new IamSecurityEvaluator(currentActorProvider);
+		evaluator = new IamSecurityEvaluator(currentActorProvider, policyEvaluatorProvider);
 	}
 
 	@Test
@@ -103,5 +114,54 @@ class IamSecurityEvaluatorTest {
 		assertThat(evaluator.isTenantWide()).isFalse();
 		assertThat(evaluator.hasRole("ADMIN")).isFalse();
 		assertThat(evaluator.isInGroup("ADMINS")).isFalse();
+		assertThat(evaluator.evaluatePolicy("read", "doc")).isFalse();
+		assertThat(evaluator.isAllowed("read", "doc")).isFalse();
+	}
+
+	@Test
+	@DisplayName("Should evaluate policy via registered EvaluatePolicyUseCase")
+	void shouldEvaluatePolicyViaEvaluator() {
+		UUID userId = UUID.randomUUID();
+		UUID tenantId = UUID.randomUUID();
+		CurrentActor actor = new SecurityContextCurrentActor(
+				userId, "doctor@clinic.com", tenantId, false, false,
+				Set.of("DOCTORS"), Set.of("DOCTOR"), Set.of("READ"), Set.of(), Set.of()
+		);
+		when(currentActorProvider.currentActor()).thenReturn(Optional.of(actor));
+		when(policyEvaluatorProvider.getIfAvailable()).thenReturn(policyEvaluator);
+
+		when(policyEvaluator.evaluate(any())).thenReturn(PolicyDecision.permit("Access granted"));
+		assertThat(evaluator.evaluatePolicy("read", "medical_record")).isTrue();
+		assertThat(evaluator.isAllowed("read", "medical_record", Map.of("department", "cardiology"))).isTrue();
+
+		when(policyEvaluator.evaluate(any())).thenReturn(PolicyDecision.deny("Denied by policy"));
+		assertThat(evaluator.evaluatePolicy("read", "medical_record")).isFalse();
+		assertThat(evaluator.isAllowed("read", "medical_record")).isFalse();
+	}
+
+	@Test
+	@DisplayName("Should permit any policy evaluation for platform superadmin")
+	void shouldPermitAnyPolicyForSuperadmin() {
+		CurrentActor superAdmin = new SecurityContextCurrentActor(
+				UUID.randomUUID(), "root@ed-iam.io", null, true, true,
+				Set.of(), Set.of(), Set.of(), Set.of(), Set.of()
+		);
+		when(currentActorProvider.currentActor()).thenReturn(Optional.of(superAdmin));
+
+		assertThat(evaluator.evaluatePolicy("read", "classified")).isTrue();
+		assertThat(evaluator.isAllowed("delete", "patient_db")).isTrue();
+	}
+
+	@Test
+	@DisplayName("Should return false when policy evaluator is null")
+	void shouldReturnFalseWhenNoEvaluatorConfigured() {
+		CurrentActor actor = new SecurityContextCurrentActor(
+				UUID.randomUUID(), "user@ed-iam.io", UUID.randomUUID(), false, false,
+				Set.of(), Set.of(), Set.of(), Set.of(), Set.of()
+		);
+		when(currentActorProvider.currentActor()).thenReturn(Optional.of(actor));
+		when(policyEvaluatorProvider.getIfAvailable()).thenReturn(null);
+
+		assertThat(evaluator.evaluatePolicy("read", "doc")).isFalse();
 	}
 }

@@ -1,0 +1,154 @@
+{
+  "databaseChangeLog": [
+    {
+      "changeSet": {
+        "id": "2026103001-create-iam-policy",
+        "author": "edmaputra",
+        "changes": [
+          {
+            "createTable": {
+              "tableName": "iam_policy",
+              "columns": [
+                {
+                  "column": {
+                    "name": "id",
+                    "type": "UUID",
+                    "constraints": {
+                      "primaryKey": true,
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "tenant_id",
+                    "type": "UUID"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "name",
+                    "type": "VARCHAR(255)",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "description",
+                    "type": "VARCHAR(1024)"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "effect",
+                    "type": "VARCHAR(16)",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "priority",
+                    "type": "INT",
+                    "defaultValueNumeric": 0,
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "enabled",
+                    "type": "BOOLEAN",
+                    "defaultValueBoolean": true,
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "target_actions",
+                    "type": "VARCHAR(1024)"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "target_resource_types",
+                    "type": "VARCHAR(1024)"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "target_roles",
+                    "type": "VARCHAR(1024)"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "constraints_json",
+                    "type": "TEXT"
+                  }
+                },
+                {
+                  "column": {
+                    "name": "created_at",
+                    "type": "TIMESTAMP WITH TIME ZONE",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                },
+                {
+                  "column": {
+                    "name": "updated_at",
+                    "type": "TIMESTAMP WITH TIME ZONE",
+                    "constraints": {
+                      "nullable": false
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "createIndex": {
+              "tableName": "iam_policy",
+              "indexName": "idx_iam_policy_tenant",
+              "columns": [
+                {
+                  "column": {
+                    "name": "tenant_id"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "createIndex": {
+              "tableName": "iam_policy",
+              "indexName": "idx_iam_policy_enabled",
+              "columns": [
+                {
+                  "column": {
+                    "name": "enabled"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "addUniqueConstraint": {
+              "tableName": "iam_policy",
+              "columnNames": "tenant_id, name",
+              "constraintName": "uk_iam_policy_tenant_name"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
