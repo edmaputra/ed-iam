@@ -30,6 +30,7 @@ import io.github.edmaputra.iam.application.port.in.RoleCommands.UpdateRoleComman
 import io.github.edmaputra.iam.application.port.in.SwitchTenantCommand;
 import io.github.edmaputra.iam.application.port.in.UpdateScopeNodeCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
+import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRolesCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatusCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
@@ -100,6 +101,21 @@ class CommandsAndInvariantsTest {
 		assertThatThrownBy(() -> new AssignUserRoleCommand(userId, roleId, null, scopeId)).isInstanceOf(NullPointerException.class);
 		AssignUserRoleCommand assign = new AssignUserRoleCommand(userId, roleId, tenantId, scopeId);
 		assertThat(assign.scopeNodeId()).isEqualTo(scopeId);
+
+		// AssignUserRolesCommand
+		AssignUserRolesCommand.RoleAssignmentItem item = new AssignUserRolesCommand.RoleAssignmentItem(roleId, tenantId, scopeId);
+		assertThatThrownBy(() -> new AssignUserRolesCommand.RoleAssignmentItem(null, tenantId, scopeId)).isInstanceOf(NullPointerException.class);
+		assertThatThrownBy(() -> new AssignUserRolesCommand.RoleAssignmentItem(roleId, null, scopeId)).isInstanceOf(NullPointerException.class);
+		assertThat(item.roleId()).isEqualTo(roleId);
+		assertThat(item.tenantId()).isEqualTo(tenantId);
+		assertThat(item.scopeNodeId()).isEqualTo(scopeId);
+
+		assertThatThrownBy(() -> new AssignUserRolesCommand(null, List.of(item))).isInstanceOf(NullPointerException.class);
+		assertThatThrownBy(() -> new AssignUserRolesCommand(userId, null)).isInstanceOf(NullPointerException.class);
+		assertThatThrownBy(() -> new AssignUserRolesCommand(userId, List.of())).isInstanceOf(IllegalArgumentException.class);
+		AssignUserRolesCommand batchAssign = new AssignUserRolesCommand(userId, List.of(item));
+		assertThat(batchAssign.userId()).isEqualTo(userId);
+		assertThat(batchAssign.assignments()).hasSize(1);
 	}
 
 	@Test

@@ -1,5 +1,6 @@
 package io.github.edmaputra.iam.application.port.in;
 
+import java.util.List;
 import java.util.Objects;
 
 import io.github.edmaputra.iam.domain.model.RoleId;
@@ -99,6 +100,39 @@ public final class UserCommands {
 			Objects.requireNonNull(userId, "UserId must not be null.");
 			Objects.requireNonNull(roleId, "RoleId must not be null.");
 			Objects.requireNonNull(tenantId, "TenantId must not be null.");
+		}
+	}
+
+	/**
+	 * Command to assign multiple roles to a user in a batch.
+	 *
+	 * @param userId      the target user ID
+	 * @param assignments the list of role assignment items
+	 * @author edmaputra
+	 * @since 0.14.0
+	 */
+	public record AssignUserRolesCommand(
+			UserId userId,
+			List<RoleAssignmentItem> assignments) {
+
+		public record RoleAssignmentItem(
+				RoleId roleId,
+				TenantId tenantId,
+				ScopeNodeId scopeNodeId) {
+
+			public RoleAssignmentItem {
+				Objects.requireNonNull(roleId, "RoleId must not be null.");
+				Objects.requireNonNull(tenantId, "TenantId must not be null.");
+			}
+		}
+
+		public AssignUserRolesCommand {
+			Objects.requireNonNull(userId, "UserId must not be null.");
+			Objects.requireNonNull(assignments, "Assignments must not be null.");
+			if (assignments.isEmpty()) {
+				throw new IllegalArgumentException("Assignments must not be empty.");
+			}
+			assignments = List.copyOf(assignments);
 		}
 	}
 }

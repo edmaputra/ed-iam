@@ -26,6 +26,7 @@ import io.github.edmaputra.iam.adapter.rest.dto.GroupManagementDtos.GroupRespons
 import io.github.edmaputra.iam.adapter.rest.dto.SessionManagementDtos.UserLockoutResponse;
 import io.github.edmaputra.iam.adapter.rest.dto.SessionManagementDtos.UserSessionDetailResponse;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.AssignUserRoleRequest;
+import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.AssignUserRolesBatchRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.ChangeUserStatusRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.CreateUserRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.UpdateUserRequest;
@@ -36,6 +37,7 @@ import io.github.edmaputra.iam.application.port.in.ManageMfaUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageSessionUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
+import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRolesCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatusCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
@@ -44,6 +46,7 @@ import io.github.edmaputra.iam.domain.model.LockoutStatus;
 import io.github.edmaputra.iam.domain.model.PageQuery;
 import io.github.edmaputra.iam.domain.model.PagedResult;
 import io.github.edmaputra.iam.domain.model.RoleId;
+import io.github.edmaputra.iam.domain.model.ScopeNodeId;
 import io.github.edmaputra.iam.domain.model.SessionId;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserFilter;
@@ -179,6 +182,27 @@ public class UserController {
 		UserRoleAssignment assignment = manageUserUseCase.assignRole(command);
 		return ResponseEntity.status(HttpStatus.CREATED)
 				.body(UserRoleAssignmentResponse.fromDomain(assignment));
+	}
+
+	@PostMapping("/{id}/roles/batch")
+	@RequirePermission("iam:user:assign-role")
+	public ResponseEntity<List<UserRoleAssignmentResponse>> assignRolesBatch(
+			@PathVariable UUID id,
+			@Valid @RequestBody AssignUserRolesBatchRequest request) {
+		List<AssignUserRolesCommand.RoleAssignmentItem> items = request.assignments().stream()
+				.map(item -> new AssignUserRolesCommand.RoleAssignmentItem(
+						new RoleId(item.roleId()),
+						new TenantId(item.tenantId()),
+						item.scopeNodeId() != null ? new ScopeNodeId(item.scopeNodeId()) : null))
+				.toList();
+
+		AssignUserRolesCommand command = new AssignUserRolesCommand(new UserId(id), items);
+		List<UserRoleAssignment> assignments = manageUserUseCase.assignRoles(command);
+		List<UserRoleAssignmentResponse> responses = assignments.stream()
+				.map(UserRoleAssignmentResponse::fromDomain)
+				.toList();
+
+		return ResponseEntity.status(HttpStatus.CREATED).body(responses);
 	}
 
 	@DeleteMapping("/{id}/roles/{assignmentId}")

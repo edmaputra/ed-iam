@@ -269,6 +269,59 @@ class EntityManagementRestIT extends AbstractIntegrationTest {
 				.expectBody()
 				.jsonPath("$[0].id").isEqualTo(assignmentId);
 
+		// Batch assign roles to user
+		String role2Json = """
+				{
+				    "tenantId": "%s",
+				    "code": "NURSE_%s",
+				    "name": "Nurse Role",
+				    "description": "Nurse Desc",
+				    "permissions": ["PATIENT_READ"]
+				}
+				""".formatted(tenantId, UUID.randomUUID().toString().substring(0, 8));
+
+		byte[] role2Resp = webTestClient.post()
+				.uri("/api/v1/roles")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(role2Json)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.returnResult()
+				.getResponseBody();
+
+		String role2Id = com.jayway.jsonpath.JsonPath.read(new String(role2Resp), "$.id");
+
+		String batchAssignJson = """
+				{
+				    "assignments": [
+				        {
+				            "roleId": "%s",
+				            "tenantId": "%s"
+				        }
+				    ]
+				}
+				""".formatted(role2Id, tenantId);
+
+		webTestClient.post()
+				.uri("/api/v1/users/" + userId + "/roles/batch")
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue(batchAssignJson)
+				.exchange()
+				.expectStatus().isCreated()
+				.expectBody()
+				.jsonPath("$.length()").isEqualTo(1)
+				.jsonPath("$[0].roleId").isEqualTo(role2Id)
+				.jsonPath("$[0].userId").isEqualTo(userId);
+
+		// List user roles again - should have 2
+		webTestClient.get()
+				.uri("/api/v1/users/" + userId + "/roles")
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.length()").isEqualTo(2);
+
 		// 6b. Filter users by role
 		webTestClient.get()
 				.uri("/api/v1/users?role=" + roleId)

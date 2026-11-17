@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
+import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRolesCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatusCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
@@ -283,6 +284,12 @@ class UserManagementServiceTest {
 		// Tenant-wide assignment
 		UserRoleAssignment wide = service.assignRole(new AssignUserRoleCommand(userId, roleId, tenantId, null));
 		assertThat(wide.getScopeNodeId()).isNull();
+
+		// Batch assignment
+		List<UserRoleAssignment> batch = service.assignRoles(new AssignUserRolesCommand(userId, List.of(
+				new AssignUserRolesCommand.RoleAssignmentItem(roleId, tenantId, scopeId),
+				new AssignUserRolesCommand.RoleAssignmentItem(roleId, tenantId, null))));
+		assertThat(batch).hasSize(2);
 
 		// Role not found
 		RoleId missingRole = RoleId.generate();

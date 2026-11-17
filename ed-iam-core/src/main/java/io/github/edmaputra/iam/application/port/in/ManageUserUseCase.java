@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
+import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRolesCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatusCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
@@ -78,6 +79,15 @@ public interface ManageUserUseCase {
 	 * @return the created {@link UserRoleAssignment}
 	 */
 	UserRoleAssignment assignRole(AssignUserRoleCommand command);
+
+	/**
+	 * Assigns multiple roles to a user in a single transactional batch.
+	 *
+	 * @param command the batch role assignment command
+	 * @return the list of created {@link UserRoleAssignment} entities
+	 * @since 0.14.0
+	 */
+	List<UserRoleAssignment> assignRoles(AssignUserRolesCommand command);
 
 	/**
 	 * Revokes an existing user role assignment.
