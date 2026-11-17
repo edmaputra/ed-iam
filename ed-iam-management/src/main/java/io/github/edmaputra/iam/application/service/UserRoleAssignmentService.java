@@ -1,5 +1,7 @@
 package io.github.edmaputra.iam.application.service;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -8,6 +10,7 @@ import java.util.UUID;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
+import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRolesCommand;
 import io.github.edmaputra.iam.application.port.out.EventPublisherPort;
 import io.github.edmaputra.iam.domain.event.IamEvent;
 import io.github.edmaputra.iam.domain.event.IamEventTypes;
@@ -61,29 +64,50 @@ public class UserRoleAssignmentService {
 	@Transactional
 	public UserRoleAssignment assignRole(AssignUserRoleCommand command) {
 		Objects.requireNonNull(command, "AssignUserRoleCommand must not be null.");
-		checkTenantAccess(command.tenantId());
+		var item = new AssignUserRolesCommand.RoleAssignmentItem(
+				command.roleId(),
+				command.tenantId(),
+				command.scopeNodeId());
+		return assignRoles(new AssignUserRolesCommand(command.userId(), List.of(item))).getFirst();
+	}
+
+	@Transactional
+	public List<UserRoleAssignment> assignRoles(AssignUserRolesCommand command) {
+		Objects.requireNonNull(command, "AssignUserRolesCommand must not be null.");
+
+		for (AssignUserRolesCommand.RoleAssignmentItem item : command.assignments()) {
+			checkTenantAccess(item.tenantId());
+		}
 
 		userRepository.findById(command.userId())
 				.orElseThrow(() -> new UserNotFoundException("User not found: " + command.userId().value()));
-		Role role = roleRepository.findById(command.roleId())
-				.orElseThrow(() -> new RoleNotFoundException("Role not found: " + command.roleId().value()));
 
-		UserRoleAssignment assignment = command.scopeNodeId() != null
-				? UserRoleAssignment.create(command.userId(), role.getId(), command.tenantId(), command.scopeNodeId(), true)
-				: UserRoleAssignment.createTenantWide(command.userId(), role.getId(), command.tenantId());
+		List<UserRoleAssignment> result = new ArrayList<>();
+		String actorStr = eventPublisher != null ? resolveActor() : null;
 
-		UserRoleAssignment saved = userRoleAssignmentRepository.save(assignment);
-		if (eventPublisher != null) {
-			String actorStr = resolveActor();
-			eventPublisher.publish(IamEvent.of(
-					IamEventTypes.ROLE_ASSIGNMENT_CREATED,
-					saved.getTenantId() != null ? saved.getTenantId().value() : null,
-					saved.getId().value(),
-					"ROLE_ASSIGNMENT",
-					Map.of("userId", saved.getUserId().value().toString(), "roleId", saved.getRoleId().value().toString()),
-					actorStr));
+		for (AssignUserRolesCommand.RoleAssignmentItem item : command.assignments()) {
+			Role role = roleRepository.findById(item.roleId())
+					.orElseThrow(() -> new RoleNotFoundException("Role not found: " + item.roleId().value()));
+
+			UserRoleAssignment assignment = item.scopeNodeId() != null
+					? UserRoleAssignment.create(command.userId(), role.getId(), item.tenantId(), item.scopeNodeId(), true)
+					: UserRoleAssignment.createTenantWide(command.userId(), role.getId(), item.tenantId());
+
+			UserRoleAssignment saved = userRoleAssignmentRepository.save(assignment);
+			result.add(saved);
+
+			if (eventPublisher != null) {
+				eventPublisher.publish(IamEvent.of(
+						IamEventTypes.ROLE_ASSIGNMENT_CREATED,
+						saved.getTenantId() != null ? saved.getTenantId().value() : null,
+						saved.getId().value(),
+						"ROLE_ASSIGNMENT",
+						Map.of("userId", saved.getUserId().value().toString(), "roleId", saved.getRoleId().value().toString()),
+						actorStr));
+			}
 		}
-		return saved;
+
+		return Collections.unmodifiableList(result);
 	}
 
 	@Transactional

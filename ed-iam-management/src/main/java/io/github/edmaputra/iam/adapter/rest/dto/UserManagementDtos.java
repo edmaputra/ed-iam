@@ -1,10 +1,13 @@
 package io.github.edmaputra.iam.adapter.rest.dto;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -57,6 +60,10 @@ public final class UserManagementDtos {
 			UUID tenantId,
 
 			UUID scopeNodeId) {}
+
+	public record AssignUserRolesBatchRequest(
+			@NotEmpty(message = "Assignments list must not be empty.")
+			List<@Valid AssignUserRoleRequest> assignments) {}
 
 	public record UserResponse(
 			UUID id,

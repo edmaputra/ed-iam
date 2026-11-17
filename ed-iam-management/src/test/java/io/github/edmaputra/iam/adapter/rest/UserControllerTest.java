@@ -11,17 +11,24 @@ import org.springframework.http.ResponseEntity;
 
 import io.github.edmaputra.iam.adapter.rest.dto.SessionManagementDtos.UserLockoutResponse;
 import io.github.edmaputra.iam.adapter.rest.dto.SessionManagementDtos.UserSessionDetailResponse;
+import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.AssignUserRoleRequest;
+import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.AssignUserRolesBatchRequest;
 import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.UserResponse;
+import io.github.edmaputra.iam.adapter.rest.dto.UserManagementDtos.UserRoleAssignmentResponse;
 import io.github.edmaputra.iam.application.port.in.ManageLockoutUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageSessionUseCase;
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
+import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
+import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRolesCommand;
 import io.github.edmaputra.iam.domain.model.LockoutStatus;
 import io.github.edmaputra.iam.domain.model.PageQuery;
 import io.github.edmaputra.iam.domain.model.PagedResult;
+import io.github.edmaputra.iam.domain.model.RoleId;
 import io.github.edmaputra.iam.domain.model.SessionId;
 import io.github.edmaputra.iam.domain.model.User;
 import io.github.edmaputra.iam.domain.model.UserFilter;
 import io.github.edmaputra.iam.domain.model.UserId;
+import io.github.edmaputra.iam.domain.model.UserRoleAssignment;
 import io.github.edmaputra.iam.domain.model.UserSession;
 import io.github.edmaputra.iam.domain.model.UserStatus;
 import io.github.edmaputra.iam.domain.tenancy.TenantId;
@@ -223,5 +230,54 @@ class UserControllerTest {
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 		verify(mockMfaUseCase).resetMfa(new UserId(uuid));
+	}
+
+	@Test
+	@DisplayName("Should assign single role to user")
+	void shouldAssignRoleToUser() {
+		UUID userId = UUID.randomUUID();
+		UUID roleId = UUID.randomUUID();
+		UUID tenantId = UUID.randomUUID();
+
+		UserRoleAssignment assignment = UserRoleAssignment.createTenantWide(
+				new UserId(userId), new RoleId(roleId), new TenantId(tenantId));
+		when(manageUserUseCase.assignRole(any(AssignUserRoleCommand.class))).thenReturn(assignment);
+
+		AssignUserRoleRequest request = new AssignUserRoleRequest(roleId, tenantId, null);
+		ResponseEntity<UserRoleAssignmentResponse> response = userController.assignRole(userId, request);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().userId()).isEqualTo(userId);
+		assertThat(response.getBody().roleId()).isEqualTo(roleId);
+		assertThat(response.getBody().tenantId()).isEqualTo(tenantId);
+	}
+
+	@Test
+	@DisplayName("Should assign multiple roles to user in batch")
+	void shouldAssignRolesBatchToUser() {
+		UUID userId = UUID.randomUUID();
+		UUID roleId1 = UUID.randomUUID();
+		UUID roleId2 = UUID.randomUUID();
+		UUID tenantId = UUID.randomUUID();
+
+		UserRoleAssignment assignment1 = UserRoleAssignment.createTenantWide(
+				new UserId(userId), new RoleId(roleId1), new TenantId(tenantId));
+		UserRoleAssignment assignment2 = UserRoleAssignment.createTenantWide(
+				new UserId(userId), new RoleId(roleId2), new TenantId(tenantId));
+		when(manageUserUseCase.assignRoles(any(AssignUserRolesCommand.class)))
+				.thenReturn(List.of(assignment1, assignment2));
+
+		AssignUserRolesBatchRequest request = new AssignUserRolesBatchRequest(List.of(
+				new AssignUserRoleRequest(roleId1, tenantId, null),
+				new AssignUserRoleRequest(roleId2, tenantId, null)
+		));
+		ResponseEntity<List<UserRoleAssignmentResponse>> response = userController.assignRolesBatch(userId, request);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody()).hasSize(2);
+		assertThat(response.getBody().get(0).roleId()).isEqualTo(roleId1);
+		assertThat(response.getBody().get(1).roleId()).isEqualTo(roleId2);
 	}
 }

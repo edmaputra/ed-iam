@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.edmaputra.iam.application.port.in.ManageUserUseCase;
 import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRoleCommand;
+import io.github.edmaputra.iam.application.port.in.UserCommands.AssignUserRolesCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.ChangeUserStatusCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.CreateUserCommand;
 import io.github.edmaputra.iam.application.port.in.UserCommands.UpdateUserCommand;
@@ -90,6 +91,12 @@ public class UserManagementService implements ManageUserUseCase {
 	@Transactional
 	public UserRoleAssignment assignRole(AssignUserRoleCommand command) {
 		return userRoleAssignmentService.assignRole(command);
+	}
+
+	@Override
+	@Transactional
+	public List<UserRoleAssignment> assignRoles(AssignUserRolesCommand command) {
+		return userRoleAssignmentService.assignRoles(command);
 	}
 
 	@Override
